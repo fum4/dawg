@@ -1,0 +1,223 @@
+/* ─── CSS Variables ─────────────────────────────────────────── */
+:root {
+  --bg-page: #0c0e12;
+  --bg-panel: #12151a;
+  --bg-raised: #1a1e25;
+  --bg-input: #242930;
+
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.1);
+
+  --text-primary: #f0f2f5;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+
+  --accent: #2dd4bf;
+  --accent-muted: #14b8a6;
+  --accent-glow: rgba(45, 212, 191, 0.15);
+  --accent-deep: #0d9488;
+
+  --font-display: "Manrope", system-ui, -apple-system, sans-serif;
+  --font-body: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
+
+  --nav-height: 64px;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ─── Reset & Base ─────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Noise grain overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s var(--ease-out-quart);
+}
+
+a:hover {
+  color: #5eead4;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* ─── Container ────────────────────────────────────────────── */
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ─── Section spacing ──────────────────────────────────────── */
+section {
+  padding: 112px 0;
+  position: relative;
+}
+
+/* ─── Section divider ──────────────────────────────────────── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(45, 212, 191, 0.15) 20%,
+    rgba(45, 212, 191, 0.25) 50%,
+    rgba(45, 212, 191, 0.15) 80%,
+    transparent 100%
+  );
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ─── Scroll animations ───────────────────────────────────── */
+.fade-in {
+  opacity: 0;
+  transform: translateY(24px) scale(0.98);
+  transition:
+    opacity 0.7s var(--ease-out-expo),
+    transform 0.7s var(--ease-out-expo);
+}
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* ─── Typography ───────────────────────────────────────────── */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+/* ─── Terminal typing animation ────────────────────────────── */
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.terminal-line-wrap {
+  display: inline-flex;
+  align-items: center;
+  max-width: max-content;
+}
+
+.terminal-line {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 0;
+  border-right: 2px solid var(--accent);
+}
+
+.terminal-line.animate {
+  animation: typing 1.2s steps(30) forwards;
+}
+
+.terminal-line.done {
+  width: 100%;
+  border-right: none;
+}
+
+.terminal-line.cursor {
+  border-right: 2px solid var(--accent);
+  animation: blink 1s steps(1) infinite;
+}
+
+/* ─── CTA glow pulse ──────────────────────────────────────── */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(45, 212, 191, 0.12),
+      0 0 40px rgba(45, 212, 191, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(45, 212, 191, 0.22),
+      0 0 56px rgba(45, 212, 191, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+}
+
+.glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ─── Gradient text ────────────────────────────────────────── */
+.text-gradient {
+  background: linear-gradient(135deg, #2dd4bf 0%, #5eead4 40%, #99f6e4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Responsive ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  section {
+    padding: 72px 0;
+  }
+
+  .container {
+    padding: 0 16px;
+  }
+
+  :root {
+    --nav-height: 56px;
+  }
+}

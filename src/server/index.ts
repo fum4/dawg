@@ -1,0 +1,297 @@
+import { createAdaptorServer } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { createNodeWebSocket } from "@hono/node-ws";
+import { execFileSync } from "child_process";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import net from "net";
+import os from "os";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import { APP_NAME } from "../constants";
+
+import { CONFIG_DIR_NAME, DEFAULT_PORT } from "../constants";
+import { log } from "../logger";
+import { checkGhAuth } from "../integrations/github/gh-client";
+import { testConnection as testJiraConnection } from "../integrations/jira/auth";
+import { loadJiraCredentials } from "../integrations/jira/credentials";
+import { testConnection as testLinearConnection } from "../integrations/linear/api";
+import { loadLinearCredentials } from "../integrations/linear/credentials";
+import { WorktreeManager } from "./manager";
+import { registerWorktreeRoutes } from "./routes/worktrees";
+import { registerConfigRoutes } from "./routes/config";
+import { registerGitHubRoutes } from "./routes/github";
+import { registerJiraRoutes } from "./routes/jira";
+import { registerLinearRoutes } from "./routes/linear";
+import { registerActivityRoutes } from "./routes/activity";
+import { registerEventRoutes } from "./routes/events";
+import { registerMcpRoutes } from "./routes/mcp";
+import { registerMcpServerRoutes } from "./routes/mcp-servers";
+import { registerSkillRoutes } from "./routes/skills";
+import { registerClaudePluginRoutes } from "./routes/claude-plugins";
+import { registerMcpTransportRoute } from "./routes/mcp-transport";
+import { registerNotesRoutes } from "./routes/notes";
+import { registerTaskRoutes } from "./routes/tasks";
+import { registerTerminalRoutes } from "./routes/terminal";
+import { registerHooksRoutes } from "./routes/verification";
+import { NotesManager } from "./notes-manager";
+import { TerminalManager } from "./terminal-manager";
+import { HooksManager } from "./verification-manager";
+import { ensurePredefinedHookSkills, getPredefinedSkillNames } from "./verification-skills";
+import type { WorktreeConfig } from "./types";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const isDev = currentDir.includes("src/server");
+const projectRoot = isDev
+  ? path.resolve(currentDir, "..", "..") // src/server -> root
+  : path.resolve(currentDir, ".."); // dist -> root
+// In dev (tsx): currentDir is src/server, UI is in dist/ui
+// In prod (built): currentDir is dist/server, UI is in dist/ui
+// In dev (tsx): currentDir is src/server, UI is in dist/ui
+// In prod (built): currentDir is dist (tsup flattens), UI is in dist/ui
+const uiDir = currentDir.includes("src/server")
+  ? path.join(projectRoot, "dist", "ui")
+  : path.join(currentDir, "ui");
+
+function findAvailablePort(startPort: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tryPort = (port: number) => {
+      const server = net.createServer();
+      server.once("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE") {
+          tryPort(port + 1);
+        } else {
+          reject(err);
+        }
+      });
+      server.once("listening", () => {
+        server.close(() => resolve(port));
+      });
+      server.listen(port);
+    };
+    tryPort(startPort);
+  });
+}
+
+export function createWorktreeServer(manager: WorktreeManager) {
+  const app = new Hono();
+  const terminalManager = new TerminalManager();
+  const notesManager = new NotesManager(manager.getConfigDir());
+  const hooksManager = new HooksManager(manager);
+
+  // Auto-create predefined hook skills in ~/.dawg/skills/ and import into config
+  ensurePredefinedHookSkills();
+  hooksManager.ensureSkillsImported(getPredefinedSkillNames());
+
+  const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app });
+
+  app.use("*", cors());
+  app.onError((err, c) => {
+    log.error(`${c.req.method} ${c.req.path} → ${err.message}`);
+    if (process.env.DEBUG) log.debug(err.stack ?? "");
+    return c.json({ error: err.message }, 500);
+  });
+
+  registerWorktreeRoutes(app, manager, terminalManager);
+  registerConfigRoutes(app, manager);
+  registerGitHubRoutes(app, manager);
+  registerJiraRoutes(app, manager);
+  registerLinearRoutes(app, manager);
+  registerEventRoutes(app, manager);
+  registerActivityRoutes(app, manager.getActivityLog());
+  registerMcpRoutes(app, manager);
+  registerMcpServerRoutes(app, manager);
+  registerSkillRoutes(app, manager);
+  registerClaudePluginRoutes(app, manager);
+  registerTaskRoutes(app, manager, notesManager);
+  registerNotesRoutes(app, manager, notesManager, hooksManager);
+  registerTerminalRoutes(app, manager, terminalManager, upgradeWebSocket);
+  registerHooksRoutes(app, manager, hooksManager, notesManager);
+  registerMcpTransportRoute(app, { manager, notesManager, hooksManager });
+
+  // Background verification of all integration connections
+  app.get("/api/integrations/verify", async (c) => {
+    const configDir = manager.getConfigDir();
+
+    const [github, jira, linear] = await Promise.all([
+      // GitHub: re-check gh CLI auth
+      (async () => {
+        const ghManager = manager.getGitHubManager();
+        if (!ghManager) return null;
+        const status = ghManager.getStatus();
+        if (!status.authenticated) return null;
+        const ok = await checkGhAuth();
+        return { ok };
+      })(),
+      // Jira: test API connection
+      (async () => {
+        const creds = loadJiraCredentials(configDir);
+        if (!creds) return null;
+        try {
+          await testJiraConnection(creds, configDir);
+          return { ok: true };
+        } catch {
+          return { ok: false };
+        }
+      })(),
+      // Linear: test GraphQL connection
+      (async () => {
+        const creds = loadLinearCredentials(configDir);
+        if (!creds) return null;
+        try {
+          await testLinearConnection(creds);
+          return { ok: true };
+        } catch {
+          return { ok: false };
+        }
+      })(),
+    ]);
+
+    return c.json({ github, jira, linear });
+  });
+
+  app.use("/*", serveStatic({ root: uiDir }));
+
+  app.get("*", (c) => {
+    const indexPath = path.join(currentDir, "ui", "index.html");
+    try {
+      const html = readFileSync(indexPath, "utf-8");
+      return c.html(html);
+    } catch {
+      return c.text("UI not built. Run build command", 404);
+    }
+  });
+
+  return { app, injectWebSocket, terminalManager };
+}
+
+/**
+ * Ensure the dawg CLI is available in PATH.
+ * If not found, creates a symlink in ~/.local/bin/ pointing to the CLI entry point.
+ */
+function ensureCliInPath() {
+  try {
+    execFileSync("which", [APP_NAME], { stdio: "ignore" });
+    return; // Already in PATH
+  } catch {
+    // Not in PATH — set it up
+  }
+
+  // Always point to the built CLI (works regardless of dev/prod mode)
+  const builtCliPath = path.resolve(projectRoot, "dist", "cli", "index.js");
+  if (!existsSync(builtCliPath)) {
+    log.warn(`Built CLI not found at ${builtCliPath}, run 'pnpm build' first`);
+    return;
+  }
+
+  const binDir = path.join(os.homedir(), ".local", "bin");
+  const wrapperPath = path.join(binDir, APP_NAME);
+
+  try {
+    if (!existsSync(binDir)) {
+      mkdirSync(binDir, { recursive: true });
+    }
+
+    // Remove stale file if it exists
+    if (existsSync(wrapperPath)) {
+      unlinkSync(wrapperPath);
+    }
+
+    // Write a shell wrapper that calls node with the built CLI
+    writeFileSync(wrapperPath, `#!/bin/sh\nexec node "${builtCliPath}" "$@"\n`, { mode: 0o755 });
+    log.success(`Installed ${APP_NAME} CLI → ${wrapperPath}`);
+
+    // Check if ~/.local/bin is actually in PATH
+    const pathDirs = (process.env.PATH ?? "").split(":");
+    if (!pathDirs.includes(binDir)) {
+      log.warn(
+        `${binDir} is not in your PATH. Add it to your shell profile: export PATH="$HOME/.local/bin:$PATH"`,
+      );
+    }
+  } catch (err) {
+    log.warn(`Could not install ${APP_NAME} CLI: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+export async function startWorktreeServer(
+  config: WorktreeConfig,
+  configFilePath?: string | null,
+  options?: { exitOnClose?: boolean; port?: number },
+): Promise<{ manager: WorktreeManager; close: () => Promise<void>; port: number }> {
+  const exitOnClose = options?.exitOnClose ?? true;
+  const requestedPort = options?.port ?? DEFAULT_PORT;
+  const manager = new WorktreeManager(config, configFilePath ?? null);
+  ensureCliInPath();
+  const { app, injectWebSocket, terminalManager } = createWorktreeServer(manager);
+
+  const actualPort = await findAvailablePort(requestedPort);
+
+  const server = createAdaptorServer({
+    fetch: app.fetch,
+  });
+
+  injectWebSocket(server);
+
+  server.listen(actualPort, () => {
+    log.success(`Server running at http://localhost:${actualPort}`);
+  });
+
+  // Initialize GitHub in the background (not blocking server startup)
+  manager.initGitHub().catch(() => {});
+
+  // Write server.json for agent discovery
+  const configDir = manager.getConfigDir();
+  const serverJsonPath = configDir ? path.join(configDir, CONFIG_DIR_NAME, "server.json") : null;
+  if (serverJsonPath && existsSync(path.dirname(serverJsonPath))) {
+    try {
+      writeFileSync(
+        serverJsonPath,
+        JSON.stringify({ url: `http://localhost:${actualPort}`, pid: process.pid }, null, 2),
+      );
+    } catch {
+      // Non-critical
+    }
+  }
+
+  let closing = false;
+  const close = async () => {
+    if (closing) return;
+    closing = true;
+    log.info("\nShutting down...");
+
+    // Clean up server.json
+    if (serverJsonPath) {
+      try {
+        unlinkSync(serverJsonPath);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    terminalManager.destroyAll();
+    await manager.stopAll();
+    server.close();
+    if (exitOnClose) {
+      process.exit(0);
+    }
+  };
+
+  process.on("SIGINT", close);
+  process.on("SIGTERM", close);
+
+  return { manager, close, port: actualPort };
+}
+
+export { WorktreeManager } from "./manager";
+export { PortManager } from "./port-manager";
+export type {
+  PortConfig,
+  WorktreeConfig,
+  WorktreeCreateRequest,
+  WorktreeInfo,
+  WorktreeListResponse,
+  WorktreeRenameRequest,
+  WorktreeResponse,
+} from "./types";

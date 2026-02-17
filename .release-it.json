@@ -1,0 +1,20 @@
+{
+  "git": {
+    "commitMessage": "📦 release: v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "Release v${version}",
+    "push": true,
+    "requireCleanWorkingDir": false
+  },
+  "npm": {
+    "publish": false
+  },
+  "github": {
+    "release": true,
+    "releaseName": "v${version}",
+    "assets": ["release/*.dmg"]
+  },
+  "hooks": {
+    "after:bump": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm build:app"
+  }
+}

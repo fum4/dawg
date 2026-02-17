@@ -1,0 +1,34 @@
+appId: com.dawg.app
+productName: dawg
+directories:
+  output: release
+files:
+  - dist/**/*
+  - assets/icon.png
+  - node_modules/**/*
+  - package.json
+icon: assets/icon.icns
+mac:
+  icon: assets/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+asar: true
+asarUnpack:
+  - dist/*.js
+  - dist/cli/**
+  - node_modules/node-pty/**
+extraResources:
+  - from: dist/runtime
+    to: runtime

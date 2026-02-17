@@ -1,0 +1,10 @@
+{
+  "startCommand": "pnpm dev",
+  "installCommand": "pnpm install",
+  "baseBranch": "origin/master",
+  "serverPort": 6969,
+  "ports": {
+    "discovered": [],
+    "offsetStep": 1
+  }
+}

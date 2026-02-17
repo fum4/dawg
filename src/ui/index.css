@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface-page: #0c0e12;
+  --color-surface-panel: #12151a;
+  --color-surface-raised: #1a1e25;
+  --color-surface-input: #242930;
+  --color-accent: #2dd4bf;
+  --color-accent-muted: #14b8a6;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Restore cursor: pointer on interactive elements (removed in Tailwind v4 preflight) */
+a,
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+summary {
+  cursor: pointer;
+}
+
+/* Selection highlight with teal accent */
+::selection {
+  background: rgba(45, 212, 191, 0.25);
+}
+
+/* Smooth transitions on interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Grey unchecked checkboxes for dark theme */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+input[type="checkbox"]:checked {
+  border-color: transparent;
+  background: var(--checkbox-accent, #0f766e);
+}
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 3.5px;
+  top: 1px;
+  width: 4px;
+  height: 7px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+/* Checkbox accent color variants */
+input[type="checkbox"].accent-teal-400 {
+  --checkbox-accent: #0f766e;
+}
+input[type="checkbox"].accent-red-400 {
+  --checkbox-accent: #7f1d1d;
+}
+
+/* Sweeping border animation for running hooks */
+@keyframes border-sweep {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  15% {
+    stroke-dashoffset: -28;
+  }
+  30% {
+    stroke-dashoffset: -35;
+  }
+  50% {
+    stroke-dashoffset: -55;
+  }
+  65% {
+    stroke-dashoffset: -72;
+  }
+  80% {
+    stroke-dashoffset: -78;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes border-sweep-fade {
+  0% {
+    opacity: 0.4;
+  }
+  15% {
+    opacity: 0.5;
+  }
+  22% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  65% {
+    opacity: 0.5;
+  }
+  72% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+/* Hide scrollbars globally */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}

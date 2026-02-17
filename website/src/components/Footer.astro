@@ -1,0 +1,108 @@
+---
+---
+
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo-icon">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#2dd4bf"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"
+          ></path>
+          <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"
+          ></path>
+          <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"
+          ></path>
+        </svg>
+      </div>
+      <span>dawg</span>
+    </div>
+    <div class="footer-links">
+      <a href="/getting-started">Docs</a>
+      <span class="footer-sep">&bull;</span>
+      <a href="https://github.com/fum4/worktree-manager" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="footer-version" id="footer-version"></div>
+  </div>
+</footer>
+
+<style>
+  footer {
+    padding: 40px 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: -0.02em;
+  }
+
+  .footer-logo-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: rgba(45, 212, 191, 0.06);
+    border: 1px solid rgba(45, 212, 191, 0.08);
+  }
+
+  .footer-links {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .footer-sep {
+    color: var(--text-muted);
+    opacity: 0.3;
+    font-size: 10px;
+  }
+
+  .footer-links a {
+    font-size: 12px;
+    color: var(--text-muted) !important;
+    font-weight: 500;
+    transition: color 0.2s var(--ease-out-quart) !important;
+  }
+
+  .footer-links a:hover {
+    color: var(--text-secondary) !important;
+  }
+
+  .footer-version {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    opacity: 0.6;
+  }
+
+  @media (max-width: 640px) {
+    .footer-inner {
+      flex-direction: column;
+      gap: 16px;
+    }
+  }
+</style>

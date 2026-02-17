@@ -1,0 +1,180 @@
+---
+---
+
+<nav id="nav">
+  <div class="nav-inner container">
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#2dd4bf"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"
+          ></path>
+          <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"
+          ></path>
+          <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"
+          ></path>
+        </svg>
+      </div>
+      <span>dawg</span>
+    </a>
+    <div class="nav-links">
+      <a href="/getting-started" class="nav-link">Docs</a>
+      <a
+        href="https://github.com/fum4/worktree-manager"
+        target="_blank"
+        rel="noopener"
+        class="nav-github"
+        aria-label="GitHub"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+          ></path>
+        </svg>
+      </a>
+      <a href="/#download" class="nav-cta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const nav = document.getElementById("nav")!;
+  let ticking = false;
+
+  window.addEventListener("scroll", () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        nav.classList.toggle("scrolled", window.scrollY > 20);
+        ticking = false;
+      });
+      ticking = true;
+    }
+  });
+</script>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: var(--nav-height);
+    background: rgba(12, 14, 18, 0.5);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    border-bottom: 1px solid transparent;
+    transition:
+      background 0.4s var(--ease-out-quart),
+      border-color 0.4s var(--ease-out-quart);
+  }
+
+  nav.scrolled {
+    background: rgba(12, 14, 18, 0.92);
+    border-bottom-color: var(--border-subtle);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary) !important;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.03em;
+  }
+
+  .nav-logo:hover {
+    color: var(--text-primary) !important;
+  }
+
+  .nav-logo-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(45, 212, 191, 0.08);
+    border: 1px solid rgba(45, 212, 191, 0.12);
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .nav-link {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted) !important;
+    transition: color 0.2s var(--ease-out-quart) !important;
+  }
+
+  .nav-link:hover {
+    color: var(--text-primary) !important;
+  }
+
+  .nav-github {
+    display: flex;
+    align-items: center;
+    color: var(--text-muted) !important;
+    transition: color 0.2s var(--ease-out-quart) !important;
+  }
+
+  .nav-github:hover {
+    color: var(--text-primary) !important;
+  }
+
+  .nav-cta {
+    color: var(--accent) !important;
+    padding: 7px 18px !important;
+    border-radius: 8px;
+    background: rgba(45, 212, 191, 0.12);
+    border: 1px solid rgba(45, 212, 191, 0.2);
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    transition:
+      background 0.2s var(--ease-out-quart),
+      border-color 0.2s var(--ease-out-quart),
+      color 0.2s var(--ease-out-quart) !important;
+  }
+
+  .nav-cta:hover {
+    background: rgba(45, 212, 191, 0.2) !important;
+    border-color: rgba(45, 212, 191, 0.35) !important;
+    color: #5eead4 !important;
+  }
+
+  @media (max-width: 768px) {
+    .nav-links {
+      gap: 12px;
+    }
+
+    .nav-cta {
+      font-size: 12px;
+      padding: 6px 14px !important;
+    }
+  }
+</style>

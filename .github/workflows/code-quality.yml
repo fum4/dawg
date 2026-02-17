@@ -1,0 +1,42 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx oxfmt --check .
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oxc-project/oxlint-action@v1
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check-types

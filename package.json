@@ -1,0 +1,79 @@
+{
+  "name": "dawg",
+  "version": "0.0.0",
+  "bin": {
+    "dawg": "./dist/cli/index.js"
+  },
+  "type": "module",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "start": "node dist/cli/index.js",
+    "dev": "pnpm dev:all",
+    "dev:all": "concurrently -k -n ui,backend,electron:compile,electron:run -c blue,green,yellow,magenta \"pnpm dev:ui\" \"pnpm dev:backend\" \"pnpm dev:electron:compile\" \"pnpm dev:electron:run\"",
+    "dev:ui": "vite",
+    "dev:backend": "tsup --watch",
+    "dev:electron:compile": "mkdir -p dist/electron && cp electron/preload.cjs dist/electron/preload.cjs && tsc -p electron/tsconfig.json --watch --preserveWatchOutput",
+    "dev:electron:run": "wait-on http://localhost:6969 dist/electron/main.js && UI_DEV_SERVER_URL=http://localhost:6969 VITE_DEV_SERVER=1 electronmon .",
+    "build": "tsup --dts --clean && tsc -p electron/tsconfig.json && cp electron/preload.cjs dist/electron/preload.cjs && mkdir -p dist/runtime && cp src/runtime/port-hook.cjs dist/runtime/port-hook.cjs && vite build",
+    "build:app": "pnpm build && electron-builder --mac",
+    "check-types": "tsc --noEmit",
+    "check-format": "oxfmt --check .",
+    "check-lint": "oxlint",
+    "format": "oxfmt .",
+    "format-lint": "oxlint --fix"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@hono/node-ws": "^1.3.0",
+    "@inquirer/prompts": "^8.2.1",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@monaco-editor/react": "^4.7.0",
+    "@tanstack/react-query": "^5.90.21",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
+    "ansi-to-html": "^0.7.2",
+    "hono": "^4.11.9",
+    "lucide-react": "^0.574.0",
+    "motion": "^12.34.1",
+    "nanoid": "^5.1.6",
+    "node-pty": "1.2.0-beta.10",
+    "picocolors": "^1.1.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^25.2.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.1.4",
+    "concurrently": "^9.2.1",
+    "electron": "^40.4.1",
+    "electron-builder": "^26.7.0",
+    "electronmon": "^2.0.4",
+    "oxfmt": "^0.33.0",
+    "oxlint": "^1.48.0",
+    "postcss": "^8.4.38",
+    "release-it": "^19.2.4",
+    "tailwindcss": "^4.1.18",
+    "tsup": "^8.3.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.5.4",
+    "vite": "^7.3.1",
+    "wait-on": "^9.0.4"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "electron",
+      "node-pty"
+    ]
+  }
+}

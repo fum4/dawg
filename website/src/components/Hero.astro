@@ -1,0 +1,574 @@
+---
+---
+
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-grid"></div>
+    <div class="hero-glow"></div>
+    <div class="hero-glow-secondary"></div>
+  </div>
+  <div class="container hero-content">
+    <div class="hero-text">
+      <div class="hero-badge fade-in">
+        <span class="term-success">&#10003;</span>
+        Works with any AI agent
+      </div>
+      <h1 class="fade-in" data-delay="80">
+        Stop babysitting<br /><span class="text-gradient">your AI agents.</span>
+      </h1>
+      <p class="hero-sub fade-in" data-delay="160">
+        dawg gives your AI agents a real workflow — pick up tasks, work in isolated environments,
+        and ship pull requests. Like engineers, not interns.
+      </p>
+      <div class="hero-ctas fade-in" data-delay="240">
+        <a id="hero-download-btn" href="#download" class="btn-primary glow-pulse">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Download for macOS
+        </a>
+        <div class="cli-install">
+          <span class="cli-dollar">$</span>
+          <code id="cli-command">npm install -g dawg</code>
+          <button
+            class="copy-btn"
+            data-copy="npm install -g dawg"
+            aria-label="Copy install command"
+          >
+            <svg
+              class="copy-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <svg
+              class="check-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <p class="hero-alt fade-in" data-delay="320">
+        Also available for <a href="#download" id="hero-alt-arch">Intel Macs</a>
+      </p>
+    </div>
+    <div class="hero-visual fade-in" data-delay="200">
+      <div class="terminal-wrapper">
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dots">
+              <span class="terminal-dot" style="background: #f87171"></span>
+              <span class="terminal-dot" style="background: #fbbf24"></span>
+              <span class="terminal-dot" style="background: #34d399"></span>
+            </div>
+            <span class="terminal-title">Terminal</span>
+            <div class="terminal-dots" style="visibility: hidden">
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+            </div>
+          </div>
+          <div class="terminal-body">
+            <div class="term-line">
+              <span class="term-prompt">$</span>
+              <span class="terminal-line-wrap">
+                <span class="terminal-line" id="term-l1">let's work on &lt;task_id&gt;</span>
+              </span>
+            </div>
+            <div class="term-line term-output term-phase-break" style="opacity: 0">
+              <span class="term-accent">&#9654;</span>
+              <span>Fetching issue details...</span>
+            </div>
+            <div class="term-line term-output term-phase-break" style="opacity: 0">
+              <span class="term-accent">&#9654;</span>
+              <span>Creating worktree...</span>
+            </div>
+            <div class="term-line term-output term-phase-break" style="opacity: 0">
+              <span class="term-accent">&#9654;</span>
+              <span>Analyzing...</span>
+            </div>
+            <div class="term-line term-output term-phase-break" style="opacity: 0">
+              <span class="term-accent">&#9654;</span>
+              <span>Implementing...</span>
+            </div>
+            <div class="term-line term-output term-phase-break" style="opacity: 0">
+              <span class="term-success">&#10003;</span>
+              <span>Pull request shipped</span>
+            </div>
+          </div>
+        </div>
+        <div class="terminal-reflection"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function animateTerminal() {
+    const line1 = document.getElementById("term-l1");
+    if (!line1) return;
+
+    setTimeout(() => line1.classList.add("animate"), 600);
+
+    const outputs = document.querySelectorAll(".term-output");
+    let t = 1800;
+    outputs.forEach((el) => {
+      if (el.classList.contains("term-phase-break")) t += 350;
+      setTimeout(() => {
+        (el as HTMLElement).style.opacity = "1";
+        (el as HTMLElement).style.transform = "translateY(0)";
+      }, t);
+      t += 280;
+    });
+
+    setTimeout(() => {
+      line1.classList.remove("animate");
+      line1.classList.add("done");
+    }, 1800);
+  }
+
+  // Copy with checkmark feedback
+  document.querySelectorAll(".copy-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const text = (btn as HTMLElement).dataset.copy || "";
+      await navigator.clipboard.writeText(text);
+      btn.classList.add("copied");
+      setTimeout(() => btn.classList.remove("copied"), 2000);
+    });
+  });
+
+  const heroObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          animateTerminal();
+          heroObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.3 },
+  );
+
+  const terminal = document.querySelector(".terminal");
+  if (terminal) heroObserver.observe(terminal);
+</script>
+
+<style>
+  .hero {
+    position: relative;
+    padding: calc(var(--nav-height) + 96px) 0 112px;
+    overflow: hidden;
+  }
+
+  /* ─── Background layers ──────────────────────────────────── */
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(rgba(45, 212, 191, 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 0%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 0%, transparent 100%);
+  }
+
+  .hero-glow {
+    position: absolute;
+    top: -300px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 700px;
+    background: radial-gradient(ellipse, rgba(45, 212, 191, 0.07) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  .hero-glow-secondary {
+    position: absolute;
+    top: -100px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(ellipse, rgba(45, 212, 191, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ─── Content ────────────────────────────────────────────── */
+  .hero-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 72px;
+    align-items: center;
+    position: relative;
+  }
+
+  .hero-text {
+    max-width: 540px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px 5px 10px;
+    border-radius: 100px;
+    background: rgba(45, 212, 191, 0.06);
+    border: 1px solid rgba(45, 212, 191, 0.12);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    margin-bottom: 24px;
+  }
+
+  .hero-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(45, 212, 191, 0.5);
+  }
+
+  h1 {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    margin-bottom: 24px;
+  }
+
+  .hero-sub {
+    font-size: 17px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 36px;
+    max-width: 440px;
+  }
+
+  .hero-ctas {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    background: rgba(45, 212, 191, 0.12);
+    color: var(--accent);
+    border-radius: 10px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 14px;
+    border: 1px solid rgba(45, 212, 191, 0.2);
+    transition:
+      background 0.25s var(--ease-out-quart),
+      border-color 0.25s var(--ease-out-quart),
+      transform 0.25s var(--ease-out-quart);
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    background: rgba(45, 212, 191, 0.2);
+    border-color: rgba(45, 212, 191, 0.35);
+    color: var(--accent) !important;
+    transform: translateY(-1px);
+  }
+
+  .cli-install {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px 9px 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    font-size: 13px;
+    transition: border-color 0.2s var(--ease-out-quart);
+  }
+
+  .cli-install:hover {
+    border-color: var(--border-medium);
+  }
+
+  .cli-dollar {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    user-select: none;
+  }
+
+  .cli-install code {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .copy-btn {
+    position: relative;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    transition: color 0.2s var(--ease-out-quart);
+    border-radius: 4px;
+  }
+
+  .copy-btn:hover {
+    color: var(--accent);
+    background: rgba(45, 212, 191, 0.08);
+  }
+
+  .copy-btn .check-icon {
+    display: none;
+    color: var(--accent);
+  }
+
+  .copy-btn.copied .copy-icon {
+    display: none;
+  }
+
+  .copy-btn.copied .check-icon {
+    display: block;
+  }
+
+  .hero-alt {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* ─── Terminal ───────────────────────────────────────────── */
+  .hero-visual {
+    display: flex;
+    justify-content: center;
+    perspective: 1200px;
+  }
+
+  .terminal-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .terminal {
+    background: var(--bg-panel);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.1),
+      0 8px 16px rgba(0, 0, 0, 0.15),
+      0 32px 64px rgba(0, 0, 0, 0.25);
+    transform: rotateY(-2deg) rotateX(1deg);
+    transition: transform 0.6s var(--ease-out-expo);
+  }
+
+  .terminal:hover {
+    transform: rotateY(0deg) rotateX(0deg);
+  }
+
+  .terminal-reflection {
+    position: absolute;
+    bottom: -40px;
+    left: 10%;
+    right: 10%;
+    height: 40px;
+    background: linear-gradient(
+      to bottom,
+      rgba(45, 212, 191, 0.03),
+      transparent
+    );
+    filter: blur(8px);
+    border-radius: 50%;
+  }
+
+  .terminal-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 7px;
+  }
+
+  .terminal-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+  }
+
+  .terminal-title {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  .terminal-body {
+    padding: 20px 20px 24px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.9;
+  }
+
+  .term-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .term-line:first-child {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .term-output {
+    transition:
+      opacity 0.5s var(--ease-out-expo),
+      transform 0.5s var(--ease-out-expo);
+    transform: translateY(6px);
+  }
+
+  .term-prompt {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .term-accent {
+    color: var(--accent);
+  }
+
+  .term-success {
+    color: #34d399;
+  }
+
+  .term-dim {
+    color: var(--text-muted);
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .term-phase-break {
+    margin-top: 4px;
+    padding-top: 8px;
+  }
+
+  /* ─── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 960px) {
+    .hero-content {
+      grid-template-columns: 1fr;
+      gap: 56px;
+    }
+
+    .hero-text {
+      max-width: 100%;
+      text-align: center;
+    }
+
+    .hero-sub {
+      max-width: 100%;
+    }
+
+    h1 {
+      font-size: 40px;
+    }
+
+    .hero-ctas {
+      justify-content: center;
+    }
+
+    .hero-alt {
+      text-align: center;
+    }
+
+    .hero-badge {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .terminal {
+      transform: none;
+    }
+
+    .terminal:hover {
+      transform: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero {
+      padding-top: calc(var(--nav-height) + 56px);
+      padding-bottom: 72px;
+    }
+
+    h1 {
+      font-size: 32px;
+    }
+
+    .hero-sub {
+      font-size: 15px;
+    }
+
+    .hero-ctas {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .btn-primary {
+      justify-content: center;
+    }
+
+    .cli-install {
+      justify-content: center;
+    }
+
+    .terminal-body {
+      font-size: 11px;
+      padding: 16px;
+    }
+  }
+</style>

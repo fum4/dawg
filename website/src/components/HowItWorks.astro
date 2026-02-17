@@ -1,0 +1,160 @@
+---
+const steps = [
+  {
+    num: "1",
+    title: "Install",
+    command: "npm install -g dawg",
+    desc: "One command to get started",
+  },
+  {
+    num: "2",
+    title: "Setup",
+    command: "dawg setup",
+    desc: "Interactive project configuration",
+  },
+  {
+    num: "3",
+    title: "Run",
+    command: "dawg start",
+    desc: "All worktrees, zero conflicts",
+  },
+];
+---
+
+<div class="section-divider"></div>
+<section id="how-it-works">
+  <div class="container">
+    <h2 class="section-title fade-in">Up and running in 3 steps</h2>
+    <div class="steps">
+      {
+        steps.map((s, i) => (
+          <>
+            <div class="step fade-in" data-delay={String(i * 120 + 80)}>
+              <div class="step-num">{s.num}</div>
+              <h3>{s.title}</h3>
+              <code>{s.command}</code>
+              <p class="step-desc">{s.desc}</p>
+            </div>
+            {i < steps.length - 1 && (
+              <div class="step-connector fade-in" data-delay={String(i * 120 + 140)}>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </div>
+            )}
+          </>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .section-title {
+    font-size: 36px;
+    text-align: center;
+    margin-bottom: 64px;
+  }
+
+  .steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .step {
+    text-align: center;
+    padding: 36px 28px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    min-width: 220px;
+    flex: 1;
+    max-width: 260px;
+    transition:
+      border-color 0.3s var(--ease-out-expo),
+      transform 0.3s var(--ease-out-expo);
+  }
+
+  .step:hover {
+    border-color: rgba(45, 212, 191, 0.12);
+    transform: translateY(-2px);
+  }
+
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(45, 212, 191, 0.08);
+    border: 1px solid rgba(45, 212, 191, 0.12);
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  .step h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
+  }
+
+  .step code {
+    display: inline-block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-raised);
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 10px;
+  }
+
+  .step-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .step-connector {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    opacity: 0.4;
+  }
+
+  @media (max-width: 768px) {
+    .steps {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step {
+      min-width: auto;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .step-connector {
+      transform: rotate(90deg);
+    }
+
+    .section-title {
+      font-size: 28px;
+    }
+  }
+</style>

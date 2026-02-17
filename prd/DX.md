@@ -1,0 +1,11 @@
+# This document outlines developer experience improvements
+
+## ✅ Set up pipeline
+
+- lint
+- format
+- typecheck
+
+## Improve hot reload
+
+When modifying certain server files hot reload is not working (to be investigated)

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Radial gradient: teal center fading to dark edges -->
+  <defs>
+    <radialGradient id="bgGradient" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#143a35"/>
+      <stop offset="40%" stop-color="#102a27"/>
+      <stop offset="70%" stop-color="#0e1c1b"/>
+      <stop offset="90%" stop-color="#0c1214"/>
+      <stop offset="100%" stop-color="#0c0e12"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Teal container with ~10% padding for macOS dock sizing -->
+  <rect x="41" y="41" width="430" height="430" rx="92" fill="url(#bgGradient)" stroke="rgba(45,212,191,0.55)" stroke-width="9"/>
+
+  <!-- Layers icon centered -->
+  <g transform="translate(147, 147) scale(9.08)" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/>
+    <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/>
+    <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>
+  </g>
+</svg>

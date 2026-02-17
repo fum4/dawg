@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Dark background with rounded corners -->
+  <rect width="512" height="512" rx="108" fill="#0c0e12"/>
+
+  <!-- Subtle radial glow behind the icon -->
+  <filter id="glowBlur">
+    <feGaussianBlur stdDeviation="25"/>
+  </filter>
+  <radialGradient id="glow" cx="50%" cy="50%" r="38%">
+    <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.30"/>
+    <stop offset="50%" stop-color="#2dd4bf" stop-opacity="0.15"/>
+    <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+  </radialGradient>
+  <circle cx="256" cy="256" r="280" fill="url(#glow)" filter="url(#glowBlur)"/>
+
+  <!-- Layers icon scaled and centered (24->240, offset to center) -->
+  <g transform="translate(118, 118) scale(11.5)" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/>
+    <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/>
+    <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>
+  </g>
+</svg>

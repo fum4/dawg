@@ -1,0 +1,285 @@
+---
+---
+
+<div class="section-divider"></div>
+<section id="download">
+  <div class="container">
+    <h2 class="section-title fade-in"><svg class="title-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download dawg</h2>
+    <p class="section-sub fade-in" data-delay="80">macOS only. Linux and Windows support coming soon.</p>
+    <div class="download-card fade-in" data-delay="160">
+      <div class="arch-tabs">
+        <button class="arch-tab active" data-arch="arm64">Apple Silicon</button>
+        <button class="arch-tab" data-arch="x64">Intel</button>
+      </div>
+      <div class="download-main">
+        <a id="download-btn" href="#" class="btn-download glow-pulse">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span id="download-label">Download .dmg</span>
+          <span id="download-version" class="version-badge"></span>
+        </a>
+      </div>
+      <div class="cli-section">
+        <span class="cli-label">Or install via CLI</span>
+        <div class="cli-row">
+          <span class="cli-dollar">$</span>
+          <code>npm install -g dawg</code>
+          <button
+            class="copy-btn"
+            data-copy="npm install -g dawg"
+            aria-label="Copy install command"
+          >
+            <svg
+              class="copy-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <svg
+              class="check-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <a
+        href="https://github.com/fum4/worktree-manager/releases"
+        target="_blank"
+        rel="noopener"
+        class="releases-link"
+      >
+        View all releases on GitHub &rarr;
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .section-title {
+    font-size: 36px;
+    text-align: center;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .title-icon {
+    color: var(--text-muted);
+  }
+
+  .section-sub {
+    font-size: 14px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .download-card {
+    max-width: 440px;
+    margin: 0 auto;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+  }
+
+  .arch-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-raised);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 28px;
+  }
+
+  .arch-tab {
+    flex: 1;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 7px;
+    cursor: pointer;
+    transition:
+      background 0.2s var(--ease-out-quart),
+      color 0.2s var(--ease-out-quart),
+      box-shadow 0.2s var(--ease-out-quart);
+  }
+
+  .arch-tab:hover {
+    color: var(--text-secondary);
+  }
+
+  .arch-tab.active {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .download-main {
+    margin-bottom: 24px;
+  }
+
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: rgba(45, 212, 191, 0.12);
+    color: var(--accent);
+    border-radius: 12px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 15px;
+    border: 1px solid rgba(45, 212, 191, 0.2);
+    transition:
+      background 0.25s var(--ease-out-quart),
+      border-color 0.25s var(--ease-out-quart),
+      transform 0.25s var(--ease-out-quart);
+    cursor: pointer;
+  }
+
+  .btn-download:hover {
+    background: rgba(45, 212, 191, 0.2);
+    border-color: rgba(45, 212, 191, 0.35);
+    color: var(--accent) !important;
+    transform: translateY(-1px);
+  }
+
+  .version-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    background: rgba(45, 212, 191, 0.08);
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .cli-section {
+    padding-top: 24px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .cli-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    letter-spacing: 0.02em;
+  }
+
+  .cli-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px 9px 14px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    font-size: 13px;
+    transition: border-color 0.2s var(--ease-out-quart);
+  }
+
+  .cli-row:hover {
+    border-color: var(--border-medium);
+  }
+
+  .cli-dollar {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    user-select: none;
+  }
+
+  .cli-row code {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .copy-btn {
+    position: relative;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    transition: color 0.2s var(--ease-out-quart);
+    border-radius: 4px;
+  }
+
+  .copy-btn:hover {
+    color: var(--accent);
+    background: rgba(45, 212, 191, 0.08);
+  }
+
+  .copy-btn .check-icon {
+    display: none;
+    color: var(--accent);
+  }
+
+  .copy-btn.copied .copy-icon {
+    display: none;
+  }
+
+  .copy-btn.copied .check-icon {
+    display: block;
+  }
+
+  .releases-link {
+    display: inline-block;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--text-muted) !important;
+    transition: color 0.2s var(--ease-out-quart) !important;
+  }
+
+  .releases-link:hover {
+    color: var(--accent) !important;
+  }
+
+  @media (max-width: 768px) {
+    .download-card {
+      padding: 24px;
+    }
+
+    .section-title {
+      font-size: 28px;
+    }
+  }
+</style>
