@@ -11,10 +11,6 @@
   },
   "github": {
     "release": true,
-    "releaseName": "v${version}",
-    "assets": ["release/*.dmg"]
-  },
-  "hooks": {
-    "after:bump": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm build:app"
+    "releaseName": "v${version}"
   }
 }

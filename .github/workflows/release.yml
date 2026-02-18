@@ -12,10 +12,12 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: macos-latest
+  publish:
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+    outputs:
+      tag: ${{ steps.release_tag.outputs.tag }}
 
     steps:
       - name: Checkout
@@ -48,4 +50,86 @@ jobs:
         run: pnpm release-it --ci --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve release tag
+        id: release_tag
+        run: |
+          echo "tag=v$(node -p 'JSON.parse(require(\"fs\").readFileSync(\"package.json\", \"utf8\")).version')" >> "$GITHUB_OUTPUT"
+
+  macos-assets:
+    needs: publish
+    runs-on: macos-latest
+    timeout-minutes: 30
+    if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish.outputs.tag }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build macOS app artifacts
+        run: pnpm build:app:mac
+        env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload macOS assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.publish.outputs.tag }}
+          files: |
+            release/*.dmg
+            release/*.dmg.blockmap
+            release/*-mac.zip
+            release/*-mac.zip.blockmap
+            release/latest-mac.yml
+          fail_on_unmatched_files: true
+
+  linux-assets:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish.outputs.tag }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Linux app artifacts
+        run: pnpm build:app:linux
+
+      - name: Upload Linux assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.publish.outputs.tag }}
+          files: |
+            release/*.AppImage
+            release/*.AppImage.blockmap
+            release/latest-linux.yml
+          fail_on_unmatched_files: true

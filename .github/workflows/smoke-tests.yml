@@ -1,0 +1,73 @@
+name: Smoke Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli-startup:
+    name: CLI startup (${{ matrix.os_name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 12
+    if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: Linux
+            runner: ubuntu-latest
+            port: 6979
+            log_file: /tmp/dawg-linux-smoke.log
+          - os_name: macOS
+            runner: macos-latest
+            port: 6980
+            log_file: /tmp/dawg-macos-smoke.log
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Smoke test CLI startup
+        run: |
+          set -euo pipefail
+          export DAWG_NO_OPEN=1
+          export DAWG_AUTO_INIT=1
+          export DAWG_PORT=${{ matrix.port }}
+
+          node dist/cli/index.js --no-open > "${{ matrix.log_file }}" 2>&1 &
+          DAWG_PID=$!
+
+          cleanup() {
+            kill "$DAWG_PID" 2>/dev/null || true
+            wait "$DAWG_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for i in $(seq 1 60); do
+            if ! kill -0 "$DAWG_PID" 2>/dev/null; then
+              echo "dawg process exited before startup completed"
+              cat "${{ matrix.log_file }}" || true
+              exit 1
+            fi
+
+            if curl --silent --fail "http://127.0.0.1:${DAWG_PORT}/api/config" >/dev/null; then
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "dawg failed to become ready within timeout"
+          cat "${{ matrix.log_file }}" || true
+          exit 1
