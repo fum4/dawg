@@ -98,8 +98,6 @@ jobs:
           files: |
             release/*.dmg
             release/*.dmg.blockmap
-            release/*-mac.zip
-            release/*-mac.zip.blockmap
             release/latest-mac.yml
           fail_on_unmatched_files: true
 
@@ -136,6 +134,5 @@ jobs:
           tag_name: ${{ needs.publish.outputs.tag }}
           files: |
             release/*.AppImage
-            release/*.AppImage.blockmap
             release/latest-linux.yml
           fail_on_unmatched_files: true
