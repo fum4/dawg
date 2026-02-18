@@ -75,30 +75,30 @@ interface ActivityEvent {
 
 All event type constants are defined in `ACTIVITY_TYPES` (`src/server/activity-event.ts`):
 
-| Constant              | Type string           | Category    | Description                        |
-| --------------------- | --------------------- | ----------- | ---------------------------------- |
-| `AGENT_CONNECTED`     | `agent_connected`     | agent       | Agent connects via MCP             |
-| `AGENT_DISCONNECTED`  | `agent_disconnected`  | agent       | Agent disconnects                  |
-| `NOTIFY`              | `notify`              | agent       | Agent sends a status update        |
-| `COMMIT_COMPLETED`    | `commit_completed`    | agent       | Agent committed successfully       |
-| `COMMIT_FAILED`       | `commit_failed`       | agent       | Agent commit failed                |
-| `PUSH_COMPLETED`      | `push_completed`      | agent       | Agent pushed successfully          |
-| `PUSH_FAILED`         | `push_failed`         | agent       | Agent push failed                  |
-| `PR_CREATED`          | `pr_created`          | agent       | Agent created a PR                 |
-| `SKILL_STARTED`       | `skill_started`       | agent       | Hook skill started                 |
-| `SKILL_COMPLETED`     | `skill_completed`     | agent       | Hook skill completed               |
-| `SKILL_FAILED`        | `skill_failed`        | agent       | Hook skill failed                  |
-| `HOOKS_STARTED`       | `hooks_started`       | agent       | Hook command run started           |
-| `HOOKS_RAN`           | `hooks_ran`           | agent       | Hook pipeline completed            |
-| `CREATION_STARTED`    | `creation_started`    | worktree    | Worktree creation started          |
-| `CREATION_COMPLETED`  | `creation_completed`  | worktree    | Worktree created successfully      |
-| `CREATION_FAILED`     | `creation_failed`     | worktree    | Worktree creation failed           |
-| `WORKTREE_STARTED`    | `started`             | worktree    | Dev server started                 |
-| `WORKTREE_STOPPED`    | `stopped`             | worktree    | Dev server stopped                 |
-| `WORKTREE_CRASHED`    | `crashed`             | worktree    | Dev server crashed (non-zero exit) |
-| `CONNECTION_LOST`     | `connection_lost`     | system      | Lost connection                    |
-| `CONNECTION_RESTORED` | `connection_restored` | system      | Connection restored                |
-| `CONFIG_NEEDS_PUSH`   | `config_needs_push`   | system      | Config changes need push           |
+| Constant              | Type string           | Category | Description                        |
+| --------------------- | --------------------- | -------- | ---------------------------------- |
+| `AGENT_CONNECTED`     | `agent_connected`     | agent    | Agent connects via MCP             |
+| `AGENT_DISCONNECTED`  | `agent_disconnected`  | agent    | Agent disconnects                  |
+| `NOTIFY`              | `notify`              | agent    | Agent sends a status update        |
+| `COMMIT_COMPLETED`    | `commit_completed`    | agent    | Agent committed successfully       |
+| `COMMIT_FAILED`       | `commit_failed`       | agent    | Agent commit failed                |
+| `PUSH_COMPLETED`      | `push_completed`      | agent    | Agent pushed successfully          |
+| `PUSH_FAILED`         | `push_failed`         | agent    | Agent push failed                  |
+| `PR_CREATED`          | `pr_created`          | agent    | Agent created a PR                 |
+| `SKILL_STARTED`       | `skill_started`       | agent    | Hook skill started                 |
+| `SKILL_COMPLETED`     | `skill_completed`     | agent    | Hook skill completed               |
+| `SKILL_FAILED`        | `skill_failed`        | agent    | Hook skill failed                  |
+| `HOOKS_STARTED`       | `hooks_started`       | agent    | Hook command run started           |
+| `HOOKS_RAN`           | `hooks_ran`           | agent    | Hook pipeline completed            |
+| `CREATION_STARTED`    | `creation_started`    | worktree | Worktree creation started          |
+| `CREATION_COMPLETED`  | `creation_completed`  | worktree | Worktree created successfully      |
+| `CREATION_FAILED`     | `creation_failed`     | worktree | Worktree creation failed           |
+| `WORKTREE_STARTED`    | `started`             | worktree | Dev server started                 |
+| `WORKTREE_STOPPED`    | `stopped`             | worktree | Dev server stopped                 |
+| `WORKTREE_CRASHED`    | `crashed`             | worktree | Dev server crashed (non-zero exit) |
+| `CONNECTION_LOST`     | `connection_lost`     | system   | Lost connection                    |
+| `CONNECTION_RESTORED` | `connection_restored` | system   | Connection restored                |
+| `CONFIG_NEEDS_PUSH`   | `config_needs_push`   | system   | Config changes need push           |
 
 ### Severities
 
@@ -289,12 +289,12 @@ notify({
 });
 ```
 
-| Param        | Required | Description                                     |
-| ------------ | -------- | ----------------------------------------------- |
-| `message`    | yes      | Status message (becomes `event.title`)          |
-| `severity`   | no       | `info` (default), `success`, `warning`, `error` |
-| `worktreeId` | no       | Related worktree ID                             |
-| `requiresUserAction` | no | When `true`, event appears in the top action-required section |
+| Param                | Required | Description                                                   |
+| -------------------- | -------- | ------------------------------------------------------------- |
+| `message`            | yes      | Status message (becomes `event.title`)                        |
+| `severity`           | no       | `info` (default), `success`, `warning`, `error`               |
+| `worktreeId`         | no       | Related worktree ID                                           |
+| `requiresUserAction` | no       | When `true`, event appears in the top action-required section |
 
 The event is created with `category: "agent"` and `type: "notify"`.
 

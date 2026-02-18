@@ -78,6 +78,9 @@ function formatHookTriggerLabel(trigger: HookTrigger): string {
   }
 }
 
+const USER_ACTION_HINT =
+  /\b(approve|approval|confirm|confirmation|yes\/no|y\/n|permission|authorize|authorise|need your|need you|waiting for (your )?(input|confirmation|approval|answer|response|reply)|user input|blocked|respond|reply)\b/i;
+
 export const actions: Action[] = [
   // -- Issue browsing --
   {
@@ -654,7 +657,7 @@ export const actions: Action[] = [
   {
     name: "notify",
     description:
-      "Send a status update to the dawg activity feed. Use to keep the user informed about progress on long-running tasks.",
+      "Send a status update to the dawg activity feed. Use to keep the user informed about progress on long-running tasks. If you are blocked waiting for user input, you MUST call this with requiresUserAction=true.",
     params: {
       message: { type: "string", description: "Status message to display", required: true },
       severity: {
@@ -665,14 +668,19 @@ export const actions: Action[] = [
       requiresUserAction: {
         type: "boolean",
         description:
-          "Set true when user input is needed to continue. These notifications appear in a dedicated action-required section.",
+          "Set true when user input is needed to continue. This is required when blocked waiting for user input. These notifications appear in a dedicated action-required section.",
       },
     },
     handler: async (ctx, params) => {
       const message = params.message as string;
       const severity = (params.severity as string) || "info";
       const worktreeId = params.worktreeId as string | undefined;
-      const requiresUserAction = params.requiresUserAction === true;
+      const requiresUserActionRaw = params.requiresUserAction as boolean | string | undefined;
+      const requiresUserAction =
+        requiresUserActionRaw === true ||
+        requiresUserActionRaw === "true" ||
+        USER_ACTION_HINT.test(message);
+      const projectName = ctx.manager.getProjectName() ?? undefined;
 
       if (!["info", "success", "warning", "error"].includes(severity)) {
         return {
@@ -688,6 +696,7 @@ export const actions: Action[] = [
           severity: severity as "info" | "success" | "warning" | "error",
           title: message,
           worktreeId,
+          projectName,
           metadata: requiresUserAction ? { requiresUserAction: true } : undefined,
         });
       }
@@ -747,7 +756,9 @@ export const actions: Action[] = [
 
       const runnableSteps = ctx.hooksManager
         .getConfig()
-        .steps.filter((step) => step.enabled !== false && matchesTrigger(step, trigger) && isRunnableStep(step))
+        .steps.filter(
+          (step) => step.enabled !== false && matchesTrigger(step, trigger) && isRunnableStep(step),
+        )
         .map((step) => ({ stepId: step.id, stepName: step.name, command: step.command }));
 
       ctx.activityLog?.addEvent({
@@ -765,14 +776,16 @@ export const actions: Action[] = [
       });
 
       const run = await ctx.hooksManager.runAll(worktreeId, trigger);
-      const failedCount = run.steps.filter((step) => step.status === "failed").length;
+      const runnableStepIds = new Set(runnableSteps.map((step) => step.stepId));
+      const triggerSteps = run.steps.filter((step) => runnableStepIds.has(step.stepId));
+      const failedCount = triggerSteps.filter((step) => step.status === "failed").length;
       const severity = failedCount > 0 || run.status === "failed" ? "error" : "success";
       const detail =
-        run.steps.length === 0
+        triggerSteps.length === 0
           ? "No runnable command hooks configured for this trigger."
           : failedCount > 0
-            ? `${failedCount} of ${run.steps.length} command hooks failed.`
-            : `${run.steps.length} command hooks passed.`;
+            ? `${failedCount} of ${triggerSteps.length} command hooks failed.`
+            : `${triggerSteps.length} command hooks passed.`;
 
       ctx.activityLog?.addEvent({
         category: "agent",
@@ -783,7 +796,7 @@ export const actions: Action[] = [
         worktreeId,
         projectName,
         groupKey,
-        metadata: { trigger, commandResults: run.steps },
+        metadata: { trigger, commandResults: triggerSteps },
       });
 
       return run;

@@ -428,12 +428,42 @@ export function HooksTab({
   }, [visible, fetchStatus, refetchConfig, refetchSkillResults]);
 
   // Auto-refetch and auto-expand when hook updates arrive via SSE
+  const prevStepResultsRef = useRef<Record<string, StepResult>>({});
   const prevSkillResultsRef = useRef(skillResults);
   useEffect(() => {
     if (!hookUpdateKey || !visible) return;
     refetchSkillResults();
     fetchStatus();
   }, [hookUpdateKey, visible, refetchSkillResults, fetchStatus]);
+
+  // Auto-expand commands as soon as they fail
+  useEffect(() => {
+    const prev = prevStepResultsRef.current;
+    const toExpand: string[] = [];
+
+    for (const [stepId, result] of Object.entries(stepResults)) {
+      if (result.status !== "failed" || !result.output) continue;
+      const prevResult = prev[stepId];
+      if (
+        !prevResult ||
+        prevResult.status !== "failed" ||
+        prevResult.completedAt !== result.completedAt ||
+        prevResult.output !== result.output
+      ) {
+        toExpand.push(stepId);
+      }
+    }
+
+    if (toExpand.length > 0) {
+      setExpandedSteps((prevExpanded) => {
+        const next = new Set(prevExpanded);
+        for (const stepId of toExpand) next.add(stepId);
+        return next;
+      });
+    }
+
+    prevStepResultsRef.current = stepResults;
+  }, [stepResults]);
 
   // Auto-expand skills that just got new results
   useEffect(() => {
@@ -443,14 +473,19 @@ export function HooksTab({
       if (result.status === "running") continue;
       const key = skillResultKey(result.skillName, result.trigger);
       const prevResult = prev.find(
-        (r) => skillResultKey(r.skillName, r.trigger) === skillResultKey(result.skillName, result.trigger),
+        (r) =>
+          skillResultKey(r.skillName, r.trigger) ===
+          skillResultKey(result.skillName, result.trigger),
       );
       if (
         !prevResult ||
         prevResult.status === "running" ||
         prevResult.reportedAt !== result.reportedAt
       ) {
-        if (result.content || result.summary) {
+        if (
+          (result.status === "failed" || result.success === false) &&
+          (result.content || result.summary)
+        ) {
           toExpand.push(key);
         }
       }
@@ -494,7 +529,11 @@ export function HooksTab({
     if (isComplete && !pipelineWasCompleteRef.current) {
       pipelineWasCompleteRef.current = true;
       setExpandedSteps(
-        new Set(enabledSteps.filter((s) => stepResults[s.id]?.output).map((s) => s.id)),
+        new Set(
+          enabledSteps
+            .filter((s) => stepResults[s.id]?.status === "failed" && stepResults[s.id]?.output)
+            .map((s) => s.id),
+        ),
       );
       setExpandedSkills(
         new Set(
@@ -505,7 +544,7 @@ export function HooksTab({
                   skillResultKey(r2.skillName, r2.trigger) ===
                   skillResultKey(s.skillName, s.trigger),
               );
-              return r?.content || r?.summary;
+              return (r?.status === "failed" || r?.success === false) && (r?.content || r?.summary);
             })
             .map((s) => skillResultKey(s.skillName, s.trigger)),
         ),
@@ -913,16 +952,26 @@ function StepList({
         const isRunning = runningSteps.has(step.id);
         const hasCompletedResult = !!result && result.status !== "running";
         const isExpanded = expandedSteps.has(step.id);
+        const statusToneClass =
+          !disabled && hasCompletedResult && result?.status === "passed"
+            ? "bg-teal-400/[0.02] border-teal-400/[0.12]"
+            : !disabled && hasCompletedResult && result?.status === "failed"
+              ? "bg-red-400/[0.02] border-red-400/[0.08]"
+              : "";
+        const cardClass =
+          hasCompletedResult || disabled ? (statusToneClass ? "" : settings.card) : "";
 
         return (
           <div
             key={step.id}
             className={`relative rounded-lg border ${
-              !hasCompletedResult && !isRunning && !disabled
-                ? "border-dashed border-white/[0.08]"
-                : "border-white/[0.04]"
-            } ${hasCompletedResult || disabled ? settings.card : ""} overflow-visible ${
-              disabled ? "opacity-50" : ""
+              statusToneClass
+                ? statusToneClass
+                : !hasCompletedResult && !isRunning && !disabled
+                  ? "border-dashed border-white/[0.08]"
+                  : "border-white/[0.04]"
+            } ${cardClass} overflow-visible ${disabled ? "opacity-50" : ""} ${
+              isExpanded && result?.output ? "mb-2.5" : ""
             }`}
           >
             {/* {isRunning && <SweepingBorder />} */}
@@ -949,7 +998,9 @@ function StepList({
                 >
                   {step.name}
                 </span>
-                <span className={`text-[10px] ${text.dimmed} ml-2 ${promptStep ? "" : "font-mono"}`}>
+                <span
+                  className={`text-[10px] ${text.dimmed} ml-2 ${promptStep ? "" : "font-mono"}`}
+                >
                   {promptStep ? step.prompt || "(no prompt text)" : step.command}
                 </span>
               </div>
@@ -1037,16 +1088,26 @@ function SkillList({
         const isRunning = result?.status === "running";
         const hasCompletedResult = !!result && result.status !== "running";
         const isExpanded = expandedSkills.has(key);
+        const statusToneClass =
+          !disabled && hasCompletedResult && result?.success
+            ? "bg-teal-400/[0.02] border-teal-400/[0.12]"
+            : !disabled && hasCompletedResult && result && !result.success
+              ? "bg-red-400/[0.02] border-red-400/[0.08]"
+              : "";
+        const cardClass =
+          hasCompletedResult || disabled ? (statusToneClass ? "" : settings.card) : "";
 
         return (
           <div
             key={key}
             className={`relative rounded-lg border ${
-              !hasCompletedResult && !isRunning && !disabled
-                ? "border-dashed border-white/[0.08]"
-                : "border-white/[0.04]"
-            } ${hasCompletedResult || disabled ? settings.card : ""} overflow-visible ${
-              disabled ? "opacity-50" : ""
+              statusToneClass
+                ? statusToneClass
+                : !hasCompletedResult && !isRunning && !disabled
+                  ? "border-dashed border-white/[0.08]"
+                  : "border-white/[0.04]"
+            } ${cardClass} overflow-visible ${disabled ? "opacity-50" : ""} ${
+              isExpanded && (result?.content || result?.summary) ? "mb-2.5" : ""
             }`}
           >
             {/* {isRunning && <SweepingBorder />} */}

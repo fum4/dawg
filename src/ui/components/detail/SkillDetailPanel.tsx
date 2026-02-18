@@ -35,10 +35,7 @@ export function SkillDetailPanel({ skillName, onDeleted }: SkillDetailPanelProps
   const agentDeployments = skillStatus.agents ?? {};
 
   const { skill, isLoading, error, refetch } = useSkillDetail(skillName);
-  const {
-    config: hooksConfig,
-    refetch: refetchHooks,
-  } = useHooksConfig();
+  const { config: hooksConfig, refetch: refetchHooks } = useHooksConfig();
 
   const hookSkillRefs = hooksConfig?.skills?.filter((s) => s.skillName === skillName) ?? [];
 
@@ -263,7 +260,9 @@ export function SkillDetailPanel({ skillName, onDeleted }: SkillDetailPanelProps
                     if (!hooksConfig) return;
                     const existingTriggers = Array.from(
                       new Set(
-                        hookSkillRefs.map((s) => (s.trigger ?? "post-implementation") as HookTrigger),
+                        hookSkillRefs.map(
+                          (s) => (s.trigger ?? "post-implementation") as HookTrigger,
+                        ),
                       ),
                     );
                     if (isActive) {

@@ -279,12 +279,18 @@ export class HooksManager {
     return !this.isPromptStep(step) && !!step.command?.trim();
   }
 
-  async runAll(worktreeId: string, trigger: HookTrigger = "post-implementation"): Promise<PipelineRun> {
+  async runAll(
+    worktreeId: string,
+    trigger: HookTrigger = "post-implementation",
+  ): Promise<PipelineRun> {
     const config = this.getConfig();
     const enabledSteps = config.steps.filter(
-      (s) => s.enabled !== false && this.matchesTrigger(s, trigger) && this.isRunnableCommandStep(s),
+      (s) =>
+        s.enabled !== false && this.matchesTrigger(s, trigger) && this.isRunnableCommandStep(s),
     );
     if (enabledSteps.length === 0) {
+      const existing = this.getStatus(worktreeId);
+      if (existing) return existing;
       const run = this.makeRun(worktreeId, "completed", []);
       this.persistRun(worktreeId, run);
       return run;
@@ -303,13 +309,31 @@ export class HooksManager {
       ]);
     }
 
-    // Run all enabled steps in parallel
-    const results = await Promise.all(enabledSteps.map((step) => this.executeStep(step, wt.path)));
+    const runStartedAt = new Date().toISOString();
+    const runningRun: PipelineRun = {
+      id: `run-${Date.now()}`,
+      worktreeId,
+      status: "running",
+      startedAt: runStartedAt,
+      steps: enabledSteps.map((step) => ({
+        stepId: step.id,
+        stepName: step.name,
+        command: step.command,
+        status: "running",
+        startedAt: runStartedAt,
+      })),
+    };
+    this.persistRun(worktreeId, runningRun);
 
-    const hasFailed = results.some((r) => r.status === "failed");
-    const run = this.makeRun(worktreeId, hasFailed ? "failed" : "completed", results);
-    this.persistRun(worktreeId, run);
-    return run;
+    // Run all enabled steps in parallel and persist each completion immediately
+    await Promise.all(
+      enabledSteps.map(async (step) => {
+        const result = await this.executeStep(step, wt.path);
+        this.mergeAndPersistRun(worktreeId, [result]);
+      }),
+    );
+
+    return this.getStatus(worktreeId) ?? this.makeRun(worktreeId, "failed", []);
   }
 
   async runSingle(worktreeId: string, stepId: string): Promise<StepResult> {
@@ -346,7 +370,9 @@ export class HooksManager {
       };
     }
 
-    return this.executeStep(step, wt.path);
+    const result = await this.executeStep(step, wt.path);
+    this.mergeAndPersistRun(worktreeId, [result]);
+    return result;
   }
 
   private async executeStep(step: HookStep, worktreePath: string): Promise<StepResult> {
@@ -426,5 +452,35 @@ export class HooksManager {
     const runPath = this.runFilePath(worktreeId);
     this.ensureDir(path.dirname(runPath));
     writeFileSync(runPath, JSON.stringify(run, null, 2) + "\n");
+    this.manager.emitHookUpdate(worktreeId);
+  }
+
+  private mergeAndPersistRun(worktreeId: string, updates: StepResult[]): PipelineRun {
+    const existing = this.getStatus(worktreeId);
+    const mergedById = new Map<string, StepResult>();
+
+    for (const step of existing?.steps ?? []) mergedById.set(step.stepId, step);
+    for (const step of updates) mergedById.set(step.stepId, step);
+
+    const mergedSteps = Array.from(mergedById.values());
+    const hasFailed = mergedSteps.some((step) => step.status === "failed");
+    const hasRunning = mergedSteps.some((step) => step.status === "running");
+    const status: PipelineRun["status"] = hasRunning
+      ? "running"
+      : hasFailed
+        ? "failed"
+        : "completed";
+
+    const run: PipelineRun = {
+      id: `run-${Date.now()}`,
+      worktreeId,
+      status,
+      startedAt: existing?.startedAt ?? new Date().toISOString(),
+      completedAt: status === "running" ? undefined : new Date().toISOString(),
+      steps: mergedSteps,
+    };
+
+    this.persistRun(worktreeId, run);
+    return run;
   }
 }

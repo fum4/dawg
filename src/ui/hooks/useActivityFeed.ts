@@ -68,6 +68,17 @@ function sortByNewest(events: ActivityEvent[]): ActivityEvent[] {
   );
 }
 
+function withSourceServerUrl(event: ActivityEvent, serverUrl: string | null): ActivityEvent {
+  if (!serverUrl) return event;
+  return {
+    ...event,
+    metadata: {
+      ...event.metadata,
+      sourceServerUrl: serverUrl,
+    },
+  };
+}
+
 function toHookItems(event: ActivityEvent): HookFeedItem[] {
   const rawItems = (event.metadata?.hookItems as HookFeedItem[] | undefined) ?? [];
   return Array.isArray(rawItems) ? rawItems : [];
@@ -261,7 +272,7 @@ export function useActivityFeed(
     }
 
     const handler = (e: CustomEvent<ActivityEvent>) => {
-      const event = e.detail;
+      const event = withSourceServerUrl(e.detail, serverUrl);
       const eventTime = new Date(event.timestamp).getTime();
       if (clearedAt > 0 && Number.isFinite(eventTime) && eventTime <= clearedAt) return;
 
@@ -299,8 +310,9 @@ export function useActivityFeed(
             })
           : e.detail;
       if (filteredHistory.length === 0) return;
+      const scopedHistory = filteredHistory.map((event) => withSourceServerUrl(event, serverUrl));
       // History arrives newest-first; replay oldest-first so grouped events end with latest state.
-      const chronologicalHistory = [...filteredHistory].sort(
+      const chronologicalHistory = [...scopedHistory].sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
       );
 

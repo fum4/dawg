@@ -21,7 +21,9 @@ export function AttachmentImage({ src, alt, className = "" }: AttachmentImagePro
         </div>
       )}
       {failed && !loading && (
-        <div className={`absolute inset-0 rounded bg-white/[0.03] flex items-center justify-center text-[10px] ${text.dimmed}`}>
+        <div
+          className={`absolute inset-0 rounded bg-white/[0.03] flex items-center justify-center text-[10px] ${text.dimmed}`}
+        >
           Unavailable
         </div>
       )}

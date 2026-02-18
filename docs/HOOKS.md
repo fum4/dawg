@@ -188,23 +188,23 @@ When hooks are triggered for a worktree:
 
 ## REST API
 
-| Method   | Path                                     | Description                                                                    |
-| -------- | ---------------------------------------- | ------------------------------------------------------------------------------ |
-| `GET`    | `/api/hooks/config`                      | Get hooks configuration                                                        |
-| `PUT`    | `/api/hooks/config`                      | Save full hooks configuration                                                  |
+| Method   | Path                                     | Description                                                                   |
+| -------- | ---------------------------------------- | ----------------------------------------------------------------------------- |
+| `GET`    | `/api/hooks/config`                      | Get hooks configuration                                                       |
+| `PUT`    | `/api/hooks/config`                      | Save full hooks configuration                                                 |
 | `POST`   | `/api/hooks/steps`                       | Add a step (`{ name, command, kind? }` or `{ name, kind: "prompt", prompt }`) |
-| `PATCH`  | `/api/hooks/steps/:stepId`               | Update a step (`{ name?, command?, prompt?, kind?, enabled?, trigger? }`)      |
-| `DELETE` | `/api/hooks/steps/:stepId`               | Remove a step                                                                  |
-| `POST`   | `/api/hooks/skills/import`               | Import a skill (`{ skillName, trigger?, condition? }`)                         |
-| `GET`    | `/api/hooks/skills/available`            | List available skills from registry                                            |
-| `PATCH`  | `/api/hooks/skills/:name`                | Toggle a skill (`{ enabled, trigger? }`)                                       |
-| `DELETE` | `/api/hooks/skills/:name`                | Remove a skill (`?trigger=` query param)                                       |
-| `POST`   | `/api/worktrees/:id/hooks/run`           | Run enabled command steps for a worktree (`{ trigger? }`)                      |
-| `POST`   | `/api/worktrees/:id/hooks/run/:stepId`   | Run a single step                                                              |
-| `GET`    | `/api/worktrees/:id/hooks/status`        | Get latest run status                                                          |
-| `POST`   | `/api/worktrees/:id/hooks/report`        | Report a skill result (`{ skillName, trigger?, success, summary, ... }`)       |
-| `GET`    | `/api/worktrees/:id/hooks/skill-results` | Get skill results for a worktree                                               |
-| `GET`    | `/api/files/read?path=...`               | Read a file by absolute path (used for MD report preview)                      |
+| `PATCH`  | `/api/hooks/steps/:stepId`               | Update a step (`{ name?, command?, prompt?, kind?, enabled?, trigger? }`)     |
+| `DELETE` | `/api/hooks/steps/:stepId`               | Remove a step                                                                 |
+| `POST`   | `/api/hooks/skills/import`               | Import a skill (`{ skillName, trigger?, condition? }`)                        |
+| `GET`    | `/api/hooks/skills/available`            | List available skills from registry                                           |
+| `PATCH`  | `/api/hooks/skills/:name`                | Toggle a skill (`{ enabled, trigger? }`)                                      |
+| `DELETE` | `/api/hooks/skills/:name`                | Remove a skill (`?trigger=` query param)                                      |
+| `POST`   | `/api/worktrees/:id/hooks/run`           | Run enabled command steps for a worktree (`{ trigger? }`)                     |
+| `POST`   | `/api/worktrees/:id/hooks/run/:stepId`   | Run a single step                                                             |
+| `GET`    | `/api/worktrees/:id/hooks/status`        | Get latest run status                                                         |
+| `POST`   | `/api/worktrees/:id/hooks/report`        | Report a skill result (`{ skillName, trigger?, success, summary, ... }`)      |
+| `GET`    | `/api/worktrees/:id/hooks/skill-results` | Get skill results for a worktree                                              |
+| `GET`    | `/api/files/read?path=...`               | Read a file by absolute path (used for MD report preview)                     |
 
 ## Backend
 

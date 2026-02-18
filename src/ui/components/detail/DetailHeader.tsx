@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { WorktreeInfo } from "../../types";
-import { action, badge, border, status, surface, text } from "../../theme";
+import { action, badge, border, button, status, surface, text } from "../../theme";
 import { LinearIcon } from "../icons";
 import { Tooltip } from "../Tooltip";
 
@@ -139,13 +139,13 @@ export function DetailHeader({
                 disabled={isLoading}
                 aria-label="Delete worktree"
                 title="Delete worktree"
-                className="h-7 w-7 text-red-400/70 hover:text-red-400 hover:bg-red-900/30 rounded-md disabled:opacity-50 transition-colors duration-150 inline-flex items-center justify-center"
+                className={`group h-7 px-2.5 text-[11px] font-medium ${button.secondary} hover:text-red-400 rounded-md disabled:opacity-50 transition-colors duration-150 inline-flex items-center gap-1.5`}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className="w-3.5 h-3.5"
+                  className="w-3.5 h-3.5 text-[#6b7280] transition-colors group-hover:text-red-400"
                 >
                   <path
                     fillRule="evenodd"
@@ -153,6 +153,7 @@ export function DetailHeader({
                     clipRule="evenodd"
                   />
                 </svg>
+                Delete
               </button>
               {isRunning ? (
                 <button
@@ -180,14 +181,14 @@ export function DetailHeader({
                   type="button"
                   onClick={onStart}
                   disabled={isLoading}
-                  className="h-7 px-2.5 text-[11px] font-medium text-teal-300 hover:bg-teal-500/10 rounded-md disabled:opacity-50 transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5"
+                  className={`group h-7 px-2.5 text-[11px] font-medium ${button.secondary} hover:text-accent rounded-md disabled:opacity-50 transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5`}
                 >
                   {isLoading ? (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 20 20"
                       fill="currentColor"
-                      className="w-3.5 h-3.5 animate-spin"
+                      className="w-3.5 h-3.5 text-[#6b7280] transition-colors group-hover:text-accent animate-spin"
                     >
                       <path
                         fillRule="evenodd"
@@ -200,7 +201,7 @@ export function DetailHeader({
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 20 20"
                       fill="currentColor"
-                      className="w-3.5 h-3.5"
+                      className="w-3.5 h-3.5 text-[#6b7280] transition-colors group-hover:text-accent"
                     >
                       <path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" />
                     </svg>

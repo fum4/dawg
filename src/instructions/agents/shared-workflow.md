@@ -18,7 +18,8 @@ When the user mentions an issue key (like PROJ-123, ENG-42), a ticket number, or
 8. **Follow AI context** directions and todo checklist — these are user-defined and take priority over the original task description when they conflict
 9. **Plan before coding** — analyze the codebase in the worktree, understand existing patterns and conventions, create an implementation approach, and present it to the user for approval before writing any code
 10. **Start implementing**
-11. **After completing** all work and post-implementation hooks (`run_hooks` with `trigger: "post-implementation"` for command hooks), call `get_git_policy` — if commit/push/create_pr are allowed, do them automatically. If the dev server is not already running, ask the user if they'd like you to start it (via `start_worktree`)
+11. **If blocked waiting for user input at any point**, immediately call `notify` with `requiresUserAction: true`, include a concise message describing what you need, and pass `worktreeId` when available
+12. **After completing** all work and post-implementation hooks (`run_hooks` with `trigger: "post-implementation"` for command hooks), call `get_git_policy` — if commit/push/create_pr are allowed, do them automatically. If the dev server is not already running, ask the user if they'd like you to start it (via `start_worktree`)
 
 ## Skill Report Files
 

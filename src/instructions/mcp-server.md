@@ -134,7 +134,8 @@ Use the `notify` tool to keep the user informed about progress on long-running t
 - Call `notify` with a short `message` describing what you're doing or what just happened
 - Use `severity` to indicate the nature of the update: `info` (default), `warning`, or `error`
 - Include `worktreeId` when the update relates to a specific worktree
-- Set `requiresUserAction: true` when you need user input to continue
+- If you are blocked waiting for user input, you MUST call `notify` with `requiresUserAction: true` immediately
+- For `requiresUserAction: true` notifications, include a concise message with what you need from the user to continue
 - Good examples: "Analyzing codebase structure", "Found 3 files that need changes", "Running type checker — 2 errors found"
 - Don't over-notify — one update per meaningful progress milestone is enough
 

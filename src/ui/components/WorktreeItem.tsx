@@ -63,7 +63,7 @@ export function WorktreeItem({
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0">
         {worktree.jiraUrl &&
           (() => {
             const key = worktree.jiraUrl!.match(/\/browse\/([A-Z]+-\d+)/)?.[1];
@@ -116,11 +116,19 @@ export function WorktreeItem({
             <span
               className={`${
                 worktree.githubPrState === "merged"
-                  ? "text-purple-400"
+                  ? "text-[#6b7280] hover:text-purple-400"
                   : worktree.githubPrState === "open"
-                    ? "text-emerald-400"
-                    : text.secondary
-              }`}
+                    ? "text-[#6b7280] hover:text-emerald-400"
+                    : worktree.githubPrState === "closed"
+                      ? "text-[#6b7280] hover:text-red-400"
+                      : worktree.githubPrState === "draft"
+                        ? "text-[#6b7280] hover:text-[#9ca3af]"
+                        : "text-[#6b7280] hover:text-[#9ca3af]"
+              } cursor-pointer p-1 -m-1 rounded hover:bg-white/[0.06] transition-colors duration-150`}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(worktree.githubPrUrl!, "_blank", "noopener,noreferrer");
+              }}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

@@ -5,6 +5,7 @@ import type { Hono } from "hono";
 
 import type { WorktreeManager } from "../manager";
 import type { NotesManager } from "../notes-manager";
+import type { HookStep, HookTrigger } from "../types";
 import type { HooksManager } from "../verification-manager";
 
 // Minimal SKILL.md frontmatter parser (just name + description)
@@ -24,9 +25,46 @@ function parseSkillFrontmatter(content: string): { name: string; description: st
   return { name, description };
 }
 
+function normalizeHookTrigger(value: unknown): HookTrigger {
+  if (
+    value === "pre-implementation" ||
+    value === "post-implementation" ||
+    value === "custom" ||
+    value === "on-demand"
+  ) {
+    return value;
+  }
+  return "post-implementation";
+}
+
+function matchesTrigger(step: HookStep, trigger: HookTrigger): boolean {
+  if (trigger === "post-implementation") {
+    return step.trigger === "post-implementation" || !step.trigger;
+  }
+  return step.trigger === trigger;
+}
+
+function isRunnableCommandStep(step: HookStep): boolean {
+  const isPrompt = step.kind === "prompt" || (!!step.prompt && !step.command?.trim());
+  return !isPrompt && !!step.command?.trim();
+}
+
+function formatHookTriggerLabel(trigger: HookTrigger): string {
+  switch (trigger) {
+    case "pre-implementation":
+      return "Pre-Implementation";
+    case "post-implementation":
+      return "Post-Implementation";
+    case "custom":
+      return "Custom";
+    case "on-demand":
+      return "On-Demand";
+  }
+}
+
 export function registerHooksRoutes(
   app: Hono,
-  _manager: WorktreeManager,
+  manager: WorktreeManager,
   hooksManager: HooksManager,
   notesManager: NotesManager,
 ) {
@@ -60,11 +98,15 @@ export function registerHooksRoutes(
   // Add a step
   app.post("/api/hooks/steps", async (c) => {
     try {
-      const { name, command, kind, prompt, trigger, condition, conditionTitle } = await c.req.json();
+      const { name, command, kind, prompt, trigger, condition, conditionTitle } =
+        await c.req.json();
       const isPrompt = kind === "prompt";
       if (!name || (!isPrompt && !command) || (isPrompt && !prompt)) {
         return c.json(
-          { success: false, error: isPrompt ? "name and prompt are required" : "name and command are required" },
+          {
+            success: false,
+            error: isPrompt ? "name and prompt are required" : "name and command are required",
+          },
           400,
         );
       }
@@ -197,13 +239,55 @@ export function registerHooksRoutes(
     const worktreeId = c.req.param("id");
     try {
       const body = await c.req.json().catch(() => ({}));
-      const trigger = body?.trigger as
-        | "pre-implementation"
-        | "post-implementation"
-        | "custom"
-        | "on-demand"
-        | undefined;
+      const trigger = normalizeHookTrigger(body?.trigger);
+      const projectName = manager.getProjectName() ?? undefined;
+      const groupKey = `hooks:${worktreeId}:${trigger}`;
+      const runnableSteps = hooksManager
+        .getConfig()
+        .steps.filter(
+          (step) =>
+            step.enabled !== false && matchesTrigger(step, trigger) && isRunnableCommandStep(step),
+        )
+        .map((step) => ({ stepId: step.id, stepName: step.name, command: step.command }));
+
+      manager.getActivityLog().addEvent({
+        category: "agent",
+        type: "hooks_started",
+        severity: "info",
+        title: `${formatHookTriggerLabel(trigger)} hooks started`,
+        worktreeId,
+        projectName,
+        groupKey,
+        metadata: {
+          trigger,
+          commandResults: runnableSteps.map((step) => ({ ...step, status: "running" })),
+        },
+      });
+
       const run = await hooksManager.runAll(worktreeId, trigger);
+      const runnableStepIds = new Set(runnableSteps.map((step) => step.stepId));
+      const triggerSteps = run.steps.filter((step) => runnableStepIds.has(step.stepId));
+      const failedCount = triggerSteps.filter((step) => step.status === "failed").length;
+      const severity = failedCount > 0 || run.status === "failed" ? "error" : "success";
+      const detail =
+        triggerSteps.length === 0
+          ? "No runnable command hooks configured for this trigger."
+          : failedCount > 0
+            ? `${failedCount} of ${triggerSteps.length} command hooks failed.`
+            : `${triggerSteps.length} command hooks passed.`;
+
+      manager.getActivityLog().addEvent({
+        category: "agent",
+        type: "hooks_ran",
+        severity,
+        title: `${formatHookTriggerLabel(trigger)} hooks completed`,
+        detail,
+        worktreeId,
+        projectName,
+        groupKey,
+        metadata: { trigger, commandResults: triggerSteps },
+      });
+
       return c.json(run);
     } catch (error) {
       return c.json(
@@ -218,7 +302,66 @@ export function registerHooksRoutes(
     const worktreeId = c.req.param("id");
     const stepId = c.req.param("stepId");
     try {
+      const step = hooksManager.getConfig().steps.find((s) => s.id === stepId);
+      const trigger = normalizeHookTrigger(step?.trigger);
+      const projectName = manager.getProjectName() ?? undefined;
+      const groupKey = `hooks:${worktreeId}:${trigger}`;
+
+      if (step && step.enabled !== false && isRunnableCommandStep(step)) {
+        manager.getActivityLog().addEvent({
+          category: "agent",
+          type: "hooks_started",
+          severity: "info",
+          title: `${formatHookTriggerLabel(trigger)} hooks started`,
+          worktreeId,
+          projectName,
+          groupKey,
+          metadata: {
+            trigger,
+            commandResults: [
+              {
+                stepId: step.id,
+                stepName: step.name,
+                command: step.command,
+                status: "running",
+              },
+            ],
+          },
+        });
+      }
+
       const result = await hooksManager.runSingle(worktreeId, stepId);
+
+      const severity = result.status === "failed" ? "error" : "success";
+      const detail =
+        result.status === "failed" ? "1 of 1 command hooks failed." : "1 command hooks passed.";
+
+      manager.getActivityLog().addEvent({
+        category: "agent",
+        type: "hooks_ran",
+        severity,
+        title: `${formatHookTriggerLabel(trigger)} hooks completed`,
+        detail,
+        worktreeId,
+        projectName,
+        groupKey,
+        metadata: {
+          trigger,
+          commandResults: [
+            {
+              stepId: result.stepId,
+              stepName: result.stepName,
+              command: result.command,
+              status: result.status,
+              output: result.output,
+              startedAt: result.startedAt,
+              completedAt: result.completedAt,
+              durationMs: result.durationMs,
+            },
+          ],
+        },
+      });
+
       return c.json(result);
     } catch (error) {
       return c.json(

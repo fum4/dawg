@@ -3,7 +3,6 @@ import {
   Bell,
   Bot,
   Check,
-  ChevronDown,
   FishingHook,
   GitBranch,
   Link,
@@ -14,7 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import type { ActivityEvent } from "../hooks/api";
 import type { HookFeedItem } from "../hooks/useActivityFeed";
@@ -27,6 +26,9 @@ const CATEGORY_ICONS: Record<string, typeof Bot> = {
   integration: Link,
   system: Monitor,
 };
+
+const USER_ACTION_HINT =
+  /\b(approve|approval|confirm|confirmation|yes\/no|y\/n|permission|authorize|authorise|need your|need you|waiting for (your )?(input|confirmation|approval|answer|response|reply)|user input|blocked|respond|reply)\b/i;
 
 function formatRelativeTime(timestamp: string): string {
   const now = Date.now();
@@ -57,7 +59,10 @@ function isHookEvent(event: ActivityEvent): boolean {
 }
 
 function isActionRequired(event: ActivityEvent): boolean {
-  return event.metadata?.requiresUserAction === true;
+  if (event.metadata?.requiresUserAction === true) return true;
+  if (event.category !== "agent") return false;
+  const text = `${event.title} ${event.detail ?? ""}`;
+  return USER_ACTION_HINT.test(text);
 }
 
 function hookItems(event: ActivityEvent): HookFeedItem[] {
@@ -77,7 +82,11 @@ interface ActivityFeedProps {
   onMarkAllRead: () => void;
   onClearAll: () => void;
   onClose: () => void;
-  onNavigateToWorktree?: (worktreeId: string) => void;
+  onNavigateToWorktree?: (target: {
+    worktreeId: string;
+    projectName?: string;
+    sourceServerUrl?: string;
+  }) => void;
 }
 
 export function ActivityFeed({
@@ -89,7 +98,6 @@ export function ActivityFeed({
   onNavigateToWorktree,
 }: ActivityFeedProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [expandedHookGroups, setExpandedHookGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -120,15 +128,6 @@ export function ActivityFeed({
 
   const actionRequiredEvents = useMemo(() => events.filter(isActionRequired), [events]);
   const regularEvents = useMemo(() => events.filter((event) => !isActionRequired(event)), [events]);
-
-  const toggleHookExpanded = (eventId: string) => {
-    setExpandedHookGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(eventId)) next.delete(eventId);
-      else next.add(eventId);
-      return next;
-    });
-  };
 
   return (
     <motion.div
@@ -181,8 +180,6 @@ export function ActivityFeed({
                     key={event.id}
                     event={event}
                     onNavigateToWorktree={onNavigateToWorktree}
-                    isHookExpanded={expandedHookGroups.has(event.id)}
-                    onToggleHookExpanded={() => toggleHookExpanded(event.id)}
                   />
                 ))}
               </div>
@@ -193,8 +190,6 @@ export function ActivityFeed({
                 key={event.id}
                 event={event}
                 onNavigateToWorktree={onNavigateToWorktree}
-                isHookExpanded={expandedHookGroups.has(event.id)}
-                onToggleHookExpanded={() => toggleHookExpanded(event.id)}
               />
             ))}
           </div>
@@ -207,25 +202,29 @@ export function ActivityFeed({
 function ActivityRow({
   event,
   onNavigateToWorktree,
-  isHookExpanded,
-  onToggleHookExpanded,
 }: {
   event: ActivityEvent;
-  onNavigateToWorktree?: (worktreeId: string) => void;
-  isHookExpanded: boolean;
-  onToggleHookExpanded: () => void;
+  onNavigateToWorktree?: (target: {
+    worktreeId: string;
+    projectName?: string;
+    sourceServerUrl?: string;
+  }) => void;
 }) {
   const hookEvent = isHookEvent(event);
-  const Icon = hookEvent ? FishingHook : CATEGORY_ICONS[event.category] ?? Monitor;
+  const Icon = hookEvent ? FishingHook : (CATEGORY_ICONS[event.category] ?? Monitor);
   const categoryColor = hookEvent
-    ? "text-emerald-300"
-    : activity.categoryColor[event.category] ?? "text-[#6b7280]";
+    ? "text-yellow-400"
+    : (activity.categoryColor[event.category] ?? "text-[#6b7280]");
   const categoryBg = hookEvent
-    ? "bg-emerald-500/10"
-    : activity.categoryBg[event.category] ?? "bg-white/[0.06]";
+    ? "bg-yellow-400/10"
+    : (activity.categoryBg[event.category] ?? "bg-white/[0.06]");
   const severityDot = event.severity !== "info" ? activity.severityDot[event.severity] : null;
   const items = hookItems(event);
   const hasChildren = hookEvent && items.length > 0;
+  const sourceServerUrl =
+    typeof event.metadata?.sourceServerUrl === "string"
+      ? (event.metadata.sourceServerUrl as string)
+      : undefined;
 
   return (
     <div className="px-4 py-3 hover:bg-white/[0.02] transition-colors">
@@ -239,24 +238,24 @@ function ActivityRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <p className={`text-xs ${text.primary} leading-relaxed`}>{event.title}</p>
-            {hasChildren && (
-              <button
-                onClick={onToggleHookExpanded}
-                className={`p-0.5 rounded ${text.dimmed} hover:text-white hover:bg-white/[0.06] transition-colors`}
-              >
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform ${isHookExpanded ? "rotate-180" : ""}`}
-                />
-              </button>
-            )}
           </div>
           {event.detail && <p className={`text-[10px] ${text.muted} mt-0.5`}>{event.detail}</p>}
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[10px] ${text.dimmed}`}>{formatRelativeTime(event.timestamp)}</span>
-            {event.projectName && <span className={`text-[10px] ${text.dimmed}`}>{event.projectName}</span>}
+            <span className={`text-[10px] ${text.dimmed}`}>
+              {formatRelativeTime(event.timestamp)}
+            </span>
+            {event.projectName && (
+              <span className={`text-[10px] ${text.dimmed}`}>{event.projectName}</span>
+            )}
             {event.worktreeId && onNavigateToWorktree ? (
               <button
-                onClick={() => onNavigateToWorktree(event.worktreeId!)}
+                onClick={() =>
+                  onNavigateToWorktree({
+                    worktreeId: event.worktreeId!,
+                    projectName: event.projectName,
+                    sourceServerUrl,
+                  })
+                }
                 className="text-[10px] text-teal-400/70 hover:text-teal-400 transition-colors"
               >
                 {event.worktreeId}
@@ -266,8 +265,8 @@ function ActivityRow({
             ) : null}
           </div>
 
-          {hasChildren && isHookExpanded && (
-            <div className="mt-2 space-y-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5">
+          {hasChildren && (
+            <div className="mt-2 space-y-1.5 p-2.5">
               {items.map((item) => (
                 <div key={item.key} className="flex items-center gap-2 text-[10px]">
                   <HookStatusIcon status={item.status} />

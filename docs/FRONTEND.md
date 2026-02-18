@@ -210,7 +210,7 @@ Displays all worktrees with filtering support. Each `WorktreeItem` shows the wor
 
 ### IssueList (`src/ui/components/IssueList.tsx`)
 
- Aggregator component that renders all issue types in a single scrollable list. Receives issues from all sources and delegates rendering to the type-specific list/item components. Jira/Linear issue queries are initialized in the background once integrations are configured (they do not wait for the Issues tab to be opened). The Local section is always shown so users can work with local issues even when no external integration is configured.
+Aggregator component that renders all issue types in a single scrollable list. Receives issues from all sources and delegates rendering to the type-specific list/item components. Jira/Linear issue queries are initialized in the background once integrations are configured (they do not wait for the Issues tab to be opened). The Local section is always shown so users can work with local issues even when no external integration is configured.
 
 ---
 
@@ -480,7 +480,7 @@ The app uses Framer Motion for transitions:
 | `MarkdownContent.tsx`       | Markdown renderer with dark theme styling                                                                                                                    |
 | `McpServerCreateModal.tsx`  | Create/edit MCP server modal                                                                                                                                 |
 | `McpServerItem.tsx`         | MCP server sidebar item                                                                                                                                      |
-| `McpServerScanModal.tsx`    | Scan and import MCP servers/skills (supports direct device-scan entry from discovery banner and prefilled results from the latest banner scan)              |
+| `McpServerScanModal.tsx`    | Scan and import MCP servers/skills (supports direct device-scan entry from discovery banner and prefilled results from the latest banner scan)               |
 | `Modal.tsx`                 | Base modal component (sm/md/lg widths)                                                                                                                       |
 | `NavBar.tsx`                | Navigation bar (defines View type)                                                                                                                           |
 | `PluginInstallModal.tsx`    | Install Claude plugin modal                                                                                                                                  |
@@ -492,7 +492,7 @@ The app uses Framer Motion for transitions:
 | `SkillItem.tsx`             | Skill sidebar item                                                                                                                                           |
 | `Spinner.tsx`               | Loading spinner component                                                                                                                                    |
 | `TabBar.tsx`                | Electron multi-project tab bar                                                                                                                               |
-| `ActivityFeed.tsx`          | Activity feed dropdown panel with bell icon, action-required top section, expandable hook-run entries, and clickable worktree links                           |
+| `ActivityFeed.tsx`          | Activity feed dropdown panel with bell icon, action-required top section, expandable hook-run entries, and clickable worktree links                          |
 | `Toast.tsx`                 | Animated toast notification (error=red, success=green, info=teal, loading=amber) with groupKey deduplication, grouped children, project name, worktree links |
 | `Tooltip.tsx`               | Tooltip component (always use this instead of native `title` attribute)                                                                                      |
 | `TruncatedTooltip.tsx`      | Text with automatic tooltip on overflow                                                                                                                      |
@@ -526,25 +526,25 @@ The app uses Framer Motion for transitions:
 
 ### Hooks (`src/ui/hooks/`)
 
-| File                      | Description                                                     |
-| ------------------------- | --------------------------------------------------------------- |
-| `api.ts`                  | Raw fetch functions for all API endpoints                       |
-| `useApi.ts`               | Hook that pre-binds API functions to current server URL         |
-| `useConfig.ts`            | Fetch and cache `.dawg/config.json`                             |
-| `useCustomTasks.ts`       | React Query hook for custom tasks list                          |
-| `useCustomTaskDetail.ts`  | React Query hook for single custom task                         |
-| `useJiraIssues.ts`        | React Query hook for Jira issues with search debouncing         |
-| `useJiraIssueDetail.ts`   | React Query hook for single Jira issue                          |
-| `useLinearIssues.ts`      | React Query hook for Linear issues with search debouncing       |
-| `useLinearIssueDetail.ts` | React Query hook for single Linear issue                        |
-| `useMcpServers.ts`        | Hooks for MCP server data                                       |
-| `useNotes.ts`             | Hook for issue notes and todos                                  |
-| `useSkills.ts`            | Hooks for skills data                                           |
-| `useTerminal.ts`          | WebSocket terminal session management                           |
-| `useAgentRules.ts`        | React Query hook for agent rule file content                    |
-| `useHooks.ts`             | Hooks config and skill results fetching                         |
+| File                      | Description                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------- |
+| `api.ts`                  | Raw fetch functions for all API endpoints                                                      |
+| `useApi.ts`               | Hook that pre-binds API functions to current server URL                                        |
+| `useConfig.ts`            | Fetch and cache `.dawg/config.json`                                                            |
+| `useCustomTasks.ts`       | React Query hook for custom tasks list                                                         |
+| `useCustomTaskDetail.ts`  | React Query hook for single custom task                                                        |
+| `useJiraIssues.ts`        | React Query hook for Jira issues with search debouncing                                        |
+| `useJiraIssueDetail.ts`   | React Query hook for single Jira issue                                                         |
+| `useLinearIssues.ts`      | React Query hook for Linear issues with search debouncing                                      |
+| `useLinearIssueDetail.ts` | React Query hook for single Linear issue                                                       |
+| `useMcpServers.ts`        | Hooks for MCP server data                                                                      |
+| `useNotes.ts`             | Hook for issue notes and todos                                                                 |
+| `useSkills.ts`            | Hooks for skills data                                                                          |
+| `useTerminal.ts`          | WebSocket terminal session management                                                          |
+| `useAgentRules.ts`        | React Query hook for agent rule file content                                                   |
+| `useHooks.ts`             | Hooks config and skill results fetching                                                        |
 | `useActivityFeed.ts`      | Activity feed state, unread count, chronological upserts, hook-run aggregation, toast triggers |
-| `useWorktrees.ts`         | SSE-based real-time worktree updates + integration status hooks |
+| `useWorktrees.ts`         | SSE-based real-time worktree updates + integration status hooks                                |
 
 ### Context (`src/ui/contexts/`)
 

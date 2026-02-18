@@ -58,6 +58,7 @@ export default function App() {
     selectFolder,
     openProject,
     closeProject,
+    switchProject,
     serverUrl,
   } = useServer();
   const [hookUpdateKey, setHookUpdateKey] = useState(0);
@@ -234,6 +235,52 @@ export default function App() {
       localStorage.setItem(`dawg:wsSel:${serverUrl}`, JSON.stringify(sel));
     }
   };
+
+  const [pendingNotificationNav, setPendingNotificationNav] = useState<{
+    worktreeId: string;
+    targetProjectId: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!pendingNotificationNav) return;
+    if (
+      pendingNotificationNav.targetProjectId &&
+      activeProject?.id !== pendingNotificationNav.targetProjectId
+    ) {
+      return;
+    }
+    const sel: Selection = { type: "worktree", id: pendingNotificationNav.worktreeId };
+    setSelectionState(sel);
+    if (serverUrl) {
+      localStorage.setItem(`dawg:wsSel:${serverUrl}`, JSON.stringify(sel));
+    }
+    setPendingNotificationNav(null);
+  }, [pendingNotificationNav, activeProject?.id, serverUrl]);
+
+  const resolveProjectIdFromNotification = useCallback(
+    (projectName?: string, sourceServerUrl?: string): string | null => {
+      if (sourceServerUrl) {
+        try {
+          const sourcePort = Number(new URL(sourceServerUrl).port);
+          if (Number.isFinite(sourcePort)) {
+            const matchByPort = projects.find((project) => project.port === sourcePort);
+            if (matchByPort) return matchByPort.id;
+          }
+        } catch {
+          // Ignore URL parse errors.
+        }
+      }
+
+      if (!projectName) return null;
+      const normalized = projectName.trim().toLowerCase();
+      if (!normalized) return null;
+      const matchByName = projects.find(
+        (project) => project.name.trim().toLowerCase() === normalized,
+      );
+      return matchByName?.id ?? null;
+    },
+    [projects],
+  );
 
   useEffect(() => {
     if (!serverUrl) return;
@@ -687,8 +734,17 @@ export default function App() {
         <Header
           activeView={activeView}
           onChangeView={setActiveView}
-          onNavigateToWorktree={(worktreeId) => {
+          onNavigateToWorktree={({ worktreeId, projectName: navProjectName, sourceServerUrl }) => {
             setActiveView("workspace");
+            const targetProjectId = resolveProjectIdFromNotification(
+              navProjectName,
+              sourceServerUrl,
+            );
+            if (targetProjectId && targetProjectId !== activeProject?.id) {
+              setPendingNotificationNav({ worktreeId, targetProjectId });
+              switchProject(targetProjectId);
+              return;
+            }
             setSelection({ type: "worktree", id: worktreeId });
           }}
         />

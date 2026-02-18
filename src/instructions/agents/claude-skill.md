@@ -31,6 +31,7 @@ IMPORTANT: Use ONLY the dawg MCP tools (`mcp__dawg__*`) to interact with dawg. D
 5. **Read TASK.md** to understand the task from the original issue details, then follow AI context directions and todos — these are user-defined and take priority over the task description when they conflict
 
 6. **Plan before coding** — enter plan mode and analyze the codebase before writing any code. Explore the relevant source files, understand existing patterns and conventions, then present a concrete implementation plan to the user. Wait for approval before starting implementation.
+7. **If blocked waiting for user input at any point**, immediately call `mcp__dawg__notify` with `requiresUserAction: true`, include a concise message about what you need, and pass `worktreeId` when available.
 
 ---
 
