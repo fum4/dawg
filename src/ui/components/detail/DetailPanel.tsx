@@ -1,11 +1,12 @@
 import { Link, ListTodo, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { OpenProjectTarget, OpenProjectTargetOption } from "../../hooks/api";
 import type { WorktreeInfo } from "../../types";
 import { useApi } from "../../hooks/useApi";
 import { action, border, detailTab, errorBanner, input, text } from "../../theme";
 import { ConfirmDialog } from "../ConfirmDialog";
-import { GitHubIcon } from "../icons";
+import { GitHubIcon } from "../../icons";
 import { Modal } from "../Modal";
 import { DetailHeader } from "./DetailHeader";
 import { LogsViewer } from "./LogsViewer";
@@ -17,6 +18,30 @@ type WorktreeTab = "logs" | "terminal" | "claude" | "hooks";
 // Persists across unmount/remount (view switches)
 const tabCache: Record<string, WorktreeTab> = {};
 const openClaudeTabCache = new Set<string>();
+const OPEN_TARGET_SELECTION_PRIORITY: OpenProjectTarget[] = [
+  "cursor",
+  "vscode",
+  "zed",
+  "intellij",
+  "webstorm",
+  "terminal",
+  "warp",
+  "ghostty",
+  "neovim",
+  "file-manager",
+];
+
+function pickDefaultOpenTarget(
+  targets: OpenProjectTargetOption[],
+  selectedFromServer?: OpenProjectTarget | null,
+): OpenProjectTarget | null {
+  const available = new Set(targets.map((target) => target.target));
+  if (selectedFromServer && available.has(selectedFromServer)) return selectedFromServer;
+  for (const target of OPEN_TARGET_SELECTION_PRIORITY) {
+    if (available.has(target)) return target;
+  }
+  return null;
+}
 
 interface ClaudeLaunchRequest {
   worktreeId: string;
@@ -64,6 +89,8 @@ export function DetailPanel({
   const [isGitLoading, setIsGitLoading] = useState(false);
   const [gitAction, setGitAction] = useState<"commit" | "push" | "pr" | null>(null);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [openTargetOptions, setOpenTargetOptions] = useState<OpenProjectTargetOption[]>([]);
+  const [selectedOpenTarget, setSelectedOpenTarget] = useState<OpenProjectTarget | null>(null);
   const [tabPerWorktree, setTabPerWorktree] = useState<Record<string, WorktreeTab>>(
     () => ({ ...tabCache }),
   );
@@ -187,6 +214,33 @@ export function DetailPanel({
   }, [worktree?.id]);
 
   useEffect(() => {
+    if (!worktree) {
+      setOpenTargetOptions([]);
+      setSelectedOpenTarget(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const result = await api.fetchOpenProjectTargets(worktree.id);
+      if (cancelled) return;
+      if (!result.success) {
+        setOpenTargetOptions([]);
+        setSelectedOpenTarget(null);
+        return;
+      }
+
+      const targets = result.targets ?? [];
+      setOpenTargetOptions(targets);
+      setSelectedOpenTarget(pickDefaultOpenTarget(targets, result.selectedTarget));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, worktree?.id]);
+
+  useEffect(() => {
     if (!worktree || !claudeLaunchRequest || claudeLaunchRequest.worktreeId !== worktree.id) {
       return;
     }
@@ -295,6 +349,13 @@ export function DetailPanel({
     return result.success;
   };
 
+  const handleOpenProjectIn = async (target: OpenProjectTarget) => {
+    setSelectedOpenTarget(target);
+    setError(null);
+    const result = await api.openWorktreeIn(worktree.id, target);
+    if (!result.success) setError(result.error || "Failed to open project");
+  };
+
   const handleCommit = async () => {
     if (!commitMessage.trim()) return;
     setIsGitLoading(true);
@@ -360,6 +421,10 @@ export function DetailPanel({
         onStart={handleStart}
         onStop={handleStop}
         onRemove={handleRemove}
+        openTargetOptions={openTargetOptions}
+        selectedOpenTarget={selectedOpenTarget}
+        onSelectOpenTarget={setSelectedOpenTarget}
+        onOpenProjectIn={handleOpenProjectIn}
         onSelectJiraIssue={onSelectJiraIssue}
         onSelectLinearIssue={onSelectLinearIssue}
         onSelectLocalIssue={onSelectLocalIssue}
@@ -384,9 +449,7 @@ export function DetailPanel({
 
       {!isCreating && (
         <div
-          className={`flex-shrink-0 h-11 flex items-center justify-between px-4 border-b ${
-            isTerminalTabActive ? "border-transparent" : border.section
-          }`}
+          className="flex-shrink-0 h-11 flex items-center justify-between px-4"
         >
           <div className="flex gap-1">
             <button

@@ -54,6 +54,41 @@ Stop the running dev server process for a worktree.
 - **Response**: `{ success: true, ... }`
 - **Error** (400): `{ success: false, error: "..." }`
 
+#### `GET /api/worktrees/:id/open-targets`
+
+Detect supported local apps for opening the selected worktree path and return the currently selected target.
+
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "targets": [
+      { "target": "cursor", "label": "Cursor" },
+      { "target": "vscode", "label": "VSCode" },
+      { "target": "file-manager", "label": "Finder" }
+    ],
+    "selectedTarget": "cursor"
+  }
+  ```
+- `targets` contains only autodetected, currently available options on this machine.
+- `selectedTarget` is derived from persisted config (`openProjectTarget`) when that value is available; otherwise it falls back to the server's priority order.
+- **Error** (404): `{ success: false, error: "Worktree \"...\" not found" }`
+
+#### `POST /api/worktrees/:id/open`
+
+Open a worktree in a specific app target (IDE/file manager/terminal).
+
+- **Request**:
+  ```json
+  { "target": "vscode" }
+  ```
+  If omitted, `target` defaults to `"file-manager"`.
+- **Allowed `target` values**: `"file-manager"`, `"cursor"`, `"vscode"`, `"zed"`, `"intellij"`, `"webstorm"`, `"terminal"`, `"warp"`, `"ghostty"`, `"neovim"`.
+- **Response**: `{ success: true }` or `{ success: false, error: "..." }`
+- On success, the selected `target` is persisted to project config as `openProjectTarget`.
+- **Error** (400): invalid target or open failure, `{ success: false, error: "..." }`
+- **Error** (404): `{ success: false, error: "Worktree \"...\" not found" }`
+
 #### `PATCH /api/worktrees/:id`
 
 Rename a worktree (directory name and/or branch).

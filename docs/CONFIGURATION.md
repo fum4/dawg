@@ -36,6 +36,7 @@ The primary configuration file. Created by `dawg init` (interactive CLI) or via 
   "baseBranch": "origin/main",
   "autoInstall": true,
   "localIssuePrefix": "LOCAL",
+  "openProjectTarget": "cursor",
   "allowAgentCommits": false,
   "allowAgentPushes": false,
   "allowAgentPRs": false,
@@ -116,6 +117,31 @@ Whether to automatically run the `installCommand` when creating a new worktree. 
 | **Required** | No        |
 
 Prefix used for local issue identifiers. Local issues are auto-numbered with this prefix, producing identifiers like `LOCAL-1`, `LOCAL-2`, etc. Change this to match your project's naming convention (e.g., `"TASK"`, `"TODO"`).
+
+#### `openProjectTarget`
+
+| Property     | Value                |
+| ------------ | -------------------- |
+| **Type**     | `string`             |
+| **Default**  | `"file-manager"`     |
+| **Required** | No                   |
+
+Preferred app target for the worktree detail panel's split `Open` button. This value is updated when a user opens a worktree via a selected target in the UI.
+
+Allowed values:
+
+- `"file-manager"` (Finder on macOS, file manager on Linux)
+- `"cursor"`
+- `"vscode"`
+- `"zed"`
+- `"intellij"`
+- `"webstorm"`
+- `"terminal"`
+- `"warp"`
+- `"ghostty"`
+- `"neovim"`
+
+At runtime, the UI only shows targets that are autodetected on the current machine. If the configured value is unavailable, the server falls back to the first detected target by priority.
 
 #### `allowAgentCommits`
 

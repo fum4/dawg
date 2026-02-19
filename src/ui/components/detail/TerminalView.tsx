@@ -6,7 +6,7 @@ import "@xterm/xterm/css/xterm.css";
 
 import { useTerminal } from "../../hooks/useTerminal";
 import { text } from "../../theme";
-import { ClaudeIcon } from "../icons";
+import { ClaudeIcon } from "../../icons";
 import { Spinner } from "../Spinner";
 
 interface TerminalViewProps {

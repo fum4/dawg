@@ -10,7 +10,7 @@ import { PersonalNotesSection, AgentSection } from "./NotesSection";
 import { Spinner } from "../Spinner";
 import { ImageModal } from "../ImageModal";
 import { AttachmentThumbnail } from "../AttachmentThumbnail";
-import { ClaudeIcon } from "../icons";
+import { ClaudeIcon } from "../../icons";
 import type { CustomTaskAttachment } from "../../types";
 
 interface CustomTaskDetailPanelProps {

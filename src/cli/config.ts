@@ -15,6 +15,7 @@ export interface ConfigFile {
   baseBranch?: string;
   ports?: Partial<PortConfig>;
   envMapping?: Record<string, string>;
+  openProjectTarget?: WorktreeConfig["openProjectTarget"];
 }
 
 /**
@@ -87,6 +88,7 @@ export function loadConfig(): { config: WorktreeConfig; configPath: string | nul
         offsetStep: fileConfig.ports?.offsetStep ?? defaults.ports.offsetStep,
       },
       envMapping: fileConfig.envMapping,
+      openProjectTarget: fileConfig.openProjectTarget,
     };
 
     return { config, configPath };

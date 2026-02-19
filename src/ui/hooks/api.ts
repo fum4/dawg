@@ -32,6 +32,23 @@ function getBaseUrl(serverUrl: string | null): string {
   return serverUrl ?? "";
 }
 
+export type OpenProjectTarget =
+  | "file-manager"
+  | "cursor"
+  | "vscode"
+  | "zed"
+  | "intellij"
+  | "webstorm"
+  | "terminal"
+  | "warp"
+  | "ghostty"
+  | "neovim";
+
+export interface OpenProjectTargetOption {
+  target: OpenProjectTarget;
+  label: string;
+}
+
 export async function createWorktree(
   branch: string,
   name?: string,
@@ -162,6 +179,28 @@ export async function stopWorktree(
   }
 }
 
+export async function fetchOpenProjectTargets(
+  id: string,
+  serverUrl: string | null = null,
+): Promise<{
+  success: boolean;
+  targets?: OpenProjectTargetOption[];
+  selectedTarget?: OpenProjectTarget | null;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/worktrees/${encodeURIComponent(id)}/open-targets`,
+    );
+    return await res.json();
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to detect open targets",
+    };
+  }
+}
+
 export async function removeWorktree(
   id: string,
   serverUrl: string | null = null,
@@ -175,6 +214,29 @@ export async function removeWorktree(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to remove worktree",
+    };
+  }
+}
+
+export async function openWorktreeIn(
+  id: string,
+  target: OpenProjectTarget,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/worktrees/${encodeURIComponent(id)}/open`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      },
+    );
+    return await res.json();
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to open worktree",
     };
   }
 }

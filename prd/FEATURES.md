@@ -12,9 +12,9 @@ Implement Linux release pipeline & confirm everything works
 
 Add windows support. Current port offsetting does not work on Windows. To investigate what other incompatibilities exist
 
-## Add "Open project in" button
+## ✅ Add "Open project in" button
 
-The UI should display a button that helps users open the project in various environments (IDEs / Finder / TBD)
+The UI should display a button that helps users open the project in various environments (IDEs / Finder / TBD). Make this macOS and Linux compatible.
 
 ## ✅ Add "Code with Claude" button
 

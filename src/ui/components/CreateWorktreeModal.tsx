@@ -4,7 +4,7 @@ import { GitBranch } from "lucide-react";
 import { useApi } from "../hooks/useApi";
 import { input, text } from "../theme";
 import { Button } from "./Button";
-import { JiraIcon, LinearIcon } from "./icons";
+import { JiraIcon, LinearIcon } from "../icons";
 import { Modal } from "./Modal";
 import { WorktreeExistsModal } from "./WorktreeExistsModal";
 

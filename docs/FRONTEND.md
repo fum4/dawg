@@ -21,7 +21,17 @@ The app operates in two modes:
 | Framer Motion        | Page transitions and list animations       |
 | xterm.js             | Terminal emulation in the browser          |
 | Vite                 | Build tool and dev server for the frontend |
-| Lucide React         | Icon library                               |
+| Lucide React         | Utility icon library                       |
+
+### Icon System
+
+- Frontend icon assets live in `src/ui/icons/` as `.svg` or `.png` files.
+- `src/ui/icons/index.tsx` is the single icon component entrypoint for the UI.
+- Each icon asset should have one exported icon component in `src/ui/icons/index.tsx`.
+- SVG assets are imported as `*.svg?raw` and rendered through the shared SVG wrapper in `src/ui/icons/index.tsx` so sizing and bounds stay consistent across icons.
+- `FinderIcon` intentionally uses `finder.png`; PNG assets are still wrapped as icon components in `src/ui/icons/index.tsx`.
+- UI components must import icons from `src/ui/icons/index.tsx` (for example `import { GitHubIcon } from "../icons"`).
+- Do not import raw `.svg`/`.png` files directly in feature components; raw asset imports are allowed only inside `src/ui/icons/index.tsx`.
 
 ---
 
@@ -222,7 +232,7 @@ All detail panels live in `src/ui/components/detail/`.
 
 The worktree detail view. Contains:
 
-- **DetailHeader** -- worktree name (editable inline), branch name, status badge, start/stop/delete action buttons, linked issue badges.
+- **DetailHeader** -- worktree name (editable inline), branch name, status badge, start/stop/delete action buttons, linked issue badges, and the split `Open` button (primary action + dropdown) for detected open targets.
 - **Tab bar** -- Logs | Terminal | Hooks, plus Claude controls. `Claude` appears as its own tab only when opened, otherwise a `+ Claude` quick action is shown.
 - **Git action toolbar** -- contextual buttons for Commit (when uncommitted changes exist), Push (when unpushed commits exist), and PR (when pushed but no PR exists). Each expands an inline input form.
 - **LogsViewer** -- streaming process output for running worktrees.
@@ -256,7 +266,7 @@ Detail view for local custom tasks. Supports inline editing of title, descriptio
 | `HooksTab.tsx`           | Hooks runner with animated running state and step/skill result display          |
 | `GitActionInputs.tsx`    | Inline commit message and PR title input forms                                  |
 | `ActionToolbar.tsx`      | Git action buttons (commit, push, PR)                                           |
-| `DetailHeader.tsx`       | Worktree name/branch display with inline edit and action buttons                |
+| `DetailHeader.tsx`       | Worktree name/branch display with inline edit, action buttons, and split `Open` target control |
 | `NotesSection.tsx`       | PersonalNotesSection + AgentSection (tabbed: Context, Todos, Git Policy, Hooks) |
 | `TodoList.tsx`           | Checkbox todo items attached to issues                                          |
 | `AgentPolicySection.tsx` | Per-issue agent git policy overrides                                            |
@@ -509,7 +519,7 @@ The app uses Framer Motion for transitions:
 | File                        | Description                                                                         |
 | --------------------------- | ----------------------------------------------------------------------------------- |
 | `DetailPanel.tsx`           | Worktree detail (logs, terminal, hooks, git actions)                                |
-| `DetailHeader.tsx`          | Worktree header with inline rename and action buttons                               |
+| `DetailHeader.tsx`          | Worktree header with inline rename, action buttons, and split `Open` target control |
 | `JiraDetailPanel.tsx`       | Jira issue detail view                                                              |
 | `LinearDetailPanel.tsx`     | Linear issue detail view                                                            |
 | `CustomTaskDetailPanel.tsx` | Custom task detail with inline editing                                              |

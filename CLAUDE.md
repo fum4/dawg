@@ -23,6 +23,15 @@ There is no test runner configured.
 
 **Fix any lint or format errors you encounter — whether introduced by current changes or pre-existing in the codebase.** Don't leave broken windows.
 
+## Icon Handling
+
+- Store frontend icon assets in `src/ui/icons/` as `.svg`/`.png`.
+- Define and export one icon component per asset from `src/ui/icons/index.tsx` (for example `GitHubIcon`, `JiraIcon`).
+- For SVG assets, import with `*.svg?raw` and render through the shared SVG wrapper in `src/ui/icons/index.tsx` to keep sizing/bounds consistent.
+- PNG assets are allowed when needed (for example `finder.png`), but still must be wrapped by an exported icon component in `src/ui/icons/index.tsx`.
+- In UI code, import icon components from `src/ui/icons/index.tsx` (for example `import { GitHubIcon } from "../icons"`), not raw asset files.
+- Do not import `.svg`/`.png` directly from feature components; only `src/ui/icons/index.tsx` should import raw icon assets.
+
 ## Dependencies
 
 **Always use `pnpm add` (or `pnpm add -D`) to install packages — never edit `package.json` dependencies manually.** Use the latest version unless a specific version is required.

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { GitBranch, ListTodo, Plus } from "lucide-react";
 
 import { integration, surface, tab, text } from "../theme";
-import { JiraIcon, LinearIcon } from "./icons";
+import { JiraIcon, LinearIcon } from "../icons";
 
 interface CreateFormProps {
   jiraConfigured: boolean;

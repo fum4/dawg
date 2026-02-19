@@ -2,7 +2,7 @@ import { ListTodo } from "lucide-react";
 
 import type { WorktreeInfo } from "../types";
 import { border, status, surface, text } from "../theme";
-import { JiraIcon, LinearIcon } from "./icons";
+import { JiraIcon, LinearIcon } from "../icons";
 import { Tooltip } from "./Tooltip";
 
 interface WorktreeItemProps {
@@ -63,14 +63,14 @@ export function WorktreeItem({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-[11px] flex-shrink-0">
         {worktree.jiraUrl &&
           (() => {
             const key = worktree.jiraUrl!.match(/\/browse\/([A-Z]+-\d+)/)?.[1];
             return (
               <Tooltip position="right" text="View issue">
                 <span
-                  className="cursor-pointer p-1 -m-1 rounded text-[#6b7280] hover:text-blue-400 hover:bg-blue-400/10 transition-colors duration-150"
+                  className="cursor-pointer inline-flex items-center justify-center p-1 -m-1 rounded text-[#6b7280] hover:text-blue-400 hover:bg-blue-400/10 transition-colors duration-150"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (key) onSelectJiraIssue?.(key);
@@ -87,7 +87,7 @@ export function WorktreeItem({
             return (
               <Tooltip position="right" text="View issue">
                 <span
-                  className="cursor-pointer p-1 -m-1 rounded text-[#6b7280] hover:text-[#5E6AD2] hover:bg-[#5E6AD2]/10 transition-colors duration-150"
+                  className="cursor-pointer inline-flex items-center justify-center p-1 -m-1 rounded text-[#6b7280] hover:text-[#5E6AD2] hover:bg-[#5E6AD2]/10 transition-colors duration-150"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (id) onSelectLinearIssue?.(id);
@@ -101,7 +101,7 @@ export function WorktreeItem({
         {hasLocalIssue && worktree.localIssueId && (
           <Tooltip position="right" text="View issue">
             <span
-              className="cursor-pointer p-1 -m-1 rounded text-[#6b7280] hover:text-amber-400 hover:bg-amber-400/10 transition-colors duration-150"
+              className="cursor-pointer inline-flex items-center justify-center p-1 -m-1 rounded text-[#6b7280] hover:text-amber-400 hover:bg-amber-400/10 transition-colors duration-150"
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectLocalIssue?.(worktree.localIssueId!);
@@ -122,9 +122,9 @@ export function WorktreeItem({
                     : worktree.githubPrState === "closed"
                       ? "text-[#6b7280] hover:text-red-400"
                       : worktree.githubPrState === "draft"
-                        ? "text-[#6b7280] hover:text-[#9ca3af]"
+                      ? "text-[#6b7280] hover:text-[#9ca3af]"
                         : "text-[#6b7280] hover:text-[#9ca3af]"
-              } cursor-pointer p-1 -m-1 rounded hover:bg-white/[0.06] transition-colors duration-150`}
+              } cursor-pointer inline-flex items-center justify-center p-1 -m-1 rounded hover:bg-white/[0.06] transition-colors duration-150`}
               onClick={(e) => {
                 e.stopPropagation();
                 window.open(worktree.githubPrUrl!, "_blank", "noopener,noreferrer");

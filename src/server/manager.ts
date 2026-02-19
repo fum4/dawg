@@ -69,6 +69,28 @@ const WORKTREE_COLORS: Array<(s: string) => string> = [
 let worktreeColorIndex = 0;
 const worktreeColorMap = new Map<string, (s: string) => string>();
 
+const OPEN_PROJECT_TARGETS = new Set<NonNullable<WorktreeConfig["openProjectTarget"]>>([
+  "file-manager",
+  "cursor",
+  "vscode",
+  "zed",
+  "intellij",
+  "webstorm",
+  "terminal",
+  "warp",
+  "ghostty",
+  "neovim",
+]);
+
+function isConfiguredOpenProjectTarget(
+  value: unknown,
+): value is NonNullable<WorktreeConfig["openProjectTarget"]> {
+  return (
+    typeof value === "string" &&
+    OPEN_PROJECT_TARGETS.has(value as NonNullable<WorktreeConfig["openProjectTarget"]>)
+  );
+}
+
 function getWorktreeColor(id: string): (s: string) => string {
   let color = worktreeColorMap.get(id);
   if (!color) {
@@ -157,6 +179,9 @@ export class WorktreeManager {
         envMapping: fileConfig.envMapping ?? this.config.envMapping,
         autoInstall: fileConfig.autoInstall,
         localIssuePrefix: fileConfig.localIssuePrefix,
+        openProjectTarget: isConfiguredOpenProjectTarget(fileConfig.openProjectTarget)
+          ? fileConfig.openProjectTarget
+          : this.config.openProjectTarget,
       };
 
       // Update the config file path for future reloads
@@ -1224,6 +1249,7 @@ export class WorktreeManager {
         "projectDir",
         "autoInstall",
         "localIssuePrefix",
+        "openProjectTarget",
         "allowAgentCommits",
         "allowAgentPushes",
         "allowAgentPRs",
@@ -1231,6 +1257,12 @@ export class WorktreeManager {
 
       for (const key of allowedKeys) {
         if (key in partial && partial[key] !== undefined) {
+          if (
+            key === "openProjectTarget" &&
+            !isConfiguredOpenProjectTarget(partial.openProjectTarget)
+          ) {
+            return { success: false, error: "Invalid open project target" };
+          }
           existing[key] = partial[key];
           (this.config as unknown as Record<string, unknown>)[key] = partial[key];
         }

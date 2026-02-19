@@ -1,6 +1,6 @@
 # This document outlines house-keeping related tasks
 
-## MCP refactor
+## Clean up MCP
 
 Decide what to keep, what to remove, what to add & make everything clear and visible for devs on how all of the MCP stuff works
 

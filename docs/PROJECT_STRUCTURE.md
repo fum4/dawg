@@ -58,6 +58,7 @@ src/
 │   ├── App.tsx          Main application shell and view routing
 │   ├── theme.ts         Centralized UI tokens/classes
 │   ├── contexts/        App contexts (server/project state, etc.)
+│   ├── icons/           Frontend icon assets + icon component entrypoint (`index.tsx`)
 │   ├── components/
 │   │   ├── ...          Shared UI building blocks
 │   │   └── detail/      Right panel views (worktree/issue/task details)

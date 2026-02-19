@@ -10,7 +10,7 @@ import { Tooltip } from "../Tooltip";
 import { TruncatedTooltip } from "../TruncatedTooltip";
 import { AttachmentImage } from "../AttachmentImage";
 import { MarkdownContent } from "../MarkdownContent";
-import { ClaudeIcon, GitHubIcon, JiraIcon } from "../icons";
+import { ClaudeIcon, GitHubIcon, JiraIcon } from "../../icons";
 import { PersonalNotesSection, AgentSection } from "./NotesSection";
 import { Spinner } from "../Spinner";
 import { WorktreeExistsModal } from "../WorktreeExistsModal";

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { CustomTaskSummary, JiraIssueSummary, LinearIssueSummary } from "../types";
 import { useApi } from "../hooks/useApi";
 import { integration, tab, text } from "../theme";
-import { JiraIcon, LinearIcon } from "./icons";
+import { JiraIcon, LinearIcon } from "../icons";
 import { Modal } from "./Modal";
 
 type IssueSource = "local" | "jira" | "linear";

@@ -1,5 +1,17 @@
 import type { ChildProcess } from "child_process";
 
+export type OpenProjectTarget =
+  | "file-manager"
+  | "cursor"
+  | "vscode"
+  | "zed"
+  | "intellij"
+  | "webstorm"
+  | "terminal"
+  | "warp"
+  | "ghostty"
+  | "neovim";
+
 export interface PortConfig {
   /** Ports discovered by running the dev command and monitoring with lsof */
   discovered: number[];
@@ -24,6 +36,8 @@ export interface WorktreeConfig {
   autoInstall?: boolean;
   /** Prefix for local issue identifiers (default: "LOCAL") */
   localIssuePrefix?: string;
+  /** Preferred app target for "Open project in" */
+  openProjectTarget?: OpenProjectTarget;
   /** Whether MCP agents are allowed to commit (default: false) */
   allowAgentCommits?: boolean;
   /** Whether MCP agents are allowed to push (default: false) */

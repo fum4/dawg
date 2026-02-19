@@ -26,7 +26,12 @@ export function useApi() {
 
       stopWorktree: (id: string) => api.stopWorktree(id, serverUrl),
 
+      fetchOpenProjectTargets: (id: string) => api.fetchOpenProjectTargets(id, serverUrl),
+
       removeWorktree: (id: string) => api.removeWorktree(id, serverUrl),
+
+      openWorktreeIn: (id: string, target: api.OpenProjectTarget) =>
+        api.openWorktreeIn(id, target, serverUrl),
 
       createFromJira: (issueKey: string, branch?: string) =>
         api.createFromJira(issueKey, branch, serverUrl),

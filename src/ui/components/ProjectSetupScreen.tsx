@@ -21,7 +21,7 @@ import { useServerUrlOptional } from "../contexts/ServerContext";
 import type { GitHubStatus, JiraStatus, LinearStatus } from "../types";
 import { button, input, surface, text } from "../theme";
 import { AGENT_CONFIGS, type AgentId, type McpScope } from "../agent-configs";
-import { GitHubIcon, JiraIcon, LinearIcon } from "./icons";
+import { GitHubIcon, JiraIcon, LinearIcon } from "../icons";
 
 interface ProjectSetupScreenProps {
   projectName: string | null;

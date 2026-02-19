@@ -244,7 +244,8 @@ When adding a new selectable entity type, update: the Selection type, CreateForm
 2. Import all colors from `src/ui/theme.ts`. Never hardcode Tailwind color classes.
 3. Use the `Tooltip` component (`src/ui/components/Tooltip.tsx`) instead of the native `title` attribute.
 4. Use the `Modal` component for dialogs (supports `width: 'sm' | 'md' | 'lg'`).
-5. Use `lucide-react` for icons (already a dependency).
+5. Use icon components from `src/ui/icons/index.tsx` for app/custom icons. Use `lucide-react` for generic utility icons when a custom asset component is not needed.
+6. When adding a new app/custom SVG icon, place the file in `src/ui/icons/`, import it in `src/ui/icons/index.tsx` as `*.svg?raw`, and expose exactly one icon component for it. Do not import raw assets in feature components.
 
 ### Adding a New Hook
 

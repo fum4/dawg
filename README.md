@@ -36,6 +36,7 @@ See [Port Mapping](docs/PORT-MAPPING.md) for the full technical details.
 ### Worktree Management
 
 Create, start, stop, and remove git worktrees from the UI or CLI. Each worktree gets its own port offset, environment variables, and process lifecycle.
+In the worktree detail header, the split **Open** button auto-detects supported local apps (IDE/file manager/terminal) and remembers the selected target per project.
 
 ### Issue Tracker Integration
 

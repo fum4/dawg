@@ -5,7 +5,7 @@ import type { PluginSummary } from "../types";
 import { surface, text } from "../theme";
 import { Spinner } from "./Spinner";
 import { Tooltip } from "./Tooltip";
-import { ClaudeIcon } from "./icons";
+import { ClaudeIcon } from "../icons";
 
 interface PluginItemProps {
   plugin: PluginSummary;

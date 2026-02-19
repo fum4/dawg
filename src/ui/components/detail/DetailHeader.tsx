@@ -1,8 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 
+import type { OpenProjectTarget, OpenProjectTargetOption } from "../../hooks/api";
 import type { WorktreeInfo } from "../../types";
+import {
+  CursorIcon,
+  FinderIcon,
+  GhosttyIcon,
+  IntelliJIcon,
+  LinearIcon,
+  NeoVimIcon,
+  TerminalIcon,
+  VSCodeIcon,
+  WarpIcon,
+  WebStormIcon,
+  ZedIcon,
+} from "../../icons";
 import { action, badge, border, button, status, surface, text } from "../../theme";
-import { LinearIcon } from "../icons";
 import { Tooltip } from "../Tooltip";
 
 interface DetailHeaderProps {
@@ -14,6 +27,10 @@ interface DetailHeaderProps {
   onStart: () => void;
   onStop: () => void;
   onRemove: () => void;
+  openTargetOptions: OpenProjectTargetOption[];
+  selectedOpenTarget: OpenProjectTarget | null;
+  onSelectOpenTarget: (target: OpenProjectTarget) => void;
+  onOpenProjectIn: (target: OpenProjectTarget) => void;
   onSelectJiraIssue?: (key: string) => void;
   onSelectLinearIssue?: (identifier: string) => void;
   onSelectLocalIssue?: (identifier: string) => void;
@@ -89,6 +106,147 @@ function InlineEdit({
   );
 }
 
+function OpenTargetAppIcon({
+  target,
+  className = "w-4 h-4",
+}: {
+  target: OpenProjectTarget;
+  className?: string;
+}) {
+  const iconClassName = target === "cursor" ? `${className} invert` : className;
+  switch (target) {
+    case "file-manager":
+      return <FinderIcon className={iconClassName} />;
+    case "cursor":
+      return <CursorIcon className={iconClassName} />;
+    case "vscode":
+      return <VSCodeIcon className={iconClassName} />;
+    case "zed":
+      return <ZedIcon className={iconClassName} />;
+    case "intellij":
+      return <IntelliJIcon className={iconClassName} />;
+    case "webstorm":
+      return <WebStormIcon className={iconClassName} />;
+    case "terminal":
+      return <TerminalIcon className={iconClassName} />;
+    case "warp":
+      return <WarpIcon className={iconClassName} />;
+    case "ghostty":
+      return <GhosttyIcon className={iconClassName} />;
+    case "neovim":
+      return <NeoVimIcon className={iconClassName} />;
+    default:
+      return <FinderIcon className={iconClassName} />;
+  }
+}
+
+function OpenProjectSplitButton({
+  isLoading,
+  openTargetOptions,
+  selectedOpenTarget,
+  onSelectOpenTarget,
+  onOpenProjectIn,
+}: {
+  isLoading: boolean;
+  openTargetOptions: OpenProjectTargetOption[];
+  selectedOpenTarget: OpenProjectTarget | null;
+  onSelectOpenTarget: (target: OpenProjectTarget) => void;
+  onOpenProjectIn: (target: OpenProjectTarget) => void;
+}) {
+  const [isOpenMenuVisible, setIsOpenMenuVisible] = useState(false);
+  const openMenuRef = useRef<HTMLDivElement>(null);
+  const selectedTargetOption =
+    openTargetOptions.find((option) => option.target === selectedOpenTarget) ?? null;
+  const hasOpenTargets = openTargetOptions.length > 0;
+
+  useEffect(() => {
+    if (!isOpenMenuVisible) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!openMenuRef.current) return;
+      if (!openMenuRef.current.contains(event.target as Node)) {
+        setIsOpenMenuVisible(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpenMenuVisible(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpenMenuVisible]);
+
+  return (
+    <div className="relative inline-flex" ref={openMenuRef}>
+      <button
+        type="button"
+        onClick={() => {
+          if (selectedTargetOption) onOpenProjectIn(selectedTargetOption.target);
+        }}
+        disabled={isLoading || !selectedTargetOption}
+        title={selectedTargetOption ? `Open in ${selectedTargetOption.label}` : "No supported apps detected"}
+        className={`group h-7 pl-2.5 pr-3 text-[11px] font-medium ${button.secondary} rounded-l-md border-r border-white/[0.06] disabled:opacity-50 transition-colors duration-150 inline-flex items-center gap-[10px]`}
+      >
+        <OpenTargetAppIcon
+          target={selectedTargetOption?.target ?? "file-manager"}
+          className="w-4 h-4 grayscale transition-[filter] duration-150 group-hover:grayscale-0"
+        />
+        Open
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (!hasOpenTargets) return;
+          setIsOpenMenuVisible((prev) => !prev);
+        }}
+        disabled={isLoading || !hasOpenTargets}
+        aria-haspopup="menu"
+        aria-expanded={isOpenMenuVisible}
+        title="Open project in"
+        className={`group h-7 px-2 text-[11px] font-medium ${button.secondary} rounded-r-md disabled:opacity-50 transition-colors duration-150 inline-flex items-center`}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="w-3 h-3 text-[#6b7280] group-hover:text-white transition-colors"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.512a.75.75 0 0 1-1.08 0L5.21 8.268a.75.75 0 0 1 .02-1.06Z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+      {isOpenMenuVisible && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-white/[0.08] bg-[#11151d] shadow-xl p-1 z-20"
+        >
+          {openTargetOptions.map((option) => (
+            <button
+              key={option.target}
+              type="button"
+              role="menuitem"
+              className={`w-full text-left px-2 py-1.5 text-[11px] rounded-md ${text.secondary} hover:${text.primary} hover:bg-white/[0.06] transition-colors duration-150 inline-flex items-center gap-2`}
+              onClick={() => {
+                setIsOpenMenuVisible(false);
+                onSelectOpenTarget(option.target);
+                onOpenProjectIn(option.target);
+              }}
+            >
+              <OpenTargetAppIcon target={option.target} className="w-4 h-4" />
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DetailHeader({
   worktree,
   isRunning,
@@ -98,6 +256,10 @@ export function DetailHeader({
   onStart,
   onStop,
   onRemove,
+  openTargetOptions,
+  selectedOpenTarget,
+  onSelectOpenTarget,
+  onOpenProjectIn,
   onSelectJiraIssue,
   onSelectLinearIssue,
   onSelectLocalIssue,
@@ -209,6 +371,13 @@ export function DetailHeader({
                   Run
                 </button>
               )}
+              <OpenProjectSplitButton
+                isLoading={isLoading}
+                openTargetOptions={openTargetOptions}
+                selectedOpenTarget={selectedOpenTarget}
+                onSelectOpenTarget={onSelectOpenTarget}
+                onOpenProjectIn={onOpenProjectIn}
+              />
             </>
           )}
           {worktree.ports.length > 0 && (

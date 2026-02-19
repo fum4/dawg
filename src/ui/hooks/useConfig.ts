@@ -15,6 +15,7 @@ export interface WorktreeConfig {
   envMapping?: Record<string, string>;
   autoInstall?: boolean;
   localIssuePrefix?: string;
+  openProjectTarget?: string;
   allowAgentCommits?: boolean;
   allowAgentPushes?: boolean;
   allowAgentPRs?: boolean;

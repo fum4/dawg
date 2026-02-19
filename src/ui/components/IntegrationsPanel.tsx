@@ -24,7 +24,7 @@ import { useServerUrlOptional } from "../contexts/ServerContext";
 import type { DataLifecycleConfig, GitHubStatus, JiraStatus, LinearStatus } from "../types";
 import { button, infoBanner, input, settings, surface, text } from "../theme";
 import { GitHubSetupModal } from "./GitHubSetupModal";
-import { GitHubIcon, JiraIcon, LinearIcon } from "./icons";
+import { GitHubIcon, JiraIcon, LinearIcon } from "../icons";
 import { Spinner } from "./Spinner";
 
 const integrationInput = `px-2.5 py-1.5 rounded-md text-xs bg-white/[0.04] border border-white/[0.06] ${input.text} placeholder-[#4b5563] focus:outline-none focus:bg-white/[0.06] focus:border-white/[0.15] transition-all duration-150`;
