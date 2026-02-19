@@ -93,6 +93,7 @@ See [Configuration](docs/CONFIGURATION.md) for the complete reference.
 | Document                               | Description                                           |
 | -------------------------------------- | ----------------------------------------------------- |
 | [Architecture](docs/ARCHITECTURE.md)   | System layers, components, data flow, build system    |
+| [Project Structure](docs/PROJECT_STRUCTURE.md) | Canonical repository/file layout map             |
 | [CLI Reference](docs/CLI.md)           | All CLI commands and options                          |
 | [Configuration](docs/CONFIGURATION.md) | Config files, settings, and data storage              |
 | [API Reference](docs/API.md)           | REST API endpoints                                    |
