@@ -1,6 +1,6 @@
 {
   "name": "OpenKit",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "bin": {
     "ok": "./dist/cli/index.js",
     "openkit": "./dist/cli/index.js"
