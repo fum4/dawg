@@ -90,7 +90,10 @@ jobs:
             const logsUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
             const command = "${{ steps.parse-command.outputs.command }}";
             const targets = [];
-            if ("${{ steps.parse-command.outputs.build_mac }}" === "true") targets.push("macOS");
+            if ("${{ steps.parse-command.outputs.build_mac }}" === "true") {
+              targets.push("macOS (Apple Silicon)");
+              targets.push("macOS (Intel)");
+            }
             if ("${{ steps.parse-command.outputs.build_linux }}" === "true") targets.push("Linux");
 
             const rows = targets.map((target) => `| ${target} | ⏳ Queued |`).join("\n");
@@ -114,7 +117,8 @@ jobs:
       contents: read
       issues: write
     outputs:
-      artifact_url: ${{ steps.upload.outputs.artifact-url }}
+      arm_artifact_url: ${{ steps.upload_arm.outputs.artifact-url }}
+      intel_artifact_url: ${{ steps.upload_intel.outputs.artifact-url }}
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v6
@@ -140,14 +144,22 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Upload macOS artifacts
-        id: upload
+      - name: Upload macOS artifacts (Apple Silicon)
+        id: upload_arm
         uses: actions/upload-artifact@v4
         with:
-          name: openkit-pr-${{ github.event.issue.number }}-macos
+          name: openkit-pr-${{ github.event.issue.number }}-macos-arm64
           path: |
-            apps/desktop-app/release/*.dmg
-            apps/desktop-app/release/*.dmg.blockmap
+            apps/desktop-app/release/*arm64.dmg
+          if-no-files-found: error
+
+      - name: Upload macOS artifacts (Intel)
+        id: upload_intel
+        uses: actions/upload-artifact@v4
+        with:
+          name: openkit-pr-${{ github.event.issue.number }}-macos-x64
+          path: |
+            apps/desktop-app/release/*x64.dmg
           if-no-files-found: error
 
   package-linux:
@@ -213,7 +225,8 @@ jobs:
           build-mac: ${{ needs.notify-package-start.outputs.build_mac }}
           build-linux: ${{ needs.notify-package-start.outputs.build_linux }}
           mac-result: ${{ needs.package-macos.result }}
-          mac-artifact-url: ${{ needs.package-macos.outputs.artifact_url }}
+          mac-arm-artifact-url: ${{ needs.package-macos.outputs.arm_artifact_url }}
+          mac-intel-artifact-url: ${{ needs.package-macos.outputs.intel_artifact_url }}
 
   notify-package-progress-linux:
     if: ${{ always() && needs.notify-package-start.outputs.should_run == 'true' && needs.notify-package-start.outputs.build_linux == 'true' }}
@@ -263,5 +276,6 @@ jobs:
           build-linux: ${{ needs.notify-package-start.outputs.build_linux }}
           mac-result: ${{ needs.package-macos.result }}
           linux-result: ${{ needs.package-linux.result }}
-          mac-artifact-url: ${{ needs.package-macos.outputs.artifact_url }}
+          mac-arm-artifact-url: ${{ needs.package-macos.outputs.arm_artifact_url }}
+          mac-intel-artifact-url: ${{ needs.package-macos.outputs.intel_artifact_url }}
           linux-artifact-url: ${{ needs.package-linux.outputs.artifact_url }}

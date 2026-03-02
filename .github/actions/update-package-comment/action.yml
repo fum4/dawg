@@ -36,8 +36,12 @@ inputs:
     description: Linux job result (success/failure/cancelled/skipped). Leave empty while running.
     required: false
     default: ""
-  mac-artifact-url:
-    description: Artifact URL for macOS package.
+  mac-arm-artifact-url:
+    description: Artifact URL for macOS Apple Silicon package upload.
+    required: false
+    default: ""
+  mac-intel-artifact-url:
+    description: Artifact URL for macOS Intel package upload.
     required: false
     default: ""
   linux-artifact-url:
@@ -58,7 +62,8 @@ runs:
         BUILD_LINUX: ${{ inputs.build-linux }}
         MAC_RESULT: ${{ inputs.mac-result }}
         LINUX_RESULT: ${{ inputs.linux-result }}
-        MAC_ARTIFACT_URL: ${{ inputs.mac-artifact-url }}
+        MAC_ARM_ARTIFACT_URL: ${{ inputs.mac-arm-artifact-url }}
+        MAC_INTEL_ARTIFACT_URL: ${{ inputs.mac-intel-artifact-url }}
         LINUX_ARTIFACT_URL: ${{ inputs.linux-artifact-url }}
         MAC_RUNNING: ${{ inputs.mac-running }}
         LINUX_RUNNING: ${{ inputs.linux-running }}
@@ -81,7 +86,7 @@ runs:
           const buildMac = process.env.BUILD_MAC === "true";
           const buildLinux = process.env.BUILD_LINUX === "true";
 
-          const rowFor = (name, result, running, artifactUrl) => {
+          const rowFor = (name, result, running, artifactValue) => {
             if (!result) {
               return `| ${name} | ${running ? "⏳ In Progress" : "⏳ Queued"} | — |`;
             }
@@ -90,9 +95,7 @@ runs:
             const label = statusLabel[normalized];
             const artifact =
               normalized === "success"
-                ? artifactUrl
-                  ? `[Download](${artifactUrl})`
-                  : "Available in run artifacts"
+                ? artifactValue || "Available in run artifacts"
                 : "—";
             return `| ${name} | ${icon} ${label} | ${artifact} |`;
           };
@@ -101,14 +104,36 @@ runs:
           const linuxResult = process.env.LINUX_RESULT || "";
           const macRunning = process.env.MAC_RUNNING === "true";
           const linuxRunning = process.env.LINUX_RUNNING === "true";
+          const macArmArtifact = process.env.MAC_ARM_ARTIFACT_URL || "";
+          const macIntelArtifact = process.env.MAC_INTEL_ARTIFACT_URL || "";
 
           const rows = [];
           if (buildMac) {
-            rows.push(rowFor("macOS", macResult, macRunning, process.env.MAC_ARTIFACT_URL || ""));
+            rows.push(
+              rowFor(
+                "macOS (Apple Silicon)",
+                macResult,
+                macRunning,
+                macArmArtifact ? `[Download](${macArmArtifact})` : ""
+              )
+            );
+            rows.push(
+              rowFor(
+                "macOS (Intel)",
+                macResult,
+                macRunning,
+                macIntelArtifact ? `[Download](${macIntelArtifact})` : ""
+              )
+            );
           }
           if (buildLinux)
             rows.push(
-              rowFor("Linux", linuxResult, linuxRunning, process.env.LINUX_ARTIFACT_URL || "")
+              rowFor(
+                "Linux",
+                linuxResult,
+                linuxRunning,
+                process.env.LINUX_ARTIFACT_URL ? `[Download](${process.env.LINUX_ARTIFACT_URL})` : ""
+              )
             );
 
           let title = "### 🚧 Packaging in progress";
