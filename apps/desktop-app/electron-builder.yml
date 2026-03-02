@@ -38,7 +38,7 @@ dmg:
       y: 220
       type: link
       path: /Applications
-afterSign: electron-builder-notarize
+afterSign: ./electron-builder-notarize.cjs
 asar: true
 extraMetadata:
   main: apps/desktop-app/dist/main.js

@@ -267,7 +267,16 @@ productName: OpenKit
 - **asarUnpack**: `apps/desktop-app/dist/**`, `apps/cli/dist/**`, and `node_modules/node-pty/**` are unpacked from the asar archive (configured in `apps/desktop-app/electron-builder.yml`).
 - **extraResources**: `apps/server/dist/runtime` (containing `port-hook.cjs`) is copied to the `runtime` resource directory.
 - **Included files**: `apps/desktop-app/dist/**/*`, `apps/cli/dist/**/*`, `apps/web-app/dist/**/*`, `apps/server/dist/runtime/**/*`, `node_modules/**/*`, `package.json`
+- **macOS notarization hook**: `afterSign` runs `apps/desktop-app/electron-builder-notarize.cjs`. The hook notarizes only macOS builds and skips gracefully when signing credentials are not present.
 - **Output directory**: `apps/desktop-app/release/`
+
+### macOS Signing / Notarization Environment
+
+`apps/desktop-app/electron-builder-notarize.cjs` expects the following environment variables when packaging signed macOS artifacts in CI:
+
+- `APPLE_ID`
+- `APPLE_APP_SPECIFIC_PASSWORD`
+- `APPLE_TEAM_ID`
 
 ### Build Command
 

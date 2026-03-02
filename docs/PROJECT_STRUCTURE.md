@@ -70,6 +70,7 @@ apps/
 │   ├── package.json
 │   ├── project.json
 │   ├── electron-builder.yml
+│   ├── electron-builder-notarize.cjs
 │   ├── electronmon.config.cjs
 │   ├── release/         Packaged desktop artifacts (generated)
 │   └── src/
