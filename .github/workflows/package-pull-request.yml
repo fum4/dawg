@@ -177,7 +177,7 @@ jobs:
           mac-certificate-password: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
           apple-id: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_ID || '' }}
           apple-team-id: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_TEAM_ID || '' }}
-          apple-app-specific-password: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_NOTARIZATION_PASSWORD || '' }}
+          apple-app-specific-password: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
 
       - name: Upload macOS artifacts (Apple Silicon)
         id: upload_arm
