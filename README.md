@@ -1,4 +1,4 @@
-<img src="assets/icon.png" alt="OpenKit app icon" width="96" />
+<img src="docs/assets/openkit-icon.png" alt="OpenKit app icon" width="96" />
 
 # OpenKit
 
@@ -16,7 +16,7 @@ and ship pull requests with clear visibility.
   consistent flow.
 - **Isolated environments**: Each task runs independently on Git worktrees with automatic port
   conflict resolution.
-- **Agent tooling hub**: Centralize agent tooling and workflow hooks instead of per-agent silos.
+- **Agent tooling hub**: Manage custom markdown agents (deployed to Claude/Cursor/Gemini CLI/VS Code/Codex), plugin subagents, MCP servers, skills, plugins, and workflow hooks in one place, with cache-first agent loading and unified Scan & Import flows.
 - **Real-time visibility**: Track execution across agents with live activity and high-signal
   blocker/approval notifications.
 

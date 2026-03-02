@@ -5,21 +5,24 @@ directories:
   output: release
 files:
   - apps/desktop-app/dist/**/*
+  - apps/desktop-app/assets/**/*
   - apps/cli/dist/**/*
   - apps/web-app/dist/**/*
   - apps/server/dist/runtime/**/*
-  - assets/icon.png
   - node_modules/**/*
   - package.json
 icon: assets/icon.icns
 mac:
   icon: assets/icon.icns
   category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
   target:
     - target: dmg
       arch:
         - arm64
         - x64
+  identity: "Developer ID Application"
 linux:
   icon: assets/icon.png
   category: Development
@@ -35,6 +38,7 @@ dmg:
       y: 220
       type: link
       path: /Applications
+afterSign: ./electron-builder-notarize.cjs
 asar: true
 extraMetadata:
   main: apps/desktop-app/dist/main.js

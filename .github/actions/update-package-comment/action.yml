@@ -20,6 +20,14 @@ inputs:
   build-linux:
     description: Whether Linux packaging was requested (true/false).
     required: true
+  mac-running:
+    description: Whether macOS packaging is currently running (true/false).
+    required: false
+    default: "false"
+  linux-running:
+    description: Whether Linux packaging is currently running (true/false).
+    required: false
+    default: "false"
   mac-result:
     description: macOS job result (success/failure/cancelled/skipped). Leave empty while running.
     required: false
@@ -28,8 +36,12 @@ inputs:
     description: Linux job result (success/failure/cancelled/skipped). Leave empty while running.
     required: false
     default: ""
-  mac-artifact-url:
-    description: Artifact URL for macOS package.
+  mac-arm-artifact-url:
+    description: Artifact URL for macOS Apple Silicon package upload.
+    required: false
+    default: ""
+  mac-intel-artifact-url:
+    description: Artifact URL for macOS Intel package upload.
     required: false
     default: ""
   linux-artifact-url:
@@ -50,15 +62,18 @@ runs:
         BUILD_LINUX: ${{ inputs.build-linux }}
         MAC_RESULT: ${{ inputs.mac-result }}
         LINUX_RESULT: ${{ inputs.linux-result }}
-        MAC_ARTIFACT_URL: ${{ inputs.mac-artifact-url }}
+        MAC_ARM_ARTIFACT_URL: ${{ inputs.mac-arm-artifact-url }}
+        MAC_INTEL_ARTIFACT_URL: ${{ inputs.mac-intel-artifact-url }}
         LINUX_ARTIFACT_URL: ${{ inputs.linux-artifact-url }}
+        MAC_RUNNING: ${{ inputs.mac-running }}
+        LINUX_RUNNING: ${{ inputs.linux-running }}
       with:
         script: |
           const statusIcon = {
             success: "✅",
             failure: "❌",
-            cancelled: "⚠️",
-            skipped: "🚫",
+            cancelled: "🚫",
+            skipped: "⚠️",
           };
           const statusLabel = {
             success: "Success",
@@ -71,29 +86,55 @@ runs:
           const buildMac = process.env.BUILD_MAC === "true";
           const buildLinux = process.env.BUILD_LINUX === "true";
 
-          const rowFor = (name, result, artifactUrl) => {
+          const rowFor = (name, result, running, artifactValue) => {
             if (!result) {
-              return `| ${name} | ⏳ Running | — |`;
+              return `| ${name} | ${running ? "⏳ In Progress" : "⏳ Queued"} | — |`;
             }
             const normalized = statusIcon[result] ? result : "skipped";
             const icon = statusIcon[normalized];
             const label = statusLabel[normalized];
             const artifact =
               normalized === "success"
-                ? artifactUrl
-                  ? `[Download](${artifactUrl})`
-                  : "Available in run artifacts"
+                ? artifactValue || "Available in run artifacts"
                 : "—";
             return `| ${name} | ${icon} ${label} | ${artifact} |`;
           };
 
           const macResult = process.env.MAC_RESULT || "";
           const linuxResult = process.env.LINUX_RESULT || "";
+          const macRunning = process.env.MAC_RUNNING === "true";
+          const linuxRunning = process.env.LINUX_RUNNING === "true";
+          const macArmArtifact = process.env.MAC_ARM_ARTIFACT_URL || "";
+          const macIntelArtifact = process.env.MAC_INTEL_ARTIFACT_URL || "";
 
           const rows = [];
-          if (buildMac) rows.push(rowFor("macOS", macResult, process.env.MAC_ARTIFACT_URL || ""));
+          if (buildMac) {
+            rows.push(
+              rowFor(
+                "macOS (Apple Silicon)",
+                macResult,
+                macRunning,
+                macArmArtifact ? `[Download](${macArmArtifact})` : ""
+              )
+            );
+            rows.push(
+              rowFor(
+                "macOS (Intel)",
+                macResult,
+                macRunning,
+                macIntelArtifact ? `[Download](${macIntelArtifact})` : ""
+              )
+            );
+          }
           if (buildLinux)
-            rows.push(rowFor("Linux", linuxResult, process.env.LINUX_ARTIFACT_URL || ""));
+            rows.push(
+              rowFor(
+                "Linux",
+                linuxResult,
+                linuxRunning,
+                process.env.LINUX_ARTIFACT_URL ? `[Download](${process.env.LINUX_ARTIFACT_URL})` : ""
+              )
+            );
 
           let title = "### 🚧 Packaging in progress";
           if (mode === "final") {
@@ -109,10 +150,10 @@ runs:
             title = "### ℹ️ Packaging finished";
             if (allSucceeded) title = "### ✅ Packaging completed";
             else if (anyFailed) title = "### ❌ Packaging failed";
-            else if (anyCancelled) title = "### ⚠️ Packaging cancelled";
+            else if (anyCancelled) title = "### 🚫 Packaging cancelled";
           }
 
-          const body = `${title}\nTriggered with \`${process.env.COMMAND}\`.\n\n[View workflow logs](${process.env.LOGS_URL})\n\n| Target | Status | Artifact |\n| --- | --- | --- |\n${rows.join("\n")}`;
+          const body = `${title}\nTriggered with \`${process.env.COMMAND}\`\n\n[View workflow logs](${process.env.LOGS_URL})\n\n| Target | Status | Artifact |\n| --- | --- | --- |\n${rows.join("\n")}`;
 
           await github.rest.issues.updateComment({
             owner: context.repo.owner,

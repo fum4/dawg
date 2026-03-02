@@ -26,10 +26,15 @@ jobs:
       - name: Setup pnpm + Node
         uses: ./.github/actions/setup-pnpm-node
 
-      - name: Build desktop artifacts
-        run: pnpm package:desktop:mac
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Build desktop artifacts (signed/notarized)
+        uses: ./.github/actions/package-desktop-macos
+        with:
+          sign-and-notarize: "true"
+          mac-certificate: ${{ secrets.MAC_CERTIFICATE }}
+          mac-certificate-password: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+          apple-app-specific-password: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
 
       - name: Upload assets to release
         uses: softprops/action-gh-release@v2
