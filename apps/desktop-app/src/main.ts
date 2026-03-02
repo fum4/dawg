@@ -67,7 +67,7 @@ function createMainWindow(): BrowserWindow {
     title: "OpenKit",
     titleBarStyle: "hiddenInset" as const,
     trafficLightPosition: { x: 12, y: 12 },
-    icon: path.join(workspaceRoot, "assets", "icon.png"),
+    icon: path.join(workspaceRoot, "apps", "desktop-app", "assets", "icon.png"),
     webPreferences: {
       preload: path.join(currentDir, "preload.cjs"),
       nodeIntegration: false,

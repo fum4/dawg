@@ -27,6 +27,7 @@ jobs:
       command: ${{ steps.parse-command.outputs.command }}
       build_mac: ${{ steps.parse-command.outputs.build_mac }}
       build_linux: ${{ steps.parse-command.outputs.build_linux }}
+      sign_mac: ${{ steps.resolve-signing.outputs.sign_mac }}
       comment_id: ${{ steps.create-status-comment.outputs.result }}
     steps:
       - name: Parse slash command
@@ -80,6 +81,35 @@ jobs:
               repo: context.repo.repo,
               content: "+1",
             });
+
+      - name: Resolve PR head repository
+        if: ${{ steps.parse-command.outputs.should_run == 'true' }}
+        id: pr-head
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const isSameRepository = pr.head.repo.full_name === `${context.repo.owner}/${context.repo.repo}`;
+            core.setOutput("is_same_repository", isSameRepository ? "true" : "false");
+
+      - name: Resolve mac signing mode
+        if: ${{ steps.parse-command.outputs.should_run == 'true' }}
+        id: resolve-signing
+        shell: bash
+        env:
+          BUILD_MAC: ${{ steps.parse-command.outputs.build_mac }}
+          IS_SAME_REPOSITORY: ${{ steps.pr-head.outputs.is_same_repository }}
+        run: |
+          set -euo pipefail
+          sign_mac=false
+          if [[ "$BUILD_MAC" == "true" && "$IS_SAME_REPOSITORY" == "true" ]]; then
+            sign_mac=true
+          fi
+          echo "sign_mac=$sign_mac" >> "$GITHUB_OUTPUT"
 
       - name: Create status comment
         if: ${{ steps.parse-command.outputs.should_run == 'true' }}
@@ -140,9 +170,14 @@ jobs:
         uses: ./.github/actions/setup-pnpm-node
 
       - name: Build desktop artifacts (macOS)
-        run: pnpm package:desktop:mac
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        uses: ./.github/actions/package-desktop-macos
+        with:
+          sign-and-notarize: ${{ needs.notify-package-start.outputs.sign_mac }}
+          mac-certificate: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.MAC_CERTIFICATE || '' }}
+          mac-certificate-password: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
+          apple-id: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_ID || '' }}
+          apple-team-id: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_TEAM_ID || '' }}
+          apple-app-specific-password: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_NOTARIZATION_PASSWORD || '' }}
 
       - name: Upload macOS artifacts (Apple Silicon)
         id: upload_arm

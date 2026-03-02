@@ -262,11 +262,12 @@ productName: OpenKit
 
 ### Packaging Details
 
+- **App icons**: Electron Builder uses desktop-app scoped assets (`apps/desktop-app/assets/icon.icns` for macOS, `apps/desktop-app/assets/icon.png` for Linux).
 - **asar**: Enabled. The app is bundled into an asar archive for faster loading.
 - **Main entry override**: `extraMetadata.main` is set to `apps/desktop-app/dist/main.js` so the packaged `app.asar` resolves the Electron main process entry correctly.
 - **asarUnpack**: `apps/desktop-app/dist/**`, `apps/cli/dist/**`, and `node_modules/node-pty/**` are unpacked from the asar archive (configured in `apps/desktop-app/electron-builder.yml`).
 - **extraResources**: `apps/server/dist/runtime` (containing `port-hook.cjs`) is copied to the `runtime` resource directory.
-- **Included files**: `apps/desktop-app/dist/**/*`, `apps/cli/dist/**/*`, `apps/web-app/dist/**/*`, `apps/server/dist/runtime/**/*`, `node_modules/**/*`, `package.json`
+- **Included files**: `apps/desktop-app/dist/**/*`, `apps/desktop-app/assets/**/*`, `apps/cli/dist/**/*`, `apps/web-app/dist/**/*`, `apps/server/dist/runtime/**/*`, `node_modules/**/*`, `package.json`
 - **macOS notarization hook**: `afterSign` runs `apps/desktop-app/electron-builder-notarize.cjs`. The hook notarizes only macOS builds and skips gracefully when signing credentials are not present.
 - **Output directory**: `apps/desktop-app/release/`
 

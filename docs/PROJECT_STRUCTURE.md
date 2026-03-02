@@ -15,6 +15,7 @@ OpenKit/
 ├── libs/                Shared libraries
 ├── packages/            Shared configuration packages
 ├── docs/                Documentation
+│   └── assets/          Shared documentation/readme assets
 ├── dist/                Core runtime build output (generated)
 ├── nx.json              Nx workspace/task graph config
 ├── pnpm-workspace.yaml  pnpm workspace package map
@@ -72,6 +73,7 @@ apps/
 │   ├── electron-builder.yml
 │   ├── electron-builder-notarize.cjs
 │   ├── electronmon.config.cjs
+│   ├── assets/
 │   ├── release/         Packaged desktop artifacts (generated)
 │   └── src/
 │       ├── main.ts

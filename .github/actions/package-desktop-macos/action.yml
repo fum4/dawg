@@ -1,0 +1,94 @@
+name: Package Desktop macOS
+description: Build macOS desktop artifacts, optionally with signing and notarization.
+
+inputs:
+  package-command:
+    description: Command used to build macOS desktop artifacts.
+    required: false
+    default: pnpm package:desktop:mac
+  sign-and-notarize:
+    description: Whether to sign and notarize the build (true/false).
+    required: false
+    default: "false"
+  mac-certificate:
+    description: Base64 encoded Developer ID certificate (.p12).
+    required: false
+    default: ""
+  mac-certificate-password:
+    description: Password for the Developer ID certificate.
+    required: false
+    default: ""
+  apple-id:
+    description: Apple ID for notarization.
+    required: false
+    default: ""
+  apple-team-id:
+    description: Apple team id for notarization.
+    required: false
+    default: ""
+  apple-app-specific-password:
+    description: Apple app-specific password for notarization.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Validate signing inputs
+      if: ${{ inputs.sign-and-notarize == 'true' }}
+      shell: bash
+      env:
+        MAC_CERTIFICATE: ${{ inputs.mac-certificate }}
+        MAC_CERTIFICATE_PASSWORD: ${{ inputs.mac-certificate-password }}
+        APPLE_ID: ${{ inputs.apple-id }}
+        APPLE_TEAM_ID: ${{ inputs.apple-team-id }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ inputs.apple-app-specific-password }}
+      run: |
+        set -euo pipefail
+
+        missing=()
+        [[ -n "$MAC_CERTIFICATE" ]] || missing+=("mac-certificate")
+        [[ -n "$MAC_CERTIFICATE_PASSWORD" ]] || missing+=("mac-certificate-password")
+        [[ -n "$APPLE_ID" ]] || missing+=("apple-id")
+        [[ -n "$APPLE_TEAM_ID" ]] || missing+=("apple-team-id")
+        [[ -n "$APPLE_APP_SPECIFIC_PASSWORD" ]] || missing+=("apple-app-specific-password")
+
+        if [[ "${#missing[@]}" -gt 0 ]]; then
+          echo "Missing required inputs for signed/notarized macOS package: ${missing[*]}" >&2
+          exit 1
+        fi
+
+    - name: Install Apple certificate
+      if: ${{ inputs.sign-and-notarize == 'true' }}
+      shell: bash
+      env:
+        MAC_CERTIFICATE: ${{ inputs.mac-certificate }}
+        MAC_CERTIFICATE_PASSWORD: ${{ inputs.mac-certificate-password }}
+      run: |
+        set -euo pipefail
+
+        echo "$MAC_CERTIFICATE" | base64 --decode > cert.p12
+        security create-keychain -p actions build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p actions build.keychain
+        security import cert.p12 \
+          -k build.keychain \
+          -P "$MAC_CERTIFICATE_PASSWORD" \
+          -T /usr/bin/codesign
+
+    - name: Build desktop artifacts (signed/notarized)
+      if: ${{ inputs.sign-and-notarize == 'true' }}
+      shell: bash
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        APPLE_ID: ${{ inputs.apple-id }}
+        APPLE_TEAM_ID: ${{ inputs.apple-team-id }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ inputs.apple-app-specific-password }}
+      run: ${{ inputs.package-command }}
+
+    - name: Build desktop artifacts (unsigned)
+      if: ${{ inputs.sign-and-notarize != 'true' }}
+      shell: bash
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      run: ${{ inputs.package-command }}
