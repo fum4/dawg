@@ -67,6 +67,7 @@ App script contract: app packages expose a non-watch `preview` script for runnin
 OpenKit uses Nx for workspace orchestration and task caching while keeping app-level build tools (tsup, Vite, electron-builder).
 
 - Workspace config lives in `nx.json`
+- Nx `sharedGlobals` cache inputs include root package/lock metadata plus shared build config files (`tsconfig.base.json`, `tsconfig.apps.json`, `tsconfig.libs.json`, `tsconfig.json`, and core app build configs like tsup/vite/electron-builder) so cache invalidates correctly when shared defaults change.
 - pnpm workspace config lives in `pnpm-workspace.yaml` (globs `apps/*`, `libs/*`, and `packages/*`; only directories with their own `package.json` are treated as pnpm packages)
 - Project configs are colocated as `project.json` in:
   - `apps/web-app` (`web-app`)
@@ -80,7 +81,7 @@ Package layout:
 
 - Root `package.json` is the workspace orchestration entrypoint (marked `private` to prevent accidental npm publish).
 - `apps/cli`, `apps/server`, `apps/web-app`, and `apps/desktop-app` own their direct scripts and dependencies.
-- Root `tsconfig.base.json` + `tsconfig.json` provide shared TypeScript workspace configuration.
+- Root TypeScript configs are split by role: `tsconfig.base.json` (shared compiler defaults), `tsconfig.apps.json` (app defaults), `tsconfig.libs.json` (library defaults), and `tsconfig.json` (workspace aggregate).
 - `apps/website/package.json` and `apps/mobile-app/package.json` remain independently tooled ecosystems (Astro and Expo).
 
 Common commands:
@@ -122,6 +123,7 @@ Run `pnpm run setup` to create `.env.local` from `.env.example` (without overwri
 npm publishing is currently paused.
 
 - Code quality and smoke-test workflows run on pull requests targeting `master` (not on direct push to `master`).
+- Pull request CI jobs check out `refs/pull/<number>/head` (PR head ref) instead of GitHub's synthetic merge ref to avoid intermittent merge-ref fetch failures in `actions/checkout`.
 - The code quality workflow runs format globally, and runs lint/typecheck via `nx affected` against PR base/head commits. Lint/typecheck jobs are skipped entirely when no projects are affected for those targets (via reusable composite action `.github/actions/check-affected-target`).
 - The smoke-test workflow (`.github/workflows/test.yml`) runs the CLI startup matrix only when CLI/server-related changes are detected (using the same reusable `.github/actions/check-affected-target` action, plus workflow/action self-change guards).
 - The PR build workflow (`.github/workflows/build.yml`) uses reusable `.github/actions/check-affected-build` to compute per-app build flags and global fallback changes (internally using `.github/actions/check-affected-target`), then runs per-app build jobs only for affected apps.
@@ -272,14 +274,15 @@ The web app uses Tailwind v4 through CSS-first configuration in `apps/web-app/sr
 
 TypeScript uses a layered setup:
 
-- Root `tsconfig.base.json` defines shared compiler defaults.
-- Root `tsconfig.json` defines workspace-wide aliases and defaults.
-- Each app owns `apps/<app>/tsconfig.json`, extending root config and adding app-local overrides (for example `apps/desktop-app` uses NodeNext emit settings, `apps/web-app` adds `vite/client` types).
+- Root `tsconfig.base.json` defines shared compiler defaults (emit-neutral).
+- Root `tsconfig.apps.json` / `tsconfig.libs.json` define app/library defaults.
+- Root `tsconfig.json` is the workspace aggregate config.
+- Each app owns `apps/<app>/tsconfig.json` and can override as needed (for example `apps/desktop-app` uses NodeNext emit settings, `apps/web-app` adds `vite/client` types).
 
 - **Target/Module:** ES2022 / ESNext with Bundler resolution
 - **Strict mode** enabled
 - **JSX:** `react-jsx` (automatic runtime)
-- **noEmit:** true (tsup and Vite handle compilation; `tsgo` is used for type checking)
+- **Emit policy:** Typecheck commands pass `--noEmit` explicitly; build commands that compile with TypeScript rely on default emit behavior.
 
 ## Architecture Patterns
 
