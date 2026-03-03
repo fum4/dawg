@@ -364,7 +364,31 @@ function parseReleaseOptions(assets: ReleaseAsset[]): DownloadOption[] {
     return a.title.localeCompare(b.title);
   });
 
-  return options;
+  const bestByTarget = new Map<string, DownloadOption>();
+  options.forEach((option) => {
+    const key = `${option.platform}:${option.arch}`;
+    const existing = bestByTarget.get(key);
+
+    if (!existing) {
+      bestByTarget.set(key, option);
+      return;
+    }
+
+    // Keep the most user-friendly format for each target.
+    if (option.extOrder < existing.extOrder) {
+      bestByTarget.set(key, option);
+    }
+  });
+
+  return Array.from(bestByTarget.values()).sort((a, b) => {
+    if (PLATFORM_ORDER[a.platform] !== PLATFORM_ORDER[b.platform]) {
+      return PLATFORM_ORDER[a.platform] - PLATFORM_ORDER[b.platform];
+    }
+    if (ARCH_ORDER[a.arch] !== ARCH_ORDER[b.arch]) {
+      return ARCH_ORDER[a.arch] - ARCH_ORDER[b.arch];
+    }
+    return a.title.localeCompare(b.title);
+  });
 }
 
 function getCached(): DownloadInfo | null {
