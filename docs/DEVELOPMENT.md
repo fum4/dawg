@@ -258,7 +258,7 @@ Electron has its own TypeScript config (`apps/desktop-app/tsconfig.json`) target
 The marketing site in `apps/website` uses Astro. `pnpm build:website` (or `nx run website:build`) outputs static assets to `apps/website/dist/`.
 
 For Vercel deployments with `apps/website` as the project root, `apps/website/vercel.json` uses an `ignoreCommand` that skips builds when the current commit does not modify files in `apps/website/`.
-The same Vercel config runs install from the repository root with a pnpm filter (`OpenKit-website...`) so website previews avoid installing unrelated workspace dependencies (for example Electron/desktop build deps).
+The same Vercel config changes directory to the repository root (`cd ../..`) and runs a filtered pnpm install (`OpenKit-website...`) so website previews avoid installing unrelated workspace dependencies (for example Electron/desktop build deps).
 
 ### Mobile (Expo)
 
