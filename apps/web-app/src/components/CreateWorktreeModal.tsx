@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { GitBranch } from "lucide-react";
 
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import { input, text } from "../theme";
 import { Button } from "./Button";
 import { JiraIcon, LinearIcon } from "../icons";
@@ -39,6 +40,7 @@ export function CreateWorktreeModal({
   const [branchManuallyEdited, setBranchManuallyEdited] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "create-worktree-modal");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Jira form state

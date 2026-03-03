@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Settings } from "lucide-react";
 
 import { DEFAULT_PORT } from "@openkit/shared/constants";
+import { reportPersistentErrorToast } from "../errorToasts";
 import { Modal } from "./Modal";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { button, input, settings, text } from "../theme";
@@ -21,14 +22,21 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
   const [initialAutoDownloadUpdates, setInitialAutoDownloadUpdates] = useState(true);
 
   useEffect(() => {
-    window.electronAPI?.getPreferences().then((prefs) => {
-      setBasePort(prefs.basePort);
-      setSetupPreference(prefs.setupPreference);
-      setAutoDownloadUpdates(prefs.autoDownloadUpdates ?? true);
-      setInitialBasePort(prefs.basePort);
-      setInitialSetupPreference(prefs.setupPreference);
-      setInitialAutoDownloadUpdates(prefs.autoDownloadUpdates ?? true);
-    });
+    window.electronAPI
+      ?.getPreferences()
+      .then((prefs) => {
+        setBasePort(prefs.basePort);
+        setSetupPreference(prefs.setupPreference);
+        setAutoDownloadUpdates(prefs.autoDownloadUpdates ?? true);
+        setInitialBasePort(prefs.basePort);
+        setInitialSetupPreference(prefs.setupPreference);
+        setInitialAutoDownloadUpdates(prefs.autoDownloadUpdates ?? true);
+      })
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to load app preferences", {
+          scope: "app-settings:load-preferences",
+        });
+      });
   }, []);
 
   const hasChanges =
@@ -36,9 +44,19 @@ export function AppSettingsModal({ onClose }: AppSettingsModalProps) {
     setupPreference !== initialSetupPreference ||
     autoDownloadUpdates !== initialAutoDownloadUpdates;
 
-  const handleSave = () => {
-    window.electronAPI?.updatePreferences({ basePort, setupPreference, autoDownloadUpdates });
-    onClose();
+  const handleSave = async () => {
+    try {
+      await window.electronAPI?.updatePreferences({
+        basePort,
+        setupPreference,
+        autoDownloadUpdates,
+      });
+      onClose();
+    } catch (error) {
+      reportPersistentErrorToast(error, "Failed to save app preferences", {
+        scope: "app-settings:save-preferences",
+      });
+    }
   };
 
   const fieldInputClass = `w-full px-2.5 py-1.5 rounded-md text-xs bg-white/[0.04] border border-white/[0.06] ${input.text} placeholder-[#4b5563] focus:outline-none focus:bg-white/[0.06] focus:border-white/[0.15] transition-all duration-150`;

@@ -3,6 +3,7 @@ import { Bot, FolderOpen, FolderSearch, HardDrive, ScanSearch, Settings2 } from 
 
 import { useServer } from "../contexts/ServerContext";
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import type {
   ClaudeAgentScanResult,
   McpScanResult,
@@ -92,6 +93,7 @@ export function McpServerScanModal({
     AGENT_TARGETS.map((target) => target.id),
   );
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "mcp-server-scan-modal");
   const autoScanTriggered = useRef(false);
 
   const applyResults = useCallback(

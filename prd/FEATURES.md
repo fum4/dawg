@@ -1,5 +1,9 @@
 # This document outlines new features
 
+## Activity draggable panels
+
+Integrate package to help with resizing and dragging activity panels around the screen
+
 ## ✅ Worktree Hooks
 
 Add hooks to worktree creation/removal, configurable from settings page
@@ -27,6 +31,6 @@ Add "Code with Claude" button to tasks that will either:
 - open claude code in corresponding worktree terminal (if already existing) and allow user to provide further prompts for the current implementation
 - create a new worktree (if it doesn't already exist), open claude code in the worktree terminal and automatically start working on the task
 
-## Auto update
+## 🚧 Auto update
 
 Use electron-autoupdater (needs signing on macOS)

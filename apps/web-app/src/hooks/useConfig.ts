@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { reportPersistentErrorToast } from "../errorToasts";
 import { useServerUrlOptional } from "../contexts/ServerContext";
 import { fetchConfig as apiFetchConfig } from "./api";
 
@@ -53,8 +54,8 @@ export function useConfig() {
       setConfig(data.config || null);
       setProjectName(data.projectName || null);
       setHasBranchNameRule(data.hasBranchNameRule ?? false);
-    } catch {
-      // Ignore
+    } catch (error) {
+      reportPersistentErrorToast(error, "Failed to fetch config", { scope: "config:fetch" });
     } finally {
       setIsLoading(false);
     }

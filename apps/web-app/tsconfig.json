@@ -1,8 +1,10 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.apps.json",
   "compilerOptions": {
-    "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": {
+      "@openkit/shared/*": ["../../libs/shared/src/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "../../global.d.ts"],
   "exclude": ["dist", "node_modules"]

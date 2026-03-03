@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Server } from "lucide-react";
 
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import { Modal } from "./Modal";
 import { input, mcpServer, text } from "../theme";
 
@@ -22,6 +23,7 @@ export function McpServerCreateModal({ onCreated, onClose }: McpServerCreateModa
   const [jsonName, setJsonName] = useState("");
   const [jsonConfig, setJsonConfig] = useState("");
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "mcp-server-create-modal");
   const [creating, setCreating] = useState(false);
 
   const isRecord = (value: unknown): value is Record<string, unknown> =>

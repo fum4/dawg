@@ -37,10 +37,10 @@ The app operates in two modes:
 
 ## View System
 
-The application has five top-level views, defined as the `View` type in `apps/web-app/src/components/NavBar.tsx`:
+The application has six top-level views, defined as the `View` type in `apps/web-app/src/components/NavBar.tsx`:
 
 ```typescript
-type View = "workspace" | "agents" | "hooks" | "configuration" | "integrations";
+type View = "workspace" | "agents" | "activity" | "hooks" | "configuration" | "integrations";
 ```
 
 ### Workspace
@@ -52,6 +52,10 @@ The main view. Displays a two-panel layout: a sidebar with worktree and issue li
 Manages custom agents, plugin agents, MCP servers, skills, and plugins. This is the hub for configuring agent tooling -- creating custom registry-backed agents (`~/.openkit/agents/*.md`) and deploying them to Claude/Cursor/Gemini CLI/VS Code/Codex, browsing plugin-provided `agents/*.md` definitions, registering MCP servers, creating/deploying skills, and managing Claude plugins.
 On initial load, Agents triggers a background device scan for MCP servers/skills/custom-agents and shows a discovery banner with quick `Scan again` and `Import` actions when items are found. If opened from that banner, the import dialog reuses the already-scanned results (no second scan).
 The Agents list is cache-first: sidebar items render immediately from local cache and then refresh in the background (with a loading spinner shown during refresh).
+
+### Activity
+
+Shows project-scoped activity timelines using the same feed rows/filters/actions as the bell dropdown. In Electron multi-project mode, the page renders one card per open project, ordered with the active project first, in a responsive wrapping grid (`minmax(500px, 1fr)`) constrained to viewport height (equal-height rows, per-card internal scrolling). Running projects stream live events over SSE per project, and non-running projects render an unavailable state card.
 
 ### Hooks
 
@@ -97,33 +101,33 @@ The app uses a dark theme with a neutral slate background family and teal as the
 
 ### Theme Token Categories
 
-| Export        | Purpose                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `palette`     | Raw hex/rgba color values                                                                                  |
-| `surface`     | Background classes for page, panels, modals, overlays                                                      |
-| `border`      | Border classes (subtle, section, modal, input, accent, focus)                                              |
-| `input`       | Input field backgrounds, text, placeholder, ring styles                                                    |
-| `text`        | Text hierarchy: primary, secondary, muted, dimmed, error                                                   |
-| `status`      | Worktree status indicators (running, stopped, creating, deleting)                                          |
-| `action`      | Ghost-style action button colors (start, stop, delete, commit, push, PR)                                   |
-| `button`      | Filled button variants (primary, secondary, confirm/destructive)                                           |
-| `tab`         | Tab active/inactive styles                                                                                 |
-| `badge`       | Integration and status badge colors                                                                        |
-| `integration` | Per-integration accent colors (jira=blue, linear=indigo, localIssue=amber, worktree=teal, mcp=purple)      |
-| `header`      | Header bar specific styles                                                                                 |
-| `nav`         | Navigation bar active/inactive styles                                                                      |
-| `settings`    | Configuration panel label/description/card styles                                                          |
-| `detailTab`   | Detail panel tab (Logs/Terminal/Hooks) active/inactive styles                                              |
-| `errorBanner` | Error banner backgrounds and borders                                                                       |
-| `infoBanner`  | Informational banner (teal accent) styles                                                                  |
-| `customTask`  | Custom task accent, badge, button, status, priority, and label colors                                      |
-| `skill`       | Skill accent (pink) and badge styles                                                                       |
-| `plugin`      | Plugin accent (warm copper) and badge styles                                                               |
-| `mcpServer`   | MCP server accent (purple), deployment status dot colors                                                   |
-| `hooks`       | Hooks accent (emerald), step result status colors                                                          |
-| `notes`       | Notes tab styles, todo checkbox colors                                                                     |
-| `agentRule`   | Agent rule accent (white), background, border styles                                                       |
-| `activity`    | Activity feed category colors (agent=purple, worktree=teal, system=red) and optional severity token colors |
+| Export        | Purpose                                                                                                                                                        |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `palette`     | Raw hex/rgba color values                                                                                                                                      |
+| `surface`     | Background classes for page, panels, modals, overlays                                                                                                          |
+| `border`      | Border classes (subtle, section, modal, input, accent, focus)                                                                                                  |
+| `input`       | Input field backgrounds, text, placeholder, ring styles                                                                                                        |
+| `text`        | Text hierarchy: primary, secondary, muted, dimmed, error                                                                                                       |
+| `status`      | Worktree status indicators (running, stopped, creating, deleting)                                                                                              |
+| `action`      | Ghost-style action button colors (start, stop, delete, commit, push, PR)                                                                                       |
+| `button`      | Filled button variants (primary, secondary, confirm/destructive)                                                                                               |
+| `tab`         | Tab active/inactive styles                                                                                                                                     |
+| `badge`       | Integration and status badge colors                                                                                                                            |
+| `integration` | Per-integration accent colors (jira=blue, linear=indigo, localIssue=amber, worktree=teal, mcp=purple)                                                          |
+| `header`      | Header bar specific styles                                                                                                                                     |
+| `nav`         | Navigation bar active/inactive styles                                                                                                                          |
+| `settings`    | Configuration panel label/description/card styles                                                                                                              |
+| `detailTab`   | Detail panel tab (Logs/Terminal/Hooks) active/inactive styles                                                                                                  |
+| `errorBanner` | Error banner backgrounds and borders                                                                                                                           |
+| `infoBanner`  | Informational banner (teal accent) styles                                                                                                                      |
+| `customTask`  | Custom task accent, badge, button, status, priority, and label colors                                                                                          |
+| `skill`       | Skill accent (pink) and badge styles                                                                                                                           |
+| `plugin`      | Plugin accent (warm copper) and badge styles                                                                                                                   |
+| `mcpServer`   | MCP server accent (purple), deployment status dot colors                                                                                                       |
+| `hooks`       | Hooks accent (emerald), step result status colors                                                                                                              |
+| `notes`       | Notes tab styles, todo checkbox colors                                                                                                                         |
+| `agentRule`   | Agent rule accent (cyan), background, border styles                                                                                                            |
+| `activity`    | Activity feed category colors (agent=purple, worktree=teal, system=red), agent-variant icon backgrounds (Codex green tint), and optional severity token colors |
 
 ### Integration Color Mapping
 
@@ -291,7 +295,7 @@ All hooks live in `apps/web-app/src/hooks/`.
 **`useWorktrees`** (`useWorktrees.ts`) establishes an `EventSource` connection to `/api/events`. The server pushes several event types:
 
 - `worktrees` -- worktree state updates (status, logs, git state)
-- `notification` -- direct user-action success/failure messages displayed as toast messages
+- `notification` -- server notification messages (error-level notifications are surfaced through persistent error toasts)
 - `hook-update` -- signals that hook results changed for a worktree, triggering auto-refetch in the HooksTab
 - `activity-history` -- batch of recent events on initial connection (dispatched as `OpenKit:activity-history` CustomEvent)
 - `activity` -- individual real-time activity events (dispatched as `OpenKit:activity` CustomEvent)
@@ -483,61 +487,59 @@ The app uses Framer Motion for transitions:
 
 ### Components (`apps/web-app/src/components/`)
 
-| File                        | Description                                                                                                                                                                                                                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AgentCreateModal.tsx`      | Create custom agent modal (writes to `~/.openkit/agents/*.md` and selects deployment targets/scope)                                                                                                                                                                                         |
-| `AgentItem.tsx`             | Agent sidebar item (custom + plugin-discovered)                                                                                                                                                                                                                                             |
-| `AgentsView.tsx`            | Top-level agents management view                                                                                                                                                                                                                                                            |
-| `AgentsSidebar.tsx`         | Sidebar for agents view (rules, agents, MCP servers, skills, plugins lists)                                                                                                                                                                                                                 |
-| `AgentsToolbar.tsx`         | Toolbar for agents view actions                                                                                                                                                                                                                                                             |
-| `AppSettingsModal.tsx`      | Electron app settings (themes, preferences)                                                                                                                                                                                                                                                 |
-| `AttachmentImage.tsx`       | Image attachment preview with lightbox                                                                                                                                                                                                                                                      |
-| `Button.tsx`                | Reusable button component                                                                                                                                                                                                                                                                   |
-| `ClickToEditHint.tsx`       | Reusable inline helper text for editable fields (`Click to edit`)                                                                                                                                                                                                                           |
-| `ConfigurationPanel.tsx`    | Edit `.openkit/config.json` settings                                                                                                                                                                                                                                                        |
-| `ConfirmDialog.tsx`         | Confirmation dialog for destructive actions                                                                                                                                                                                                                                                 |
-| `ConfirmModal.tsx`          | Generic confirmation modal                                                                                                                                                                                                                                                                  |
-| `CreateCustomTaskModal.tsx` | Create new custom task form                                                                                                                                                                                                                                                                 |
-| `CreateForm.tsx`            | Sidebar tab switcher (Branch/Issues) with create buttons                                                                                                                                                                                                                                    |
-| `CreateWorktreeModal.tsx`   | Create worktree modal (from branch, Jira, or Linear)                                                                                                                                                                                                                                        |
-| `CustomTaskItem.tsx`        | Custom task sidebar list item                                                                                                                                                                                                                                                               |
-| `CustomTaskList.tsx`        | Custom task list in sidebar                                                                                                                                                                                                                                                                 |
-| `DeployDialog.tsx`          | MCP server/skill deployment dialog                                                                                                                                                                                                                                                          |
-| `DeployMatrixDialog.tsx`    | Deployment matrix modal used from sidebar toggles (Agent x Global/Project) for skills, MCP servers, and both custom/plugin agents                                                                                                                                                           |
-| `EditableTextareaCard.tsx`  | Shared inline-edit textarea card with optional path annotation row/actions, debounce auto-save, and click-to-edit hint                                                                                                                                                                      |
-| `GitHubSetupModal.tsx`      | GitHub initial setup (commit + repo creation)                                                                                                                                                                                                                                               |
-| `Header.tsx`                | Top header bar with nav tabs, running count, and activity bell icon                                                                                                                                                                                                                         |
-| `ImageModal.tsx`            | Full-screen image lightbox                                                                                                                                                                                                                                                                  |
-| `IntegrationsPanel.tsx`     | Configure Jira/Linear/GitHub integrations                                                                                                                                                                                                                                                   |
-| `IssueList.tsx`             | Aggregated issue list (Jira + Linear + custom tasks)                                                                                                                                                                                                                                        |
-| `JiraIssueItem.tsx`         | Jira issue sidebar item                                                                                                                                                                                                                                                                     |
-| `JiraIssueList.tsx`         | Jira-specific issue list                                                                                                                                                                                                                                                                    |
-| `LinearIssueItem.tsx`       | Linear issue sidebar item                                                                                                                                                                                                                                                                   |
-| `LinearIssueList.tsx`       | Linear-specific issue list                                                                                                                                                                                                                                                                  |
-| `MarkdownContent.tsx`       | Markdown renderer with dark theme styling                                                                                                                                                                                                                                                   |
-| `McpServerCreateModal.tsx`  | Create/edit MCP server modal (supports manual form entry or direct JSON paste of a single server object, without `mcpServers`/`mcp.servers` wrappers)                                                                                                                                       |
-| `McpServerItem.tsx`         | MCP server sidebar item                                                                                                                                                                                                                                                                     |
-| `McpServerScanModal.tsx`    | Scan and import MCP servers/skills/custom agents (supports direct device-scan entry from discovery banner, prefilled results reuse, and custom-agent deploy target selection)                                                                                                               |
-| `Modal.tsx`                 | Base modal component (sm/md/lg widths)                                                                                                                                                                                                                                                      |
-| `NavBar.tsx`                | Navigation bar (defines View type)                                                                                                                                                                                                                                                          |
-| `PluginInstallModal.tsx`    | Install Claude plugin modal                                                                                                                                                                                                                                                                 |
-| `PluginItem.tsx`            | Plugin sidebar item                                                                                                                                                                                                                                                                         |
-| `ProjectSetupScreen.tsx`    | First-run setup for new Electron projects                                                                                                                                                                                                                                                   |
-| `ResizableHandle.tsx`       | Drag handle for sidebar resizing                                                                                                                                                                                                                                                            |
-| `SetupCommitModal.tsx`      | Commit OpenKit config files modal                                                                                                                                                                                                                                                           |
-| `SkillCreateModal.tsx`      | Create/edit skill modal                                                                                                                                                                                                                                                                     |
-| `SkillItem.tsx`             | Skill sidebar item                                                                                                                                                                                                                                                                          |
-| `Spinner.tsx`               | Loading spinner component                                                                                                                                                                                                                                                                   |
-| `TabBar.tsx`                | Electron multi-project tab bar and bottom-right project controls (QR, Wi-Fi tunnel toggle, Settings)                                                                                                                                                                                        |
-| `ActivityFeed.tsx`          | Activity feed dropdown panel with bell icon, multi-select filter chips (`Worktree`, `Hooks`, `Agents`, `System`), action-required top section, expandable hook-run entries, row-level subject navigation (hook rows open Hooks tab), and inline worktree links that still open the worktree |
-| `Toast.tsx`                 | Animated toast notification (error=red, success=green, info=teal, loading=amber) with groupKey deduplication, grouped children, project name, worktree links                                                                                                                                |
-| `Tooltip.tsx`               | Tooltip component (always use this instead of native `title` attribute)                                                                                                                                                                                                                     |
-| `TruncatedTooltip.tsx`      | Text with automatic tooltip on overflow                                                                                                                                                                                                                                                     |
-| `VerificationPanel.tsx`     | Hooks configuration view (trigger-based command steps and skills)                                                                                                                                                                                                                           |
-| `WelcomeScreen.tsx`         | Initial welcome/onboarding screen                                                                                                                                                                                                                                                           |
-| `WorktreeExistsModal.tsx`   | Handle worktree already exists error                                                                                                                                                                                                                                                        |
-| `WorktreeItem.tsx`          | Worktree sidebar list item                                                                                                                                                                                                                                                                  |
-| `WorktreeList.tsx`          | Worktree list in sidebar                                                                                                                                                                                                                                                                    |
+| File                        | Description                                                                                                                                                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AgentsView.tsx`            | Top-level agents management view                                                                                                                                                                                           |
+| `ActivityPage.tsx`          | Dedicated Activity view with one card per project in a responsive `minmax(500px, 1fr)` grid                                                                                                                                |
+| `AgentsSidebar.tsx`         | Sidebar for agents view (MCP servers, skills, plugins lists)                                                                                                                                                               |
+| `AgentsToolbar.tsx`         | Toolbar for agents view actions                                                                                                                                                                                            |
+| `AppSettingsModal.tsx`      | Electron app settings (themes, preferences)                                                                                                                                                                                |
+| `AttachmentImage.tsx`       | Image attachment preview with lightbox                                                                                                                                                                                     |
+| `Button.tsx`                | Reusable button component                                                                                                                                                                                                  |
+| `ConfigurationPanel.tsx`    | Edit `.openkit/config.json` settings                                                                                                                                                                                       |
+| `ConfirmDialog.tsx`         | Confirmation dialog for destructive actions                                                                                                                                                                                |
+| `ConfirmModal.tsx`          | Generic confirmation modal                                                                                                                                                                                                 |
+| `CreateCustomTaskModal.tsx` | Create new custom task form                                                                                                                                                                                                |
+| `CreateForm.tsx`            | Sidebar tab switcher (Branch/Issues) with create buttons                                                                                                                                                                   |
+| `CreateWorktreeModal.tsx`   | Create worktree modal (from branch, Jira, or Linear)                                                                                                                                                                       |
+| `CustomTaskItem.tsx`        | Custom task sidebar list item                                                                                                                                                                                              |
+| `CustomTaskList.tsx`        | Custom task list in sidebar                                                                                                                                                                                                |
+| `DeployDialog.tsx`          | MCP server/skill deployment dialog                                                                                                                                                                                         |
+| `GitHubSetupModal.tsx`      | GitHub initial setup (commit + repo creation)                                                                                                                                                                              |
+| `Header.tsx`                | Top header bar with nav tabs, running count, and activity bell icon                                                                                                                                                        |
+| `ImageModal.tsx`            | Full-screen image lightbox                                                                                                                                                                                                 |
+| `IntegrationsPanel.tsx`     | Configure Jira/Linear/GitHub integrations                                                                                                                                                                                  |
+| `IssueList.tsx`             | Aggregated issue list (Jira + Linear + custom tasks)                                                                                                                                                                       |
+| `JiraIssueItem.tsx`         | Jira issue sidebar item                                                                                                                                                                                                    |
+| `JiraIssueList.tsx`         | Jira-specific issue list                                                                                                                                                                                                   |
+| `LinearIssueItem.tsx`       | Linear issue sidebar item                                                                                                                                                                                                  |
+| `LinearIssueList.tsx`       | Linear-specific issue list                                                                                                                                                                                                 |
+| `MarkdownContent.tsx`       | Markdown renderer with dark theme styling                                                                                                                                                                                  |
+| `McpServerCreateModal.tsx`  | Create/edit MCP server modal                                                                                                                                                                                               |
+| `McpServerItem.tsx`         | MCP server sidebar item                                                                                                                                                                                                    |
+| `McpServerScanModal.tsx`    | Scan and import MCP servers/skills (supports direct device-scan entry from discovery banner and prefilled results from the latest banner scan)                                                                             |
+| `Modal.tsx`                 | Base modal component (sm/md/lg widths)                                                                                                                                                                                     |
+| `NavBar.tsx`                | Navigation bar (defines View type)                                                                                                                                                                                         |
+| `PluginInstallModal.tsx`    | Install Claude plugin modal                                                                                                                                                                                                |
+| `PluginItem.tsx`            | Plugin sidebar item                                                                                                                                                                                                        |
+| `ProjectSetupScreen.tsx`    | First-run setup for new Electron projects                                                                                                                                                                                  |
+| `ResizableHandle.tsx`       | Drag handle for sidebar resizing                                                                                                                                                                                           |
+| `SetupCommitModal.tsx`      | Commit OpenKit config files modal                                                                                                                                                                                          |
+| `SkillCreateModal.tsx`      | Create/edit skill modal                                                                                                                                                                                                    |
+| `SkillItem.tsx`             | Skill sidebar item                                                                                                                                                                                                         |
+| `Spinner.tsx`               | Loading spinner component                                                                                                                                                                                                  |
+| `TabBar.tsx`                | Electron multi-project tab bar and bottom-right project controls (QR, Wi-Fi tunnel toggle, Settings)                                                                                                                       |
+| `ActivityFeed.tsx`          | Shared activity feed panel (`ActivityFeedPanel`) plus dropdown wrapper (`ActivityFeed`) and bell button (`ActivityBell`), with multi-select filter chips, action-required prioritization, and row-level subject navigation |
+| `errorToasts.tsx`           | Global `react-hot-toast` error renderer and runtime bridges (`window.error`/`window.unhandledrejection`) with persistent dark-themed dismissible error toasts                                                              |
+| `Tooltip.tsx`               | Tooltip component (always use this instead of native `title` attribute)                                                                                                                                                    |
+| `TruncatedTooltip.tsx`      | Text with automatic tooltip on overflow                                                                                                                                                                                    |
+| `VerificationPanel.tsx`     | Hooks configuration view (trigger-based command steps and skills)                                                                                                                                                          |
+| `WelcomeScreen.tsx`         | Initial welcome/onboarding screen                                                                                                                                                                                          |
+| `WorktreeExistsModal.tsx`   | Handle worktree already exists error                                                                                                                                                                                       |
+| `WorktreeItem.tsx`          | Worktree sidebar list item                                                                                                                                                                                                 |
+| `WorktreeList.tsx`          | Worktree list in sidebar                                                                                                                                                                                                   |
+
+`main.tsx` configures the global `Toaster` (dark theme) plus React Query global error handlers so query and mutation failures consistently produce persistent error toasts.
 
 ### Detail Components (`apps/web-app/src/components/detail/`)
 
@@ -565,25 +567,28 @@ The app uses Framer Motion for transitions:
 
 ### Hooks (`apps/web-app/src/hooks/`)
 
-| File                      | Description                                                                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `api.ts`                  | Raw fetch functions for all API endpoints                                                                                                   |
-| `useApi.ts`               | Hook that pre-binds API functions to current server URL                                                                                     |
-| `useConfig.ts`            | Fetch and cache `.openkit/config.json`                                                                                                      |
-| `useCustomTasks.ts`       | React Query hook for custom tasks list                                                                                                      |
-| `useCustomTaskDetail.ts`  | React Query hook for single custom task                                                                                                     |
-| `useJiraIssues.ts`        | React Query hook for Jira issues with search debouncing                                                                                     |
-| `useJiraIssueDetail.ts`   | React Query hook for single Jira issue                                                                                                      |
-| `useLinearIssues.ts`      | React Query hook for Linear issues with search debouncing                                                                                   |
-| `useLinearIssueDetail.ts` | React Query hook for single Linear issue                                                                                                    |
-| `useMcpServers.ts`        | Hooks for MCP server data                                                                                                                   |
-| `useNotes.ts`             | Hook for issue notes and todos                                                                                                              |
-| `useSkills.ts`            | Hooks for skills, Claude plugins, and combined custom+plugin agents data (list/detail bootstrap from localStorage, then background refresh) |
-| `useTerminal.ts`          | WebSocket terminal session management                                                                                                       |
-| `useAgentRules.ts`        | React Query hook for agent rule file content                                                                                                |
-| `useHooks.ts`             | Hooks config and skill results fetching                                                                                                     |
-| `useActivityFeed.ts`      | Activity feed state, unread count, chronological upserts, and hook-run aggregation                                                          |
-| `useWorktrees.ts`         | SSE-based real-time worktree updates + integration status hooks                                                                             |
+| File                           | Description                                                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `api.ts`                       | Raw fetch functions for all API endpoints                                                                                          |
+| `useApi.ts`                    | Hook that pre-binds API functions to current server URL                                                                            |
+| `useConfig.ts`                 | Fetch and cache `.openkit/config.json`                                                                                             |
+| `useCustomTasks.ts`            | React Query hook for custom tasks list                                                                                             |
+| `useCustomTaskDetail.ts`       | React Query hook for single custom task                                                                                            |
+| `useJiraIssues.ts`             | React Query hook for Jira issues with search debouncing                                                                            |
+| `useJiraIssueDetail.ts`        | React Query hook for single Jira issue                                                                                             |
+| `useLinearIssues.ts`           | React Query hook for Linear issues with search debouncing                                                                          |
+| `useLinearIssueDetail.ts`      | React Query hook for single Linear issue                                                                                           |
+| `useMcpServers.ts`             | Hooks for MCP server data                                                                                                          |
+| `useNotes.ts`                  | Hook for issue notes and todos                                                                                                     |
+| `useSkills.ts`                 | Hooks for skills data                                                                                                              |
+| `useTerminal.ts`               | WebSocket terminal session management                                                                                              |
+| `useAgentRules.ts`             | React Query hook for agent rule file content                                                                                       |
+| `useHooks.ts`                  | Hooks config and skill results fetching                                                                                            |
+| `activityFilterPersistence.ts` | Helpers for per-project activity filter persistence across bell dropdown + Activity page                                           |
+| `activityFeedUtils.ts`         | Shared activity feed upsert/history/hook-aggregation utilities                                                                     |
+| `useActivityFeed.ts`           | Activity feed state, unread count, chronological upserts, and hook-run aggregation                                                 |
+| `useProjectActivityFeeds.ts`   | Per-project activity feed state with one SSE stream per running project, cache-first hydration, and initial loading-state handling |
+| `useWorktrees.ts`              | SSE-based real-time worktree updates + integration status hooks                                                                    |
 
 ### Context (`apps/web-app/src/contexts/`)
 

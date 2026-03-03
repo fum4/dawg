@@ -1,8 +1,15 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.apps.json",
   "compilerOptions": {
-    "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@openkit/agent/*": ["../../libs/agent/src/*"],
+      "@openkit/core/*": ["../../libs/core/src/*"],
+      "@openkit/instructions": ["../../libs/instructions/src/index.ts"],
+      "@openkit/integrations/*": ["../../libs/integrations/src/*"],
+      "@openkit/server/*": ["./src/*"],
+      "@openkit/shared/*": ["../../libs/shared/src/*"]
+    }
   },
   "include": ["src/**/*.ts", "../../md.d.ts"],
   "exclude": ["dist", "node_modules"]

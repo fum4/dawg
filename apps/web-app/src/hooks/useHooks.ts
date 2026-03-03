@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { reportPersistentErrorToast } from "../errorToasts";
 import { useServerUrlOptional } from "../contexts/ServerContext";
 import {
   fetchHooksConfig as apiFetchConfig,
@@ -54,8 +55,10 @@ export function useEffectiveHooksConfig(worktreeId: string | null) {
     try {
       const data = await apiFetchEffectiveConfig(worktreeId, serverUrl);
       setConfig(data);
-    } catch {
-      // Ignore
+    } catch (error) {
+      reportPersistentErrorToast(error, "Failed to fetch effective hooks config", {
+        scope: "hooks:effective-config",
+      });
     }
   }, [serverUrl, worktreeId]);
 
@@ -80,8 +83,10 @@ export function useHookSkillResults(worktreeId: string | null) {
     try {
       const data = await apiFetchSkillResults(worktreeId, serverUrl);
       setResults(data.results);
-    } catch {
-      // Ignore
+    } catch (error) {
+      reportPersistentErrorToast(error, "Failed to fetch hook skill results", {
+        scope: "hooks:skill-results",
+      });
     } finally {
       setIsLoading(false);
     }

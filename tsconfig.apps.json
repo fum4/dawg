@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@openkit/shared/*": ["./libs/shared/src/*"]
+    }
+  },
+  "include": [
+    "apps/**/*.ts",
+    "apps/**/*.tsx",
+    "apps/**/*.d.ts",
+    "apps/**/*.cjs",
+    "global.d.ts",
+    "md.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", "apps/mobile-app/**"]
+}

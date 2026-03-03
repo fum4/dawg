@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Download, Sparkles } from "lucide-react";
 
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { skill as skillTheme, input, text } from "../theme";
@@ -67,6 +68,7 @@ export function SkillCreateModal({ onCreated, onInstalled, onClose }: SkillCreat
 
   // ── Shared state ──
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "skill-create-modal");
   const [submitting, setSubmitting] = useState(false);
 
   const toggleAgent = (agentId: string, list: string[], setter: (v: string[]) => void) => {

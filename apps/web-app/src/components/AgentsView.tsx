@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { APP_NAME } from "@openkit/shared/constants";
 import { useServer } from "../contexts/ServerContext";
+import { reportPersistentErrorToast } from "../errorToasts";
 import { useApi } from "../hooks/useApi";
 import { useConfig } from "../hooks/useConfig";
 import { useMcpServers, useMcpDeploymentStatus } from "../hooks/useMcpServers";
@@ -282,7 +283,11 @@ export function AgentsView() {
           agents: agentResults.length,
         });
       })
-      .catch(() => {})
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Discovery scan failed", {
+          scope: "agents:discovery-scan",
+        });
+      })
       .finally(() => setDiscoveryScanning(false));
   }, [api]);
 

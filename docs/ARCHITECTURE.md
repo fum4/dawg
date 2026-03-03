@@ -270,6 +270,8 @@ vite build
 
 Vite builds the React SPA through `apps/web-app/vite.config.ts` from `apps/web-app/src/` into `apps/web-app/dist/`. The Hono server serves UI from `apps/web-app/dist` when present, and falls back to downloaded UI components under `~/.openkit/components/web/current` when running in core-only installs. The Electron app loads `apps/web-app/dist/index.html` directly.
 
+The SPA includes multiple top-level product surfaces (Workspace, Agents, Activity, Hooks, Integrations, Settings). The Activity surface uses a per-project SSE model in the renderer (`useProjectActivityFeeds`) to render one activity card per open project while reusing the same feed panel component as the header bell dropdown.
+
 ### Electron: tsc + electron-builder
 
 The Electron main process (`apps/desktop-app/src/main.ts`) is compiled with `tsc -p apps/desktop-app/tsconfig.json` into `apps/desktop-app/dist/main.js`. The preload script (`apps/desktop-app/src/preload.cjs`) is copied as-is. `electron-builder` packages everything into a macOS `.app` bundle.

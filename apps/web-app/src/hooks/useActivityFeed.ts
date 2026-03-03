@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
-import type { ActivityEvent, HookTrigger, StepResult } from "./api";
+import { reportPersistentErrorToast } from "../errorToasts";
+import type { ActivityEvent } from "./api";
+import {
+  isHookRelatedEvent,
+  replayActivityHistory,
+  upsertActivityEvent,
+  withSourceServerUrl,
+} from "./activityFeedUtils";
 import { useServerUrlOptional } from "../contexts/ServerContext";
 
 const DEFAULT_TOAST_EVENTS = [
@@ -14,216 +21,7 @@ const DEFAULT_TOAST_EVENTS = [
   "connection_lost",
 ];
 
-type HookItemStatus = "running" | "passed" | "failed";
-
-export interface HookFeedItem {
-  key: string;
-  itemType: "skill" | "command";
-  label: string;
-  detail?: string;
-  status: HookItemStatus;
-  filePath?: string;
-}
-
-function normalizeHookTrigger(value: unknown): HookTrigger {
-  if (
-    value === "pre-implementation" ||
-    value === "post-implementation" ||
-    value === "custom" ||
-    value === "on-demand" ||
-    value === "worktree-created" ||
-    value === "worktree-removed"
-  ) {
-    return value;
-  }
-  return "post-implementation";
-}
-
-function formatHookTriggerLabel(trigger: HookTrigger): string {
-  switch (trigger) {
-    case "pre-implementation":
-      return "Pre-Implementation";
-    case "post-implementation":
-      return "Post-Implementation";
-    case "custom":
-      return "Custom";
-    case "on-demand":
-      return "On-Demand";
-    case "worktree-created":
-      return "Worktree Created";
-    case "worktree-removed":
-      return "Worktree Removed";
-  }
-}
-
-function isHookRelatedEvent(event: ActivityEvent): boolean {
-  return (
-    event.groupKey?.startsWith("hooks:") === true ||
-    event.type === "hooks_started" ||
-    event.type === "hooks_ran" ||
-    event.type === "skill_started" ||
-    event.type === "skill_completed" ||
-    event.type === "skill_failed" ||
-    event.metadata?.trigger !== undefined
-  );
-}
-
-function sortByNewest(events: ActivityEvent[]): ActivityEvent[] {
-  return [...events].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-  );
-}
-
-function withSourceServerUrl(event: ActivityEvent, serverUrl: string | null): ActivityEvent {
-  if (!serverUrl) return event;
-  return {
-    ...event,
-    metadata: {
-      ...event.metadata,
-      sourceServerUrl: serverUrl,
-    },
-  };
-}
-
-function toHookItems(event: ActivityEvent): HookFeedItem[] {
-  const rawItems = (event.metadata?.hookItems as HookFeedItem[] | undefined) ?? [];
-  return Array.isArray(rawItems) ? rawItems : [];
-}
-
-function upsertHookItem(items: HookFeedItem[], item: HookFeedItem): HookFeedItem[] {
-  const idx = items.findIndex((existing) => existing.key === item.key);
-  if (idx >= 0) {
-    const next = [...items];
-    next[idx] = { ...next[idx], ...item };
-    return next;
-  }
-  return [...items, item];
-}
-
-function updateHookGroup(
-  existing: ActivityEvent | undefined,
-  incoming: ActivityEvent,
-): ActivityEvent {
-  const trigger = normalizeHookTrigger(incoming.metadata?.trigger ?? existing?.metadata?.trigger);
-  let items = toHookItems(existing ?? incoming);
-
-  if (
-    (incoming.type === "skill_started" ||
-      incoming.type === "skill_completed" ||
-      incoming.type === "skill_failed") &&
-    incoming.metadata?.skillName
-  ) {
-    const skillName = String(incoming.metadata.skillName);
-    const status: HookItemStatus =
-      incoming.type === "skill_started"
-        ? "running"
-        : incoming.type === "skill_failed"
-          ? "failed"
-          : "passed";
-    items = upsertHookItem(items, {
-      key: `skill:${skillName}`,
-      itemType: "skill",
-      label: skillName,
-      status,
-      detail: incoming.detail,
-      filePath: incoming.metadata.filePath as string | undefined,
-    });
-  }
-
-  const commandResults =
-    (incoming.metadata?.commandResults as
-      | Array<
-          Partial<StepResult> & {
-            stepId?: string;
-            stepName?: string;
-            command?: string;
-            status?: string;
-          }
-        >
-      | undefined) ?? [];
-  for (const step of commandResults) {
-    const stepId = step.stepId ?? step.stepName ?? "step";
-    const status: HookItemStatus =
-      step.status === "failed" ? "failed" : step.status === "passed" ? "passed" : "running";
-    items = upsertHookItem(items, {
-      key: `command:${stepId}`,
-      itemType: "command",
-      label: step.stepName ?? "Command",
-      detail: step.command,
-      status,
-    });
-  }
-
-  const total = items.length;
-  const passed = items.filter((item) => item.status === "passed").length;
-  const failed = items.filter((item) => item.status === "failed").length;
-  const running = items.filter((item) => item.status === "running").length;
-  const completed = passed + failed;
-
-  const title =
-    running > 0
-      ? `${formatHookTriggerLabel(trigger)} hooks running (${completed}/${total})`
-      : failed > 0
-        ? `${formatHookTriggerLabel(trigger)} hooks completed (${failed} failed)`
-        : `${formatHookTriggerLabel(trigger)} hooks completed`;
-  const detail =
-    total === 0
-      ? "No runnable command hooks configured."
-      : running > 0
-        ? `${running} still running`
-        : failed > 0
-          ? `${passed} passed, ${failed} failed`
-          : `${passed} passed`;
-
-  return {
-    ...(existing ?? incoming),
-    id: existing?.id ?? incoming.id,
-    timestamp: incoming.timestamp,
-    title,
-    detail,
-    severity: running > 0 ? "info" : failed > 0 ? "error" : "success",
-    metadata: {
-      ...existing?.metadata,
-      ...incoming.metadata,
-      trigger,
-      hookItems: items,
-      hookStatus: running > 0 ? "running" : failed > 0 ? "failed" : "passed",
-    },
-  };
-}
-
-function upsertEvent(events: ActivityEvent[], incoming: ActivityEvent): ActivityEvent[] {
-  let next = events;
-
-  if (incoming.groupKey?.startsWith("hooks:")) {
-    const idx = next.findIndex((event) => event.groupKey === incoming.groupKey);
-    const merged = updateHookGroup(idx >= 0 ? next[idx] : undefined, incoming);
-    if (idx >= 0) {
-      next = [...next];
-      next[idx] = merged;
-    } else {
-      next = [merged, ...next];
-    }
-    return sortByNewest(next).slice(0, 200);
-  }
-
-  if (incoming.groupKey) {
-    const idx = next.findIndex((event) => event.groupKey === incoming.groupKey);
-    if (idx >= 0) {
-      next = [...next];
-      next[idx] = incoming;
-    } else {
-      next = [incoming, ...next];
-    }
-    return sortByNewest(next).slice(0, 200);
-  }
-
-  if (next.some((event) => event.id === incoming.id)) {
-    return sortByNewest(next).slice(0, 200);
-  }
-
-  return sortByNewest([incoming, ...next]).slice(0, 200);
-}
+export type { HookFeedItem } from "./activityFeedUtils";
 
 export function useActivityFeed(
   onToast?: (
@@ -284,7 +82,7 @@ export function useActivityFeed(
       const eventTime = new Date(event.timestamp).getTime();
       if (clearedAt > 0 && Number.isFinite(eventTime) && eventTime <= clearedAt) return;
 
-      setEvents((prev) => upsertEvent(prev, event));
+      setEvents((prev) => upsertActivityEvent(prev, event));
       setUnreadCount((c) => c + 1);
 
       if (isHookRelatedEvent(event)) return;
@@ -322,18 +120,7 @@ export function useActivityFeed(
           : e.detail.filter((event) => !(disabledEventTypes ?? []).includes(event.type));
       if (filteredHistory.length === 0) return;
       const scopedHistory = filteredHistory.map((event) => withSourceServerUrl(event, serverUrl));
-      // History arrives newest-first; replay oldest-first so grouped events end with latest state.
-      const chronologicalHistory = [...scopedHistory].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-      );
-
-      setEvents((prev) => {
-        const withHistory = chronologicalHistory.reduce(
-          (acc, event) => upsertEvent(acc, event),
-          prev,
-        );
-        return sortByNewest(withHistory).slice(0, 200);
-      });
+      setEvents((prev) => replayActivityHistory(prev, scopedHistory));
     };
 
     window.addEventListener("OpenKit:activity", handler as EventListener);
@@ -363,8 +150,10 @@ export function useActivityFeed(
     if (serverUrl !== null) {
       try {
         localStorage.setItem(`OpenKit:activityClearedAt:${serverUrl}`, String(now));
-      } catch {
-        // Ignore localStorage errors.
+      } catch (error) {
+        reportPersistentErrorToast(error, "Failed to persist activity clear state", {
+          scope: "activity-feed:localstorage",
+        });
       }
     }
   }, [serverUrl]);
