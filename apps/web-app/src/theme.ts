@@ -423,6 +423,9 @@ export const activity = {
     worktree: "bg-teal-400/10",
     system: "bg-red-400/10",
   } as Record<string, string>,
+  agentVariantBg: {
+    codex: "bg-emerald-400/15",
+  } as Record<string, string>,
   severityDot: {
     success: "bg-emerald-400",
     warning: "bg-amber-400",

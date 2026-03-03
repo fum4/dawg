@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import type { CustomTaskSummary, JiraIssueSummary, LinearIssueSummary } from "../types";
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import { integration, tab, text } from "../theme";
 import { JiraIcon, LinearIcon } from "../icons";
 import { Modal } from "./Modal";
@@ -26,6 +27,7 @@ export function LinkIssueModal({
   const [search, setSearch] = useState("");
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "link-issue-modal");
   const [loading, setLoading] = useState(true);
 
   const [localTasks, setLocalTasks] = useState<CustomTaskSummary[]>([]);

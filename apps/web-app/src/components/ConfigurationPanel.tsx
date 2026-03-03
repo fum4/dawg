@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { APP_NAME } from "@openkit/shared/constants";
 import { ACTIVITY_TYPES } from "@openkit/shared/activity-event";
+import { reportPersistentErrorToast } from "../errorToasts";
 import { type WorktreeConfig } from "../hooks/useConfig";
 import { useApi } from "../hooks/useApi";
 import { button, infoBanner, input, settings, surface, tab, text } from "../theme";
@@ -414,11 +415,18 @@ export function ConfigurationPanel({
   // Load default tab + override status on mount
   useEffect(() => {
     setBranchRuleLoading(true);
-    Promise.all([loadBranchTab("default"), api.fetchBranchRuleStatus()]).then(([, status]) => {
-      setBranchOverrides(status.overrides);
-      setBranchRuleLoading(false);
-    });
-  }, []);
+    Promise.all([loadBranchTab("default"), api.fetchBranchRuleStatus()])
+      .then(([, status]) => {
+        setBranchOverrides(status.overrides);
+        setBranchRuleLoading(false);
+      })
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to load branch rule settings", {
+          scope: "configuration:branch-rules",
+        });
+        setBranchRuleLoading(false);
+      });
+  }, [api, loadBranchTab]);
 
   // Lazy-load tab content when switching
   useEffect(() => {
@@ -456,11 +464,18 @@ export function ConfigurationPanel({
   // Load default commit tab + override status on mount
   useEffect(() => {
     setCommitRuleLoading(true);
-    Promise.all([loadCommitTab("default"), api.fetchCommitRuleStatus()]).then(([, status]) => {
-      setCommitOverrides(status.overrides);
-      setCommitRuleLoading(false);
-    });
-  }, []);
+    Promise.all([loadCommitTab("default"), api.fetchCommitRuleStatus()])
+      .then(([, status]) => {
+        setCommitOverrides(status.overrides);
+        setCommitRuleLoading(false);
+      })
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to load commit rule settings", {
+          scope: "configuration:commit-rules",
+        });
+        setCommitRuleLoading(false);
+      });
+  }, [api, loadCommitTab]);
 
   // Lazy-load commit tab content when switching
   useEffect(() => {

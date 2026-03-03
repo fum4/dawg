@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { OpenProjectTarget, OpenProjectTargetOption } from "../../hooks/api";
 import type { WorktreeInfo } from "../../types";
+import { useErrorToast } from "../../hooks/useErrorToast";
 import { useApi } from "../../hooks/useApi";
 import { action, border, detailTab, errorBanner, input, text } from "../../theme";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -108,6 +109,7 @@ export function DetailPanel({
   const api = useApi();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "detail-panel");
   const [showCommitInput, setShowCommitInput] = useState(false);
   const [commitMessage, setCommitMessage] = useState("");
   const [showCreatePrInput, setShowCreatePrInput] = useState(false);

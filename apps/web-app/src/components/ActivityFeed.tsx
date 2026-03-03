@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import {
+  AlertTriangle,
   Bell,
   Bot,
   Check,
@@ -14,11 +15,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 
 import { ACTIVITY_TYPES } from "@openkit/shared/activity-event";
 import type { ActivityEvent } from "../hooks/api";
-import type { HookFeedItem } from "../hooks/useActivityFeed";
+import type { HookFeedItem } from "../hooks/activityFeedUtils";
 import { ClaudeIcon, CodexIcon, GeminiIcon, JiraIcon, LinearIcon, OpenCodeIcon } from "../icons";
 import { activity, integration, text } from "../theme";
 import { ToggleSwitch } from "./ToggleSwitch";
@@ -59,13 +60,17 @@ function isHookEvent(event: ActivityEvent): boolean {
   );
 }
 
-function isActionRequired(event: ActivityEvent): boolean {
+export function isActionRequiredEvent(event: ActivityEvent): boolean {
+  if (event.metadata?.cleared === true) return false;
   if (event.type === ACTIVITY_TYPES.AGENT_AWAITING_INPUT) {
-    return (
-      event.metadata?.requiresUserAction === true || event.metadata?.awaitingUserInput === true
-    );
+    if (event.metadata?.requiresUserAction === false) return false;
+    if (event.metadata?.awaitingUserInput === false) return false;
+    return true;
   }
-  return event.category === "agent" && event.metadata?.requiresUserAction === true;
+  return (
+    event.category === "agent" &&
+    (event.metadata?.requiresUserAction === true || event.metadata?.awaitingUserInput === true)
+  );
 }
 
 function actionContextKey(event: ActivityEvent): string {
@@ -88,7 +93,7 @@ function getActiveActionRequiredEvents(events: ActivityEvent[]): ActivityEvent[]
   }
 
   return [...latestByContext.values()]
-    .filter((event) => isActionRequired(event))
+    .filter((event) => isActionRequiredEvent(event))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
@@ -97,7 +102,16 @@ function hookItems(event: ActivityEvent): HookFeedItem[] {
   return Array.isArray(items) ? items : [];
 }
 
-type ActivityFilterGroup = "worktree" | "hooks" | "agents" | "system";
+export type ActivityFilterGroup = "worktree" | "hooks" | "agents" | "system";
+export const ACTIVITY_FILTER_GROUP_OPTIONS: Array<{
+  id: ActivityFilterGroup;
+  label: string;
+}> = [
+  { id: "worktree", label: "Worktree" },
+  { id: "hooks", label: "Hooks" },
+  { id: "agents", label: "Agents" },
+  { id: "system", label: "System" },
+];
 
 function HookStatusIcon({ status }: { status: HookFeedItem["status"] }) {
   if (status === "running") return <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />;
@@ -138,18 +152,7 @@ function isInFilterGroup(event: ActivityEvent, group: ActivityFilterGroup): bool
   return event.category === "system";
 }
 
-interface ActivityFeedProps {
-  events: ActivityEvent[];
-  unseenEventIds: Set<string>;
-  unreadCount: number;
-  onMarkAllRead: () => void;
-  onClearAll: () => void;
-  showAllProjects: boolean;
-  onToggleShowAllProjects: () => void;
-  selectedFilterGroups: ActivityFilterGroup[];
-  onToggleFilterGroup: (group: ActivityFilterGroup) => void;
-  onClearFilterGroups: () => void;
-  onClose: () => void;
+interface ActivityNavigationProps {
   onNavigateToWorktree?: (target: {
     worktreeId: string;
     projectName?: string;
@@ -166,11 +169,202 @@ interface ActivityFeedProps {
   onResolveActionRequired?: (event: ActivityEvent) => void;
 }
 
+interface ActivityFeedCoreProps extends ActivityNavigationProps {
+  events: ActivityEvent[];
+  unseenEventIds: Set<string>;
+  isLoading?: boolean;
+  onClearAll: () => void;
+  selectedFilterGroups: ActivityFilterGroup[];
+  onToggleFilterGroup: (group: ActivityFilterGroup) => void;
+  onClearFilterGroups: () => void;
+}
+
+interface ActivityFeedPanelProps extends ActivityFeedCoreProps {
+  title?: ReactNode;
+  titleAfter?: ReactNode;
+  containerClassName?: string;
+  hideTitle?: boolean;
+  hideClearAction?: boolean;
+  hideTopBar?: boolean;
+  hideFilterBar?: boolean;
+  showAllProjectsControl?: {
+    checked: boolean;
+    onToggle: () => void;
+  };
+}
+
+export function ActivityFeedPanel({
+  events,
+  unseenEventIds,
+  isLoading = false,
+  onClearAll,
+  selectedFilterGroups,
+  onToggleFilterGroup,
+  onClearFilterGroups,
+  onNavigateToWorktree,
+  onNavigateToIssue,
+  onResolveActionRequired,
+  title = "Recent activity",
+  titleAfter,
+  containerClassName,
+  hideTitle = false,
+  hideClearAction = false,
+  hideTopBar = false,
+  hideFilterBar = false,
+  showAllProjectsControl,
+}: ActivityFeedPanelProps) {
+  const showTitle = !hideTitle && (title !== null || titleAfter !== undefined);
+  const selectedGroupSet = useMemo(() => new Set(selectedFilterGroups), [selectedFilterGroups]);
+  const filteredEvents = useMemo(() => {
+    if (selectedGroupSet.size === 0) return events;
+    return events.filter((event) =>
+      [...selectedGroupSet].some((group) => isInFilterGroup(event, group)),
+    );
+  }, [events, selectedGroupSet]);
+  const actionRequiredEvents = useMemo(
+    () => getActiveActionRequiredEvents(filteredEvents),
+    [filteredEvents],
+  );
+  const actionRequiredIds = useMemo(
+    () => new Set(actionRequiredEvents.map((event) => event.id)),
+    [actionRequiredEvents],
+  );
+  const regularEvents = useMemo(
+    () => filteredEvents.filter((event) => !actionRequiredIds.has(event.id)),
+    [actionRequiredIds, filteredEvents],
+  );
+  const prioritizedEvents = useMemo(
+    () => [...actionRequiredEvents, ...regularEvents],
+    [actionRequiredEvents, regularEvents],
+  );
+  const hasActionRequired = actionRequiredEvents.length > 0;
+  const dividerColorClass = hasActionRequired ? "border-amber-300/20" : "border-white/[0.06]";
+
+  return (
+    <div className={containerClassName ?? "flex flex-col min-h-0 h-full"}>
+      {!hideTopBar && (
+        <div
+          className={`flex items-center px-4 py-3 border-b ${dividerColorClass} ${showTitle ? "justify-between" : "justify-end"}`}
+        >
+          {showTitle && (
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className={`text-sm font-medium ${text.primary} truncate`}>{title}</h3>
+              {titleAfter}
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            {!hideClearAction && (
+              <button
+                onClick={onClearAll}
+                className={`text-[10px] ${text.muted} hover:text-white transition-colors flex items-center gap-1`}
+              >
+                <Trash2 className="w-3 h-3" />
+                Clear
+              </button>
+            )}
+            {showAllProjectsControl && (
+              <div className={`flex items-center gap-1.5 ml-3 text-[10px] ${text.muted}`}>
+                <button
+                  type="button"
+                  onClick={showAllProjectsControl.onToggle}
+                  className="transition-colors hover:text-white"
+                >
+                  Show all projects
+                </button>
+                <ToggleSwitch
+                  checked={showAllProjectsControl.checked}
+                  onToggle={(event) => {
+                    event.stopPropagation();
+                    showAllProjectsControl.onToggle();
+                  }}
+                  size="sm"
+                  ariaLabel="Show all projects"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {!hideFilterBar && (
+        <div
+          className={`px-4 py-3.5 border-b ${dividerColorClass} flex items-center gap-1.5 overflow-x-auto`}
+        >
+          <button
+            type="button"
+            onClick={onClearFilterGroups}
+            className={`px-2 py-0.5 rounded-md text-[10px] whitespace-nowrap transition-colors ${
+              selectedGroupSet.size === 0
+                ? "bg-accent/20 text-accent"
+                : `${text.muted} bg-white/[0.04] hover:bg-white/[0.08] hover:text-white`
+            }`}
+          >
+            All
+          </button>
+          {ACTIVITY_FILTER_GROUP_OPTIONS.map((group) => {
+            const selected = selectedGroupSet.has(group.id);
+            return (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => onToggleFilterGroup(group.id)}
+                className={`px-2 py-0.5 rounded-md text-[10px] whitespace-nowrap transition-colors ${
+                  selected
+                    ? "bg-accent/20 text-accent"
+                    : `${text.muted} bg-white/[0.04] hover:bg-white/[0.08] hover:text-white`
+                }`}
+              >
+                {group.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {isLoading && events.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className={`w-6 h-6 ${text.dimmed} animate-spin`} />
+          </div>
+        ) : events.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <MoonStar className={`w-7 h-7 ${text.dimmed} mb-2`} />
+            <p className={`text-xs ${text.dimmed}`}>No recent activity</p>
+          </div>
+        ) : filteredEvents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <MoonStar className={`w-7 h-7 ${text.dimmed} mb-2`} />
+            <p className={`text-xs ${text.dimmed}`}>No activity matches selected types</p>
+          </div>
+        ) : (
+          <div>
+            {prioritizedEvents.map((event, index) => (
+              <ActivityRow
+                key={event.id}
+                event={event}
+                showUnreadDot={unseenEventIds.has(event.id)}
+                showAttentionDivider={index === 0 && isActionRequiredEvent(event)}
+                onNavigateToWorktree={onNavigateToWorktree}
+                onNavigateToIssue={onNavigateToIssue}
+                onResolveActionRequired={onResolveActionRequired}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ActivityFeedProps extends ActivityFeedCoreProps {
+  showAllProjects: boolean;
+  onToggleShowAllProjects: () => void;
+  onClose: () => void;
+}
+
 export function ActivityFeed({
   events,
   unseenEventIds,
-  unreadCount,
-  onMarkAllRead,
+  isLoading,
   onClearAll,
   showAllProjects,
   onToggleShowAllProjects,
@@ -211,26 +405,6 @@ export function ActivityFeed({
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const selectedGroupSet = useMemo(() => new Set(selectedFilterGroups), [selectedFilterGroups]);
-  const filteredEvents = useMemo(() => {
-    if (selectedGroupSet.size === 0) return events;
-    return events.filter((event) =>
-      [...selectedGroupSet].some((group) => isInFilterGroup(event, group)),
-    );
-  }, [events, selectedGroupSet]);
-  const actionRequiredEvents = useMemo(
-    () => getActiveActionRequiredEvents(filteredEvents),
-    [filteredEvents],
-  );
-  const actionRequiredIds = useMemo(
-    () => new Set(actionRequiredEvents.map((event) => event.id)),
-    [actionRequiredEvents],
-  );
-  const regularEvents = useMemo(
-    () => filteredEvents.filter((event) => !actionRequiredIds.has(event.id)),
-    [actionRequiredIds, filteredEvents],
-  );
-
   return (
     <motion.div
       ref={panelRef}
@@ -240,127 +414,22 @@ export function ActivityFeed({
       transition={{ duration: 0.15, ease: "easeOut" }}
       className="absolute right-0 top-full mt-2 w-[500px] max-h-[620px] rounded-xl bg-[#12151a] border border-white/[0.08] shadow-2xl flex flex-col overflow-hidden z-50"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-        <h3 className={`text-sm font-medium ${text.primary}`}>Recent activity</h3>
-        <div className="flex items-center gap-3">
-          {unreadCount > 0 && (
-            <button
-              onClick={onMarkAllRead}
-              className={`text-[10px] ${text.muted} hover:text-white transition-colors flex items-center gap-1`}
-            >
-              <Check className="w-3 h-3" />
-              Mark read
-            </button>
-          )}
-          <button
-            onClick={onClearAll}
-            className={`text-[10px] ${text.muted} hover:text-white transition-colors flex items-center gap-1`}
-          >
-            <Trash2 className="w-3 h-3" />
-            Clear
-          </button>
-          <div className={`flex items-center gap-1.5 ml-3 text-[10px] ${text.muted}`}>
-            <button
-              type="button"
-              onClick={onToggleShowAllProjects}
-              className="transition-colors hover:text-white"
-            >
-              Show all projects
-            </button>
-            <ToggleSwitch
-              checked={showAllProjects}
-              onToggle={(event) => {
-                event.stopPropagation();
-                onToggleShowAllProjects();
-              }}
-              size="sm"
-              ariaLabel="Show all projects"
-            />
-          </div>
-        </div>
-      </div>
-      <div className="px-4 py-3.5 border-b border-white/[0.06] flex items-center gap-1.5 overflow-x-auto">
-        <button
-          type="button"
-          onClick={onClearFilterGroups}
-          className={`px-2 py-0.5 rounded-md text-[10px] whitespace-nowrap transition-colors ${
-            selectedGroupSet.size === 0
-              ? "bg-accent/20 text-accent"
-              : `${text.muted} bg-white/[0.04] hover:bg-white/[0.08] hover:text-white`
-          }`}
-        >
-          All
-        </button>
-        {[
-          { id: "worktree", label: "Worktree" },
-          { id: "hooks", label: "Hooks" },
-          { id: "agents", label: "Agents" },
-          { id: "system", label: "System" },
-        ].map((group) => {
-          const selected = selectedGroupSet.has(group.id as ActivityFilterGroup);
-          return (
-            <button
-              key={group.id}
-              type="button"
-              onClick={() => onToggleFilterGroup(group.id as ActivityFilterGroup)}
-              className={`px-2 py-0.5 rounded-md text-[10px] whitespace-nowrap transition-colors ${
-                selected
-                  ? "bg-accent/20 text-accent"
-                  : `${text.muted} bg-white/[0.04] hover:bg-white/[0.08] hover:text-white`
-              }`}
-            >
-              {group.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <MoonStar className={`w-7 h-7 ${text.dimmed} mb-2`} />
-            <p className={`text-xs ${text.dimmed}`}>No recent activity</p>
-          </div>
-        ) : filteredEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <MoonStar className={`w-7 h-7 ${text.dimmed} mb-2`} />
-            <p className={`text-xs ${text.dimmed}`}>No activity matches selected types</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-white/[0.04]">
-            {actionRequiredEvents.length > 0 && (
-              <div className="bg-amber-500/[0.04] border-b border-amber-500/20">
-                <div className="px-4 py-2 border-b border-amber-500/10">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-                    Requires your action
-                  </p>
-                </div>
-                {actionRequiredEvents.map((event) => (
-                  <ActivityRow
-                    key={event.id}
-                    event={event}
-                    showUnreadDot={unseenEventIds.has(event.id)}
-                    onNavigateToWorktree={onNavigateToWorktree}
-                    onNavigateToIssue={onNavigateToIssue}
-                    onResolveActionRequired={onResolveActionRequired}
-                  />
-                ))}
-              </div>
-            )}
-
-            {regularEvents.map((event) => (
-              <ActivityRow
-                key={event.id}
-                event={event}
-                showUnreadDot={unseenEventIds.has(event.id)}
-                onNavigateToWorktree={onNavigateToWorktree}
-                onNavigateToIssue={onNavigateToIssue}
-                onResolveActionRequired={onResolveActionRequired}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      <ActivityFeedPanel
+        events={events}
+        unseenEventIds={unseenEventIds}
+        isLoading={isLoading}
+        onClearAll={onClearAll}
+        showAllProjectsControl={{
+          checked: showAllProjects,
+          onToggle: onToggleShowAllProjects,
+        }}
+        selectedFilterGroups={selectedFilterGroups}
+        onToggleFilterGroup={onToggleFilterGroup}
+        onClearFilterGroups={onClearFilterGroups}
+        onNavigateToWorktree={onNavigateToWorktree}
+        onNavigateToIssue={onNavigateToIssue}
+        onResolveActionRequired={onResolveActionRequired}
+      />
     </motion.div>
   );
 }
@@ -368,28 +437,16 @@ export function ActivityFeed({
 function ActivityRow({
   event,
   showUnreadDot,
+  showAttentionDivider,
   onNavigateToWorktree,
   onNavigateToIssue,
   onResolveActionRequired,
 }: {
   event: ActivityEvent;
   showUnreadDot: boolean;
-  onNavigateToWorktree?: (target: {
-    worktreeId: string;
-    projectName?: string;
-    sourceServerUrl?: string;
-    openClaudeTab?: boolean;
-    openHooksTab?: boolean;
-  }) => void;
-  onNavigateToIssue?: (target: {
-    source: "jira" | "linear";
-    issueId: string;
-    projectName?: string;
-    sourceServerUrl?: string;
-  }) => void;
-  onResolveActionRequired?: (event: ActivityEvent) => void;
-}) {
-  const actionRequired = isActionRequired(event);
+  showAttentionDivider: boolean;
+} & ActivityNavigationProps) {
+  const actionRequired = isActionRequiredEvent(event);
   const hookEvent = isHookEvent(event);
   const issueSource =
     event.metadata?.source === "jira" || event.metadata?.source === "linear"
@@ -407,19 +464,25 @@ function ActivityRow({
   const categoryColor = hookEvent
     ? "text-yellow-400"
     : (activity.categoryColor[event.category] ?? "text-[#6b7280]");
-  const categoryBg = hookEvent
-    ? "bg-yellow-400/10"
-    : issueSource === "jira"
-      ? "bg-blue-500/10"
-      : issueSource === "linear"
-        ? "bg-[#5E6AD2]/10"
-        : (activity.categoryBg[event.category] ?? "bg-white/[0.06]");
+  const categoryBg =
+    agentIconVariant === "claude" || agentIconVariant === "codex" || agentIconVariant === "gemini"
+      ? "bg-black"
+      : hookEvent
+        ? "bg-yellow-400/10"
+        : issueSource === "jira"
+          ? "bg-blue-500/10"
+          : issueSource === "linear"
+            ? "bg-[#5E6AD2]/10"
+            : (activity.categoryBg[event.category] ?? "bg-white/[0.06]");
   const items = hookItems(event);
   const hasChildren = hookEvent && items.length > 0;
   const sourceServerUrl =
     typeof event.metadata?.sourceServerUrl === "string"
       ? (event.metadata.sourceServerUrl as string)
       : undefined;
+  const subtitleTextClass = text.secondary;
+  const metaTextClass = text.muted;
+
   const navigateToWorktree = (options?: { openClaudeTab?: boolean; openHooksTab?: boolean }) => {
     if (!event.worktreeId || !onNavigateToWorktree) return false;
     if (actionRequired) onResolveActionRequired?.(event);
@@ -432,6 +495,7 @@ function ActivityRow({
     });
     return true;
   };
+
   const navigateToIssue = () => {
     if (!issueSource || !issueId || !onNavigateToIssue) return false;
     if (actionRequired) onResolveActionRequired?.(event);
@@ -443,6 +507,7 @@ function ActivityRow({
     });
     return true;
   };
+
   const handleRowClick = () => {
     if (hookEvent && event.worktreeId) {
       navigateToWorktree({ openHooksTab: true });
@@ -460,6 +525,7 @@ function ActivityRow({
       navigateToWorktree({ openClaudeTab: claudeRelated });
     }
   };
+
   const rowClickable = Boolean(
     (hookEvent && event.worktreeId && onNavigateToWorktree) ||
     (issueSource &&
@@ -470,7 +536,13 @@ function ActivityRow({
 
   return (
     <div
-      className={`px-4 py-3 hover:bg-white/[0.02] transition-colors ${rowClickable ? "cursor-pointer" : ""}`}
+      className={`px-4 py-3 transition-colors ${
+        actionRequired
+          ? `bg-amber-500/[0.06] hover:bg-amber-500/[0.09] ${
+              showAttentionDivider ? "-mt-px border-t border-amber-300/20" : ""
+            }`
+          : "hover:bg-white/[0.02]"
+      } ${rowClickable ? "cursor-pointer" : ""}`}
       role={rowClickable ? "button" : undefined}
       tabIndex={rowClickable ? 0 : undefined}
       onClick={rowClickable ? handleRowClick : undefined}
@@ -488,7 +560,7 @@ function ActivityRow({
     >
       <div className="flex items-start gap-3">
         <div
-          className={`flex-shrink-0 w-7 h-7 rounded-lg ${categoryBg} flex items-center justify-center mt-0.5`}
+          className={`relative flex-shrink-0 w-7 h-7 rounded-lg ${categoryBg} flex items-center justify-center mt-0.5`}
         >
           {agentIconVariant === "claude" ? (
             <ClaudeIcon className="w-3.5 h-3.5 text-[#D97757]" />
@@ -505,19 +577,26 @@ function ActivityRow({
           ) : (
             <Icon className={`w-3.5 h-3.5 ${categoryColor}`} />
           )}
+          {actionRequired && (
+            <span className="absolute -right-0.5 -bottom-0.5 rounded-full bg-[#12151a] p-[1px]">
+              <AlertTriangle className="w-3 h-3 text-amber-300" />
+            </span>
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <p className={`text-xs ${text.primary} leading-relaxed`}>{event.title}</p>
           </div>
-          {event.detail && <p className={`text-[10px] ${text.muted} mt-0.5`}>{event.detail}</p>}
+          {event.detail && (
+            <p className={`text-[10px] ${subtitleTextClass} mt-0.5`}>{event.detail}</p>
+          )}
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[10px] ${text.dimmed}`}>
+            <span className={`text-[10px] ${metaTextClass}`}>
               {formatRelativeTime(event.timestamp)}
             </span>
             {event.projectName && (
-              <span className={`text-[10px] ${text.dimmed}`}>{event.projectName}</span>
+              <span className={`text-[10px] ${metaTextClass}`}>{event.projectName}</span>
             )}
             {issueSource && issueId && onNavigateToIssue ? (
               claudeRelated && event.worktreeId && onNavigateToWorktree ? (
@@ -542,7 +621,7 @@ function ActivityRow({
                 </button>
               )
             ) : issueId ? (
-              <span className={`text-[10px] ${text.dimmed}`}>{issueId}</span>
+              <span className={`text-[10px] ${metaTextClass}`}>{issueId}</span>
             ) : null}
             {shouldShowWorktreeLink && event.worktreeId && onNavigateToWorktree ? (
               <button
@@ -555,7 +634,7 @@ function ActivityRow({
                 {event.worktreeId}
               </button>
             ) : shouldShowWorktreeLink && event.worktreeId ? (
-              <span className={`text-[10px] ${text.dimmed}`}>{event.worktreeId}</span>
+              <span className={`text-[10px] ${metaTextClass}`}>{event.worktreeId}</span>
             ) : null}
           </div>
 

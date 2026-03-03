@@ -15,6 +15,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { APP_NAME } from "@openkit/shared/constants";
 import { AppSettingsModal } from "./components/AppSettingsModal";
+import {
+  reportDetailedErrorToast,
+  reportPersistentErrorToast,
+  showPersistentErrorToast,
+} from "./errorToasts";
 import { ConfigurationPanel } from "./components/ConfigurationPanel";
 import { CreateCustomTaskModal } from "./components/CreateCustomTaskModal";
 import { CreateForm } from "./components/CreateForm";
@@ -30,6 +35,7 @@ import { Header } from "./components/Header";
 import { IntegrationsPanel } from "./components/IntegrationsPanel";
 import { IssueList } from "./components/IssueList";
 import { AgentsView } from "./components/AgentsView";
+import { ActivityPage } from "./components/ActivityPage";
 import { ProjectSetupScreen } from "./components/ProjectSetupScreen";
 import { HooksPanel } from "./components/VerificationPanel";
 import { ResizableHandle } from "./components/ResizableHandle";
@@ -257,7 +263,11 @@ export default function App() {
   } = useServer();
   const [hookUpdateKey, setHookUpdateKey] = useState(0);
   const { worktrees, isConnected, error, refetch } = useWorktrees(
-    undefined,
+    useCallback((message, level) => {
+      if (level === "error") {
+        showPersistentErrorToast(message, { scope: "sse:notification" });
+      }
+    }, []),
     useCallback(() => setHookUpdateKey((k) => k + 1), []),
   );
   const {
@@ -297,19 +307,26 @@ export default function App() {
 
       // If no config and this is Electron, check if we should auto-init
       if (!config && isElectron) {
-        window.electronAPI?.getSetupPreference().then(async (pref) => {
-          if (pref === "auto") {
-            setIsAutoInitializing(true);
-            try {
-              const result = await api.initConfig({});
-              if (result.success) {
-                refetchConfig();
+        window.electronAPI
+          ?.getSetupPreference()
+          .then(async (pref) => {
+            if (pref === "auto") {
+              setIsAutoInitializing(true);
+              try {
+                const result = await api.initConfig({});
+                if (result.success) {
+                  refetchConfig();
+                }
+              } finally {
+                setIsAutoInitializing(false);
               }
-            } finally {
-              setIsAutoInitializing(false);
             }
-          }
-        });
+          })
+          .catch((error) => {
+            reportPersistentErrorToast(error, "Failed to load setup preference", {
+              scope: "app:setup-preference",
+            });
+          });
       }
     }
   }, [configLoading, serverUrl, config, hadConfigOnConnect, isElectron]);
@@ -377,6 +394,7 @@ export default function App() {
       if (
         saved === "workspace" ||
         saved === "agents" ||
+        saved === "activity" ||
         saved === "hooks" ||
         saved === "configuration" ||
         saved === "integrations"
@@ -401,6 +419,7 @@ export default function App() {
     if (
       saved === "workspace" ||
       saved === "agents" ||
+      saved === "activity" ||
       saved === "hooks" ||
       saved === "configuration" ||
       saved === "integrations"
@@ -562,7 +581,10 @@ export default function App() {
       const saved = localStorage.getItem(`OpenKit:wsSel:${serverUrl}`);
       if (saved) setSelectionState(JSON.parse(saved));
       else setSelectionState(null);
-    } catch {
+    } catch (error) {
+      reportPersistentErrorToast(error, "Failed to restore workspace selection", {
+        scope: "app:restore-selection",
+      });
       setSelectionState(null);
     }
   }, [serverUrl]);
@@ -627,11 +649,18 @@ export default function App() {
   // Load sidebar width from Electron preferences (overrides localStorage)
   useEffect(() => {
     if (isElectron) {
-      window.electronAPI?.getSidebarWidth().then((width) => {
-        if (width >= MIN_SIDEBAR_WIDTH && width <= MAX_SIDEBAR_WIDTH) {
-          setSidebarWidth(width);
-        }
-      });
+      window.electronAPI
+        ?.getSidebarWidth()
+        .then((width) => {
+          if (width >= MIN_SIDEBAR_WIDTH && width <= MAX_SIDEBAR_WIDTH) {
+            setSidebarWidth(width);
+          }
+        })
+        .catch((error) => {
+          reportPersistentErrorToast(error, "Failed to load sidebar width", {
+            scope: "app:sidebar-width",
+          });
+        });
     }
   }, [isElectron]);
 
@@ -736,7 +765,10 @@ export default function App() {
           width: 240,
         });
         setNgrokQrDataUrl(qrDataUrl);
-      } catch {
+      } catch (error) {
+        reportPersistentErrorToast(error, "Failed to generate QR code", {
+          scope: "app:ngrok-qr",
+        });
         setNgrokQrDataUrl(null);
       }
 
@@ -783,7 +815,10 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(ngrokPairing.pairUrl);
       setNgrokQrMessage("Pairing URL copied.");
-    } catch {
+    } catch (error) {
+      reportPersistentErrorToast(error, "Could not copy pairing URL", {
+        scope: "app:copy-pairing-url",
+      });
       setNgrokQrMessage("Could not copy pairing URL.");
     }
   }, [ngrokPairing?.pairUrl]);
@@ -831,7 +866,10 @@ export default function App() {
 
       // Refresh status after setup
       window.location.reload();
-    } catch {
+    } catch (error) {
+      reportPersistentErrorToast(error, "Setup failed unexpectedly", {
+        scope: "app:auto-setup",
+      });
       setSetupError("Setup failed unexpectedly");
     }
   };
@@ -1560,7 +1598,10 @@ export default function App() {
         const parsed = JSON.parse(raw) as unknown;
         if (!Array.isArray(parsed)) return new Set();
         return new Set(parsed.filter((item): item is string => typeof item === "string"));
-      } catch {
+      } catch (error) {
+        reportPersistentErrorToast(error, `Failed to restore auto-launch seen IDs for ${source}`, {
+          scope: `auto-launch:seen-ids:${source}`,
+        });
         return new Set();
       }
     };
@@ -1573,9 +1614,12 @@ export default function App() {
   const enqueueAutoLaunch = useCallback(
     (launch: () => Promise<void>) => {
       logAutoClaude("Queueing auto-launch task");
-      autoLaunchQueueRef.current = autoLaunchQueueRef.current
-        .then(launch)
-        .catch((error) => console.error("Auto Claude launch failed:", error));
+      autoLaunchQueueRef.current = autoLaunchQueueRef.current.then(launch).catch((launchError) => {
+        reportDetailedErrorToast("Auto-launch queue failed", launchError, {
+          scope: "auto-launch:queue",
+        });
+        console.error("Auto Claude launch failed:", launchError);
+      });
     },
     [logAutoClaude],
   );
@@ -1622,9 +1666,15 @@ export default function App() {
         error: result.error,
       });
       if (!result.success && !(result.code === "WORKTREE_EXISTS" && result.worktreeId)) {
-        console.error(
-          `Failed to auto-launch Jira issue ${issue.key}: ${result.error ?? "unknown"}`,
+        const reason = result.error ?? "unknown";
+        showPersistentErrorToast(
+          {
+            title: `Failed to auto-launch Jira issue ${issue.key}`,
+            description: `Reason: ${reason}`,
+          },
+          { scope: "auto-launch:jira" },
         );
+        console.error(`Failed to auto-launch Jira issue ${issue.key}: ${reason}`);
         return;
       }
       const worktreeId = result.worktreeId ?? issue.key;
@@ -1685,9 +1735,15 @@ export default function App() {
         error: result.error,
       });
       if (!result.success && !(result.code === "WORKTREE_EXISTS" && result.worktreeId)) {
-        console.error(
-          `Failed to auto-launch Linear issue ${issue.identifier}: ${result.error ?? "unknown"}`,
+        const reason = result.error ?? "unknown";
+        showPersistentErrorToast(
+          {
+            title: `Failed to auto-launch Linear issue ${issue.identifier}`,
+            description: `Reason: ${reason}`,
+          },
+          { scope: "auto-launch:linear" },
         );
+        console.error(`Failed to auto-launch Linear issue ${issue.identifier}: ${reason}`);
         return;
       }
       const worktreeId = result.worktreeId ?? issue.identifier;
@@ -1748,7 +1804,15 @@ export default function App() {
         error: result.error,
       });
       if (!result.success && !(result.code === "WORKTREE_EXISTS" && result.worktreeId)) {
-        console.error(`Failed to auto-launch local task ${task.id}: ${result.error ?? "unknown"}`);
+        const reason = result.error ?? "unknown";
+        showPersistentErrorToast(
+          {
+            title: `Failed to auto-launch local task ${task.id}`,
+            description: `Reason: ${reason}`,
+          },
+          { scope: "auto-launch:local" },
+        );
+        console.error(`Failed to auto-launch local task ${task.id}: ${reason}`);
         return;
       }
 
@@ -2063,6 +2127,71 @@ export default function App() {
     );
   }
 
+  const handleNavigateToWorktree = ({
+    worktreeId,
+    projectName: navProjectName,
+    sourceServerUrl,
+    openClaudeTab,
+    openHooksTab,
+  }: {
+    worktreeId: string;
+    projectName?: string;
+    sourceServerUrl?: string;
+    openClaudeTab?: boolean;
+    openHooksTab?: boolean;
+  }) => {
+    setActiveView("workspace");
+    const targetProjectId = resolveProjectIdFromNotification(navProjectName, sourceServerUrl);
+    if (targetProjectId && targetProjectId !== activeProject?.id) {
+      setPendingNotificationNav({
+        worktreeId,
+        targetProjectId,
+        openClaudeTab,
+        openHooksTab,
+      });
+      switchProject(targetProjectId);
+      return;
+    }
+    setSelection({ type: "worktree", id: worktreeId });
+    if (openClaudeTab) {
+      setPendingClaudeLaunches((prev) => [...prev, { worktreeId, mode: "resume" }]);
+    }
+    if (openHooksTab) {
+      notificationTabRequestIdRef.current += 1;
+      setNotificationTabRequest({
+        worktreeId,
+        tab: "hooks",
+        requestId: notificationTabRequestIdRef.current,
+      });
+    }
+  };
+
+  const handleNavigateToIssue = ({
+    source,
+    issueId,
+    projectName: navProjectName,
+    sourceServerUrl,
+  }: {
+    source: "jira" | "linear";
+    issueId: string;
+    projectName?: string;
+    sourceServerUrl?: string;
+  }) => {
+    setActiveView("workspace");
+    setActiveCreateTab("issues");
+    const targetProjectId = resolveProjectIdFromNotification(navProjectName, sourceServerUrl);
+    if (targetProjectId && targetProjectId !== activeProject?.id) {
+      setPendingIssueNotificationNav({ source, issueId, targetProjectId });
+      switchProject(targetProjectId);
+      return;
+    }
+    if (source === "jira") {
+      setSelection({ type: "issue", key: issueId });
+      return;
+    }
+    setSelection({ type: "linear-issue", identifier: issueId });
+  };
+
   return (
     <div className={`h-screen flex flex-col ${surface.page} ${text.body} relative overflow-hidden`}>
       {/* Animated background blobs — settings/integrations/hooks only */}
@@ -2170,64 +2299,8 @@ export default function App() {
           onChangeView={setActiveView}
           currentProjectName={projectName ?? activeProject?.name ?? null}
           disabledActivityEventTypes={config?.activity?.disabledEvents ?? []}
-          onNavigateToWorktree={({
-            worktreeId,
-            projectName: navProjectName,
-            sourceServerUrl,
-            openClaudeTab,
-            openHooksTab,
-          }) => {
-            setActiveView("workspace");
-            const targetProjectId = resolveProjectIdFromNotification(
-              navProjectName,
-              sourceServerUrl,
-            );
-            if (targetProjectId && targetProjectId !== activeProject?.id) {
-              setPendingNotificationNav({
-                worktreeId,
-                targetProjectId,
-                openClaudeTab,
-                openHooksTab,
-              });
-              switchProject(targetProjectId);
-              return;
-            }
-            setSelection({ type: "worktree", id: worktreeId });
-            if (openClaudeTab) {
-              setPendingClaudeLaunches((prev) => [...prev, { worktreeId, mode: "resume" }]);
-            }
-            if (openHooksTab) {
-              notificationTabRequestIdRef.current += 1;
-              setNotificationTabRequest({
-                worktreeId,
-                tab: "hooks",
-                requestId: notificationTabRequestIdRef.current,
-              });
-            }
-          }}
-          onNavigateToIssue={({
-            source,
-            issueId,
-            projectName: navProjectName,
-            sourceServerUrl,
-          }) => {
-            setActiveView("workspace");
-            setActiveCreateTab("issues");
-            const targetProjectId = resolveProjectIdFromNotification(
-              navProjectName,
-              sourceServerUrl,
-            );
-            if (targetProjectId && targetProjectId !== activeProject?.id) {
-              setPendingIssueNotificationNav({ source, issueId, targetProjectId });
-              switchProject(targetProjectId);
-              return;
-            }
-            if (source === "jira") {
-              setSelection({ type: "issue", key: issueId });
-              return;
-            }
-            setSelection({ type: "linear-issue", identifier: issueId });
-          }}
+          onNavigateToWorktree={handleNavigateToWorktree}
+          onNavigateToIssue={handleNavigateToIssue}
         />
       </motion.div>
 
@@ -2237,7 +2310,7 @@ export default function App() {
         </div>
       )}
 
-      {(activeView === "workspace" || activeView === "agents") && (
+      {(activeView === "workspace" || activeView === "agents" || activeView === "activity") && (
         <div className="flex-1 min-h-0 relative">
           {activeView === "workspace" && (
             <div className="absolute inset-0 flex px-5 pb-16">
@@ -2500,6 +2573,13 @@ export default function App() {
           )}
 
           {activeView === "agents" && <AgentsView />}
+          {activeView === "activity" && (
+            <ActivityPage
+              disabledActivityEventTypes={config?.activity?.disabledEvents ?? []}
+              onNavigateToWorktree={handleNavigateToWorktree}
+              onNavigateToIssue={handleNavigateToIssue}
+            />
+          )}
         </div>
       )}
 

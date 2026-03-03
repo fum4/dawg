@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Upload } from "lucide-react";
 
 import { APP_NAME, CONFIG_DIR_NAME } from "@openkit/shared/constants";
+import { useErrorToast } from "../hooks/useErrorToast";
 import { input, text } from "../theme";
 import { Button } from "./Button";
 import { Modal } from "./Modal";
@@ -15,6 +16,7 @@ export function SetupCommitModal({ onCommit, onSkip }: SetupCommitModalProps) {
   const [message, setMessage] = useState(`chore: add ${APP_NAME} configuration`);
   const [isPushing, setIsPushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "setup-commit-modal");
 
   const handleCommitAndPush = async () => {
     if (!message.trim()) return;

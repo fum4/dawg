@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { reportPersistentErrorToast } from "../errorToasts";
 import type { WorktreeInfo, PortsInfo, JiraStatus, GitHubStatus, LinearStatus } from "../types";
 import { useServerUrlOptional } from "../contexts/ServerContext";
 import {
@@ -28,7 +29,9 @@ export function useWorktrees(
       setWorktrees((data.worktrees || []) as WorktreeInfo[]);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch worktrees");
+      const message = err instanceof Error ? err.message : "Failed to fetch worktrees";
+      setError(message);
+      reportPersistentErrorToast(err, "Failed to fetch worktrees", { scope: "worktrees:fetch" });
     }
   }, [serverUrl]);
 
@@ -86,6 +89,10 @@ export function useWorktrees(
 
     eventSource.onerror = () => {
       setIsConnected(false);
+      setError("Live updates disconnected");
+      reportPersistentErrorToast("Live updates disconnected", "Live updates disconnected", {
+        scope: "worktrees:sse",
+      });
       eventSource.close();
       setTimeout(() => {
         fetchWorktrees();
@@ -114,7 +121,11 @@ export function useProjectName() {
       .then((data) => {
         if (data.projectName) setProjectName(data.projectName);
       })
-      .catch(() => {});
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to load project name", {
+          scope: "project-name:fetch",
+        });
+      });
   }, [serverUrl]);
 
   return projectName;
@@ -132,8 +143,8 @@ export function usePorts() {
     try {
       const data = await apiFetchPorts(serverUrl);
       setPorts(data);
-    } catch {
-      // Ignore errors
+    } catch (error) {
+      reportPersistentErrorToast(error, "Failed to fetch ports", { scope: "ports:fetch" });
     }
   }, [serverUrl]);
 
@@ -157,7 +168,11 @@ export function useJiraStatus() {
 
     apiFetchJiraStatus(serverUrl)
       .then((data) => setJiraStatus(data))
-      .catch(() => {});
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch Jira status", {
+          scope: "jira-status:fetch",
+        });
+      });
   }, [refreshKey, serverUrl]);
 
   const refetch = useCallback(() => setRefreshKey((k) => k + 1), []);
@@ -178,7 +193,11 @@ export function useLinearStatus() {
 
     apiFetchLinearStatus(serverUrl)
       .then((data) => setLinearStatus(data))
-      .catch(() => {});
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch Linear status", {
+          scope: "linear-status:fetch",
+        });
+      });
   }, [refreshKey, serverUrl]);
 
   const refetch = useCallback(() => setRefreshKey((k) => k + 1), []);
@@ -198,7 +217,11 @@ export function useGitHubStatus() {
 
     apiFetchGitHubStatus(serverUrl)
       .then((data) => setStatus(data))
-      .catch(() => {});
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch GitHub status", {
+          scope: "github-status:fetch",
+        });
+      });
   }, [serverUrl]);
 
   return status;

@@ -1,14 +1,99 @@
 import { useMemo } from "react";
 
+import { reportPersistentErrorToast, showPersistentErrorToast } from "../errorToasts";
 import { useServerUrlOptional } from "../contexts/ServerContext";
 import * as api from "./api";
+
+function hasErrorResult(value: unknown): value is { success?: boolean; error?: unknown } {
+  if (!value || typeof value !== "object") return false;
+  return "success" in value || "error" in value;
+}
+
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
+function buildStructuredErrorToast(result: { success?: boolean; error?: unknown }):
+  | string
+  | {
+      title: string;
+      description: string;
+    } {
+  const errorMessage =
+    typeof result.error === "string" && result.error.trim().length > 0
+      ? result.error.trim()
+      : "Request failed";
+
+  const details: string[] = [];
+  if ("code" in result && typeof (result as { code?: unknown }).code === "string") {
+    details.push(`Code: ${(result as { code: string }).code}`);
+  }
+  if ("detail" in result && typeof (result as { detail?: unknown }).detail === "string") {
+    details.push(`Detail: ${(result as { detail: string }).detail}`);
+  }
+  if ("reason" in result && typeof (result as { reason?: unknown }).reason === "string") {
+    details.push(`Reason: ${(result as { reason: string }).reason}`);
+  }
+  if ("logs" in result && Array.isArray((result as { logs?: unknown }).logs)) {
+    const firstLog = (result as { logs: unknown[] }).logs.find(
+      (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+    );
+    if (firstLog) details.push(`Log: ${firstLog.trim()}`);
+  }
+
+  return details.length > 0
+    ? { title: errorMessage, description: details.join(" | ") }
+    : errorMessage;
+}
+
+type ApiMethod = (...args: any[]) => any;
+type ApiClient<T extends Record<string, ApiMethod>> = {
+  [K in keyof T]: (...args: Parameters<T[K]>) => ReturnType<T[K]>;
+};
+
+function wrapClientWithErrorToasts<T extends Record<string, ApiMethod>>(client: T): ApiClient<T> {
+  const wrappedClient = {} as ApiClient<T>;
+
+  (Object.keys(client) as Array<keyof T>).forEach((key) => {
+    const fn = client[key];
+    wrappedClient[key] = ((...args: Parameters<T[typeof key]>) => {
+      const result = fn(...args);
+      if (!isPromiseLike(result)) return result as ReturnType<T[typeof key]>;
+
+      return result
+        .then((resolved) => {
+          if (
+            hasErrorResult(resolved) &&
+            (resolved.success === false ||
+              (typeof resolved.error === "string" && resolved.error.trim().length > 0))
+          ) {
+            showPersistentErrorToast(buildStructuredErrorToast(resolved), {
+              scope: `api:${String(key)}`,
+            });
+          }
+          return resolved;
+        })
+        .catch((error) => {
+          reportPersistentErrorToast(error, "Request failed", { scope: `api:${String(key)}` });
+          throw error;
+        }) as ReturnType<T[typeof key]>;
+    }) as ApiClient<T>[typeof key];
+  });
+
+  return wrappedClient;
+}
 
 // Hook that provides API functions pre-bound to the current server URL
 // This makes it easy for components to use API functions without worrying about serverUrl
 export function useApi() {
   const serverUrl = useServerUrlOptional();
 
-  return useMemo(
+  const client = useMemo(
     () => ({
       createWorktree: (branch: string, name?: string) =>
         api.createWorktree(branch, name, serverUrl),
@@ -409,4 +494,6 @@ export function useApi() {
     }),
     [serverUrl],
   );
+
+  return useMemo(() => wrapClientWithErrorToasts(client), [client]);
 }

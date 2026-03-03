@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ListTodo, Paperclip, X } from "lucide-react";
 
+import { useErrorToast } from "../hooks/useErrorToast";
 import { customTask, getLabelColor, text } from "../theme";
 import { Modal } from "./Modal";
 import { ImageModal } from "./ImageModal";
@@ -41,6 +42,7 @@ export function CreateCustomTaskModal({
     type: "image" | "pdf";
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  useErrorToast(error, "create-custom-task-modal");
 
   // Stable object URLs for file previews
   const fileUrls = useMemo(

@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { APP_NAME } from "@openkit/shared/constants";
+import { reportPersistentErrorToast } from "../errorToasts";
 import { useApi } from "../hooks/useApi";
 import {
   type CodingAgent,
@@ -416,7 +417,10 @@ function GitHubCard({
 
       onStatusChange();
       setTimeout(() => setFeedback(null), 4000);
-    } catch {
+    } catch (error) {
+      reportPersistentErrorToast(error, "GitHub setup failed unexpectedly", {
+        scope: "integrations:github-setup",
+      });
       setFeedback({ type: "error", message: "Setup failed unexpectedly" });
     }
     setSettingUp(false);
@@ -432,8 +436,10 @@ function GitHubCard({
           setFeedback(null);
           onStatusChange(data);
         }
-      } catch {
-        // ignore polling errors
+      } catch (error) {
+        reportPersistentErrorToast(error, "Failed to poll GitHub auth status", {
+          scope: "integrations:github-poll",
+        });
       }
     }, 2000);
     return () => {
@@ -450,8 +456,10 @@ function GitHubCard({
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-    } catch {
-      // Clipboard API not available
+    } catch (error) {
+      reportPersistentErrorToast(error, "Could not copy text to clipboard", {
+        scope: "integrations:clipboard",
+      });
     }
   };
 
@@ -1238,9 +1246,16 @@ function CodingAgentsCard() {
   }, [selectedAgent, scope]);
 
   useEffect(() => {
-    api.fetchMcpStatus().then((result) => {
-      setStatuses(result.statuses);
-    });
+    api
+      .fetchMcpStatus()
+      .then((result) => {
+        setStatuses(result.statuses);
+      })
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch MCP status", {
+          scope: "integrations:mcp-status",
+        });
+      });
   }, [api]);
 
   const handleCopy = async () => {
@@ -1249,8 +1264,10 @@ function CodingAgentsCard() {
       await navigator.clipboard.writeText(scopeConfig.config);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API not available
+    } catch (error) {
+      reportPersistentErrorToast(error, "Could not copy config to clipboard", {
+        scope: "integrations:mcp-copy-config",
+      });
     }
   };
 
@@ -1523,18 +1540,24 @@ export function IntegrationsPanel({
   // Background-verify all configured integrations on mount
   useEffect(() => {
     if (serverUrl === null) return;
-    verifyIntegrations(serverUrl).then((result) => {
-      if (!result) return;
-      if (result.github?.ok === false) {
-        setCurrentGithubStatus((prev) => (prev ? { ...prev, authenticated: false } : prev));
-      }
-      if (result.jira?.ok === false) {
-        setCurrentJiraStatus((prev) => (prev ? { ...prev, configured: false } : prev));
-      }
-      if (result.linear?.ok === false) {
-        setCurrentLinearStatus((prev) => (prev ? { ...prev, configured: false } : prev));
-      }
-    });
+    verifyIntegrations(serverUrl)
+      .then((result) => {
+        if (!result) return;
+        if (result.github?.ok === false) {
+          setCurrentGithubStatus((prev) => (prev ? { ...prev, authenticated: false } : prev));
+        }
+        if (result.jira?.ok === false) {
+          setCurrentJiraStatus((prev) => (prev ? { ...prev, configured: false } : prev));
+        }
+        if (result.linear?.ok === false) {
+          setCurrentLinearStatus((prev) => (prev ? { ...prev, configured: false } : prev));
+        }
+      })
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Integration verification failed", {
+          scope: "integrations:verify",
+        });
+      });
   }, [serverUrl]);
 
   useEffect(() => {
@@ -1546,8 +1569,10 @@ export function IntegrationsPanel({
       .then((features) => {
         setMcpSetupEnabled(features.mcpSetupEnabled);
       })
-      .catch(() => {
-        // MCP setup UI is opt-in and remains hidden when feature detection fails.
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to detect setup features", {
+          scope: "integrations:setup-features",
+        });
         setMcpSetupEnabled(false);
       });
   }, [serverUrl]);
@@ -1556,7 +1581,11 @@ export function IntegrationsPanel({
     if (githubRefreshKey === 0) return;
     fetchGitHubStatus(serverUrl)
       .then((d) => setCurrentGithubStatus(d))
-      .catch(() => {});
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to refresh GitHub status", {
+          scope: "integrations:refresh-github",
+        });
+      });
   }, [githubRefreshKey, serverUrl]);
 
   useEffect(() => {
@@ -1566,7 +1595,11 @@ export function IntegrationsPanel({
         setCurrentJiraStatus(d);
         onJiraStatusChange?.();
       })
-      .catch(() => {});
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to refresh Jira status", {
+          scope: "integrations:refresh-jira",
+        });
+      });
   }, [jiraRefreshKey, onJiraStatusChange, serverUrl]);
 
   useEffect(() => {
@@ -1576,7 +1609,11 @@ export function IntegrationsPanel({
         setCurrentLinearStatus(d);
         onLinearStatusChange?.();
       })
-      .catch(() => {});
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to refresh Linear status", {
+          scope: "integrations:refresh-linear",
+        });
+      });
   }, [linearRefreshKey, onLinearStatusChange, serverUrl]);
 
   return (

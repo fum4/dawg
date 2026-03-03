@@ -3,6 +3,7 @@ import { FolderOpen, FolderSearch, HardDrive, ScanSearch, Settings2 } from "luci
 
 import { useServer } from "../contexts/ServerContext";
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import type { McpScanResult, PluginSummary, SkillScanResult } from "../types";
 import { Modal } from "./Modal";
 import { input, text } from "../theme";
@@ -66,6 +67,7 @@ export function McpServerScanModal({
   const [selectedMcps, setSelectedMcps] = useState<Set<string>>(new Set());
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "mcp-server-scan-modal");
   const autoScanTriggered = useRef(false);
 
   const applyResults = useCallback((mcps: McpScanResult[], skills: SkillScanResult[]) => {

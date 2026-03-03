@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, Download, Filter, Puzzle, Trash2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { reportPersistentErrorToast } from "../errorToasts";
 import { useAvailablePlugins } from "../hooks/useSkills";
 import { useApi } from "../hooks/useApi";
 import type { AvailablePlugin, MarketplaceSummary } from "../types";
@@ -152,7 +153,10 @@ export function PluginInstallModal({ onInstalled, onClose }: PluginInstallModalP
     try {
       const result = await api.fetchPluginMarketplaces();
       setMarketplaces(result.marketplaces ?? []);
-    } catch {
+    } catch (error) {
+      reportPersistentErrorToast(error, "Failed to load plugin marketplaces", {
+        scope: "plugins:marketplaces",
+      });
       setMarketplaces([]);
     }
     setMarketplacesLoading(false);

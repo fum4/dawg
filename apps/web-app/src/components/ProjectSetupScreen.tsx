@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 
 import { APP_NAME, CONFIG_DIR_NAME } from "@openkit/shared/constants";
+import { reportPersistentErrorToast } from "../errorToasts";
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import type { DetectedConfig } from "../hooks/api";
 import { fetchGitHubStatus, fetchJiraStatus, fetchLinearStatus } from "../hooks/api";
 import { useServerUrlOptional } from "../contexts/ServerContext";
@@ -59,6 +61,7 @@ export function ProjectSetupScreen({
   const [rememberChoice, setRememberChoice] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "project-setup-screen");
 
   // GitHub status for commit-prompt step
   const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
@@ -69,7 +72,13 @@ export function ProjectSetupScreen({
   // Fetch GitHub status when entering commit-prompt
   useEffect(() => {
     if (mode !== "commit-prompt") return;
-    fetchGitHubStatus(serverUrl).then(setGhStatus);
+    fetchGitHubStatus(serverUrl)
+      .then(setGhStatus)
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch GitHub status", {
+          scope: "project-setup:commit-prompt-github-status",
+        });
+      });
   }, [mode, serverUrl]);
 
   // Poll for auth completion
@@ -99,8 +108,10 @@ export function ProjectSetupScreen({
       if (result.code) {
         try {
           await navigator.clipboard.writeText(result.code);
-        } catch {
-          /* ignore */
+        } catch (error) {
+          reportPersistentErrorToast(error, "Could not copy GitHub auth code", {
+            scope: "project-setup:copy-gh-code",
+          });
         }
         setError(
           `Code ${result.code} copied to clipboard! Paste it in your browser to authenticate.`,
@@ -131,8 +142,10 @@ export function ProjectSetupScreen({
       if (result.code) {
         try {
           await navigator.clipboard.writeText(result.code);
-        } catch {
-          /* ignore */
+        } catch (error) {
+          reportPersistentErrorToast(error, "Could not copy GitHub auth code", {
+            scope: "project-setup:copy-gh-code",
+          });
         }
         setError(
           `Code ${result.code} copied to clipboard! Paste it in your browser to authenticate.`,
@@ -179,6 +192,7 @@ export function ProjectSetupScreen({
   >({});
   const [agentsApplying, setAgentsApplying] = useState(false);
   const [agentsError, setAgentsError] = useState<string | null>(null);
+  useErrorToast(agentsError, "project-setup-screen:agents");
 
   const hasAnyAgentSelected = useMemo(() => {
     return AGENT_CONFIGS.some((agent) => {
@@ -222,9 +236,27 @@ export function ProjectSetupScreen({
   // Fetch all integration statuses when entering integrations step
   useEffect(() => {
     if (mode !== "integrations") return;
-    fetchGitHubStatus(serverUrl).then(setIntGhStatus);
-    fetchJiraStatus(serverUrl).then(setIntJiraStatus);
-    fetchLinearStatus(serverUrl).then(setIntLinearStatus);
+    fetchGitHubStatus(serverUrl)
+      .then(setIntGhStatus)
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch GitHub status", {
+          scope: "project-setup:integrations-github-status",
+        });
+      });
+    fetchJiraStatus(serverUrl)
+      .then(setIntJiraStatus)
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch Jira status", {
+          scope: "project-setup:integrations-jira-status",
+        });
+      });
+    fetchLinearStatus(serverUrl)
+      .then(setIntLinearStatus)
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to fetch Linear status", {
+          scope: "project-setup:integrations-linear-status",
+        });
+      });
   }, [mode, serverUrl]);
 
   // Poll for GitHub auth in integrations step
@@ -256,8 +288,10 @@ export function ProjectSetupScreen({
       if (result.code) {
         try {
           await navigator.clipboard.writeText(result.code);
-        } catch {
-          /* ignore */
+        } catch (error) {
+          reportPersistentErrorToast(error, "Could not copy GitHub auth code", {
+            scope: "project-setup:integrations-copy-gh-code",
+          });
         }
         setIntGhFeedback({
           type: "success",
@@ -286,8 +320,10 @@ export function ProjectSetupScreen({
       if (result.code) {
         try {
           await navigator.clipboard.writeText(result.code);
-        } catch {
-          /* ignore */
+        } catch (error) {
+          reportPersistentErrorToast(error, "Could not copy GitHub auth code", {
+            scope: "project-setup:integrations-copy-gh-code",
+          });
         }
         setIntGhFeedback({
           type: "success",
@@ -318,7 +354,13 @@ export function ProjectSetupScreen({
       setJiraBaseUrl("");
       setJiraEmail("");
       setJiraToken("");
-      fetchJiraStatus(serverUrl).then(setIntJiraStatus);
+      fetchJiraStatus(serverUrl)
+        .then(setIntJiraStatus)
+        .catch((error) => {
+          reportPersistentErrorToast(error, "Failed to refresh Jira status", {
+            scope: "project-setup:jira-refresh",
+          });
+        });
     } else {
       setJiraFeedback({ type: "error", message: result.error ?? "Failed to connect" });
     }
@@ -334,7 +376,13 @@ export function ProjectSetupScreen({
     if (result.success) {
       setLinearFeedback(null);
       setLinearApiKey("");
-      fetchLinearStatus(serverUrl).then(setIntLinearStatus);
+      fetchLinearStatus(serverUrl)
+        .then(setIntLinearStatus)
+        .catch((error) => {
+          reportPersistentErrorToast(error, "Failed to refresh Linear status", {
+            scope: "project-setup:linear-refresh",
+          });
+        });
     } else {
       setLinearFeedback({ type: "error", message: result.error ?? "Failed to connect" });
     }
@@ -343,32 +391,46 @@ export function ProjectSetupScreen({
 
   // Load detected config on mount
   useEffect(() => {
-    api.detectConfig().then((result) => {
-      if (result.success && result.config) {
-        setDetectedConfig(result.config);
-        setFormValues(result.config);
-      }
-    });
-  }, []);
+    api
+      .detectConfig()
+      .then((result) => {
+        if (result.success && result.config) {
+          setDetectedConfig(result.config);
+          setFormValues(result.config);
+        }
+      })
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to detect configuration", {
+          scope: "project-setup:detect-config",
+        });
+      });
+  }, [api]);
 
   // Fetch current work-on-task skill deployment status when entering agents step
   useEffect(() => {
     if (mode === "agents") {
-      api.fetchSkillDeploymentStatus().then((result) => {
-        const skillStatus = result.status?.[ONBOARDING_SKILL_NAME];
-        const desired: Record<string, { global: boolean; project: boolean }> = {};
-        for (const agent of AGENT_CONFIGS) {
-          const status = skillStatus?.agents?.[agent.id];
-          desired[agent.id] = {
-            global: status?.global === true,
-            project: status?.project === true,
-          };
-        }
-        setAgentStatuses(desired);
-        setAgentDesired(desired);
-      });
+      api
+        .fetchSkillDeploymentStatus()
+        .then((result) => {
+          const skillStatus = result.status?.[ONBOARDING_SKILL_NAME];
+          const desired: Record<string, { global: boolean; project: boolean }> = {};
+          for (const agent of AGENT_CONFIGS) {
+            const status = skillStatus?.agents?.[agent.id];
+            desired[agent.id] = {
+              global: status?.global === true,
+              project: status?.project === true,
+            };
+          }
+          setAgentStatuses(desired);
+          setAgentDesired(desired);
+        })
+        .catch((error) => {
+          reportPersistentErrorToast(error, "Failed to fetch skill deployment status", {
+            scope: "project-setup:skill-deployment-status",
+          });
+        });
     }
-  }, [mode]);
+  }, [api, mode]);
 
   const handleAutoSetup = async () => {
     setIsLoading(true);
