@@ -2,7 +2,7 @@ import { existsSync, lstatSync } from "fs";
 import os from "os";
 import path from "path";
 
-import { CONFIG_DIR_NAME } from "@openkit/shared/constants";
+import { CONFIG_DIR_NAME } from "./constants";
 
 export function getOpenKitStateDir(): string {
   return path.join(os.homedir(), CONFIG_DIR_NAME);

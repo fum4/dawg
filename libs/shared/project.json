@@ -7,7 +7,7 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec tsgo --noEmit -p tsconfig.json"
+        "command": "pnpm exec tsgo --noEmit -p libs/shared/tsconfig.json"
       }
     },
     "lint": {

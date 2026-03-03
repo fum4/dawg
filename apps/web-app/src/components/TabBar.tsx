@@ -1,4 +1,4 @@
-import { Folder, Loader2, Plus, QrCode, Settings, Wifi, X } from "lucide-react";
+import { Folder, Loader2, Plus, Settings, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useServer } from "../contexts/ServerContext";
@@ -16,15 +16,7 @@ interface TabBarProps {
   onOverlapChange?: (overlaps: boolean) => void;
 }
 
-export function TabBar({
-  onOpenSettings,
-  onToggleNgrok,
-  onOpenNgrokQr,
-  ngrokEnabled = false,
-  ngrokBusy = false,
-  ngrokQrDisabled = false,
-  onOverlapChange,
-}: TabBarProps) {
+export function TabBar({ onOpenSettings, onOverlapChange }: TabBarProps) {
   const {
     projects,
     activeProject,

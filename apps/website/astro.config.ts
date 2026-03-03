@@ -1,5 +1,14 @@
 import { defineConfig } from "astro/config";
+import { fileURLToPath } from "node:url";
+import { SITE_URL } from "../../libs/shared/src/constants";
 
 export default defineConfig({
-  site: "https://OpenKit.dev",
+  site: SITE_URL,
+  vite: {
+    resolve: {
+      alias: {
+        "@openkit/shared": fileURLToPath(new URL("../../libs/shared/src", import.meta.url)),
+      },
+    },
+  },
 });

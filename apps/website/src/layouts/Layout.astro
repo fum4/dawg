@@ -1,4 +1,6 @@
 ---
+import { SITE_URL } from "@openkit/shared/constants";
+
 interface Props {
   title?: string;
   description?: string;
@@ -9,9 +11,9 @@ const {
   description = "Stop babysitting your AI agents. OpenKit gives them a real workflow — pick up tasks, work in isolation, ship PRs. Works with Claude Code, Cursor, or any MCP-compatible agent.",
 } = Astro.props;
 
-const site = Astro.site ?? new URL("https://openkit.dev");
+const site = Astro.site ?? new URL(SITE_URL);
 const canonicalUrl = new URL(Astro.url.pathname, site).toString();
-const socialImage = new URL("/og-image.webp", site).toString();
+const socialImage = new URL("/og-image.jpeg", site).toString();
 ---
 
 <!doctype html>
@@ -28,13 +30,15 @@ const socialImage = new URL("/og-image.webp", site).toString();
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={socialImage} />
-    <meta property="og:image:type" content="image/webp" />
+    <meta property="og:image:secure_url" content={socialImage} />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="998" />
     <meta property="og:image:height" content="638" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={socialImage} />
+    <meta name="twitter:image:alt" content="OpenKit interface preview" />
     <title>{title}</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon.svg" />
