@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.apps.json",
+  "extends": ["../../tsconfig.apps.json", "astro/tsconfigs/strict"],
   "compilerOptions": {
     "types": ["astro/client"],
     "paths": {
