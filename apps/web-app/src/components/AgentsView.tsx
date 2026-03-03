@@ -3,6 +3,7 @@ import { Bot, Download, Radar, RefreshCw, X } from "lucide-react";
 
 import { APP_NAME } from "@openkit/shared/constants";
 import { useServer } from "../contexts/ServerContext";
+import { reportPersistentErrorToast } from "../errorToasts";
 import { useApi } from "../hooks/useApi";
 import { useConfig } from "../hooks/useConfig";
 import { useMcpServers, useMcpDeploymentStatus } from "../hooks/useMcpServers";
@@ -214,7 +215,11 @@ export function AgentsView() {
         setPersistedDiscoveryResults({ mcpResults, skillResults });
         setDiscoveryCounts({ servers: mcpResults.length, skills: skillResults.length });
       })
-      .catch(() => {})
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Discovery scan failed", {
+          scope: "agents:discovery-scan",
+        });
+      })
       .finally(() => setDiscoveryScanning(false));
   }, [api]);
 

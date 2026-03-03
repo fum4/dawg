@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { showPersistentErrorToast } from "../errorToasts";
 import { createTerminalSession, destroyTerminalSession, getTerminalWsUrl } from "./api";
 import { useServerUrlOptional } from "../contexts/ServerContext";
 
@@ -377,6 +378,14 @@ export function useTerminal({
       setConnectionSource(null);
     };
   }, [serverUrl, sessionScope]);
+
+  useEffect(() => {
+    if (!error) return;
+    showPersistentErrorToast(error, {
+      scope: `terminal:${sessionScope}:${worktreeId}`,
+      dedupeWindowMs: 250,
+    });
+  }, [error, sessionScope, worktreeId]);
 
   return {
     sessionId,

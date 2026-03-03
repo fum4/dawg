@@ -2,6 +2,7 @@ import { GitBranch, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { useApi } from "../hooks/useApi";
+import { useErrorToast } from "../hooks/useErrorToast";
 import { border, surface, text } from "../theme";
 import { Spinner } from "./Spinner";
 
@@ -21,6 +22,7 @@ export function WorktreeExistsModal({
   const api = useApi();
   const [isLoading, setIsLoading] = useState<"reuse" | "recreate" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useErrorToast(error, "worktree-exists-modal");
 
   const handleReuse = async () => {
     setIsLoading("reuse");

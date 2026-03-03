@@ -3,15 +3,28 @@ import { Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ACTIVITY_TYPES } from "@openkit/shared/activity-event";
+import { useServer } from "../contexts/ServerContext";
+import { reportPersistentErrorToast } from "../errorToasts";
+import {
+  activityFilterScopeForProject,
+  readPersistedActivityFilters,
+  writePersistedActivityFilters,
+} from "../hooks/activityFilterPersistence";
 import { useApi } from "../hooks/useApi";
 import { useActivityFeed } from "../hooks/useActivityFeed";
-import { ActivityBell, ActivityFeed } from "./ActivityFeed";
+import {
+  ActivityBell,
+  ActivityFeed,
+  isActionRequiredEvent,
+  type ActivityFilterGroup,
+} from "./ActivityFeed";
 import type { View } from "./NavBar";
 import { nav } from "../theme";
 
 const tabs: { id: View; label: string }[] = [
   { id: "workspace", label: "Workspace" },
   { id: "agents", label: "Agents" },
+  { id: "activity", label: "Activity" },
   { id: "hooks", label: "Hooks" },
   { id: "integrations", label: "Integrations" },
   { id: "configuration", label: "Settings" },
@@ -35,23 +48,6 @@ interface HeaderProps {
     sourceServerUrl?: string;
   }) => void;
   disabledActivityEventTypes?: string[];
-}
-
-function eventNeedsUserInput(event: {
-  category: string;
-  type: string;
-  severity: string;
-  title: string;
-  detail?: string;
-  metadata?: Record<string, unknown>;
-}): boolean {
-  if (event.category !== "agent") return false;
-  if (event.type === ACTIVITY_TYPES.AGENT_AWAITING_INPUT) {
-    return (
-      event.metadata?.requiresUserAction === true || event.metadata?.awaitingUserInput === true
-    );
-  }
-  return event.metadata?.requiresUserAction === true;
 }
 
 function eventContextKey(event: {
@@ -82,33 +78,23 @@ export function Header({
   disabledActivityEventTypes,
 }: HeaderProps) {
   const api = useApi();
+  const { activeProject, serverUrl } = useServer();
   const [appUpdate, setAppUpdate] = useState<AppUpdateState | null>(null);
   const [isUpdateHovered, setIsUpdateHovered] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(true);
-  const [selectedFilterGroups, setSelectedFilterGroups] = useState<
-    Array<"worktree" | "hooks" | "agents" | "system">
-  >(() => {
-    try {
-      const stored = localStorage.getItem("OpenKit:activityFeedFilters");
-      if (!stored) return [];
-      const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed)) return [];
-      const next = new Set<"worktree" | "hooks" | "agents" | "system">();
-      for (const value of parsed) {
-        if (value === "worktree" || value === "hooks" || value === "agents" || value === "system") {
-          next.add(value);
-        } else if (value === "agents-system") {
-          next.add("agents");
-          next.add("system");
-        }
-      }
-      return [...next];
-    } catch {
-      return [];
-    }
-  });
+  const [selectedFilterGroups, setSelectedFilterGroups] = useState<ActivityFilterGroup[]>([]);
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(() => new Set());
+  const skipFilterPersistenceRef = useRef(true);
+  const filterScope = useMemo(
+    () =>
+      activityFilterScopeForProject({
+        serverUrl,
+        projectId: activeProject?.id,
+        projectName: currentProjectName,
+      }),
+    [activeProject?.id, currentProjectName, serverUrl],
+  );
   const { events, unreadCount, markAllRead, clearAll } = useActivityFeed(
     undefined,
     undefined,
@@ -148,7 +134,7 @@ export function Header({
     }
 
     return [...latestByContext.values()]
-      .filter((event) => eventNeedsUserInput(event))
+      .filter((event) => isActionRequiredEvent(event))
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [visibleEvents]);
 
@@ -180,16 +166,19 @@ export function Header({
   }, [events.length]);
 
   useEffect(() => {
-    try {
-      if (selectedFilterGroups.length === 0) {
-        localStorage.removeItem("OpenKit:activityFeedFilters");
-      } else {
-        localStorage.setItem("OpenKit:activityFeedFilters", JSON.stringify(selectedFilterGroups));
-      }
-    } catch {
-      // Ignore storage issues
+    skipFilterPersistenceRef.current = true;
+    setSelectedFilterGroups(
+      readPersistedActivityFilters(filterScope, { allowLegacyFallback: true }),
+    );
+  }, [filterScope]);
+
+  useEffect(() => {
+    if (skipFilterPersistenceRef.current) {
+      skipFilterPersistenceRef.current = false;
+      return;
     }
-  }, [selectedFilterGroups]);
+    writePersistedActivityFilters(filterScope, selectedFilterGroups);
+  }, [filterScope, selectedFilterGroups]);
 
   useEffect(() => {
     if (!inputHintPopover) return;
@@ -311,8 +300,10 @@ export function Header({
     window.electronAPI
       .getAppUpdateState()
       .then(setAppUpdate)
-      .catch(() => {
-        // Ignore updater initialization errors in renderer.
+      .catch((error) => {
+        reportPersistentErrorToast(error, "Failed to initialize updater state", {
+          scope: "header:updater-init",
+        });
       });
     const unsubscribe = window.electronAPI.onAppUpdateState((state) => setAppUpdate(state));
     return unsubscribe;
@@ -389,11 +380,13 @@ export function Header({
         if (typeof window.electronAPI.checkAppUpdates !== "function") return;
         await window.electronAPI.checkAppUpdates();
       }
-    } catch {
-      // Ignore click action errors; updater state event will surface failures.
+    } catch (error) {
+      reportPersistentErrorToast(error, "Updater action failed", {
+        scope: "header:updater-action",
+      });
     }
   };
-  const toggleFilterGroup = (group: "worktree" | "hooks" | "agents" | "system") => {
+  const toggleFilterGroup = (group: ActivityFilterGroup) => {
     setSelectedFilterGroups((prev) => {
       if (prev.includes(group)) return prev.filter((item) => item !== group);
       return [...prev, group];
@@ -522,8 +515,6 @@ export function Header({
                 <ActivityFeed
                   events={visibleEvents}
                   unseenEventIds={unseenEventIds}
-                  unreadCount={unreadCount}
-                  onMarkAllRead={markAllRead}
                   onClearAll={clearAll}
                   showAllProjects={showAllProjects}
                   onToggleShowAllProjects={() => setShowAllProjects((prev) => !prev)}

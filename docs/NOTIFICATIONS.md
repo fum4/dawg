@@ -4,13 +4,13 @@
 
 OpenKit has a unified notification system that tracks events across worktrees, agents, git operations, and integrations. Events flow through a central **Activity Log** on the backend and surface in three ways:
 
-1. **Activity Feed** — a dropdown panel in the header (bell icon) showing a scrollable timeline of events
-2. **Toast notifications** — ephemeral in-app popups for direct user-action success/failure only
+1. **Activity Feed surfaces** — the header bell dropdown plus a dedicated `Activity` page, both showing the same timeline rows and controls
+2. **Toast notifications** — in-app popups using `react-hot-toast`; all UI-surfaced errors are persistent until dismissed
 3. **OS notifications** — native desktop notifications (Electron only) when the app is unfocused
 
 The Jira/Linear auto-start flow emits two activity events: one when a new task is detected and one when Claude starts working on it.
 
-Policy: workflow, agent, and live progress updates belong in the Activity feed (and optional OS notifications), not in toasts.
+Policy: workflow, agent, and live progress updates belong in the Activity feed (and optional OS notifications), not in toasts. Error toasts are now global for UI/API/query/runtime failures.
 
 ## Architecture
 
@@ -40,9 +40,13 @@ ActivityLog (backend)
 | `apps/server/src/manager.ts`                          | Creates `ActivityLog` instance, emits events from worktree lifecycle                                             |
 | `libs/agent/src/actions.ts`                           | `notify` MCP action — lets agents send custom activity events                                                    |
 | `apps/cli/src/activity.ts`                            | CLI command for terminal agents to emit awaiting-input activity                                                  |
-| `apps/web-app/src/components/ActivityFeed.tsx`        | `ActivityFeed` panel + `ActivityBell` button components                                                          |
+| `apps/web-app/src/components/ActivityFeed.tsx`        | Shared feed panel (`ActivityFeedPanel`) + dropdown wrapper (`ActivityFeed`) + `ActivityBell` button              |
+| `apps/web-app/src/components/ActivityPage.tsx`        | Dedicated Activity view with per-project activity cards                                                          |
+| `apps/web-app/src/hooks/activityFilterPersistence.ts` | Shared localStorage helpers for per-project activity filter persistence                                          |
 | `apps/web-app/src/components/detail/TerminalView.tsx` | Agent terminal rendering/session lifecycle (Claude/Codex/Gemini/OpenCode; no heuristic awaiting-input detection) |
+| `apps/web-app/src/hooks/activityFeedUtils.ts`         | Shared event upsert/history/hook-aggregation utilities used by feed hooks                                        |
 | `apps/web-app/src/hooks/useActivityFeed.ts`           | Hook — listens for `OpenKit:activity` CustomEvents, manages state                                                |
+| `apps/web-app/src/hooks/useProjectActivityFeeds.ts`   | Hook — manages per-project SSE activity streams/read state for Activity page                                     |
 | `apps/web-app/src/hooks/useWorktrees.ts`              | SSE client — bridges SSE messages to window CustomEvents                                                         |
 | `apps/web-app/src/components/Header.tsx`              | Wires bell + feed panel into the app header                                                                      |
 | `apps/web-app/src/App.tsx`                            | Emits task-detected + selected-agent-started activity events for Jira/Linear/local auto-start                    |
@@ -162,7 +166,7 @@ interface ActivityConfig {
 }
 ```
 
-Toasts are intentionally not activity-driven by policy. Use them only for direct user-action success/failure (for example save/create/retry outcomes).
+Toasts are intentionally not activity-driven by policy. They are used for surfaced UI errors (requests, queries, runtime failures, terminal failures).
 
 `toastEvents` may still appear in older configs for compatibility, but new workflow/agent/live event types should not be routed to toasts.
 
@@ -223,21 +227,46 @@ Returns: `{ events, unreadCount, markAllRead, clearAll }`
 
 ### ActivityFeed Component
 
-`ActivityFeed` (`apps/web-app/src/components/ActivityFeed.tsx`) renders the dropdown panel:
+`ActivityFeed` (`apps/web-app/src/components/ActivityFeed.tsx`) now has:
 
-- **Header** titled "Recent activity", with "Mark read" (only when unread > 0), "Clear", and a `Show all projects` toggle
+- `ActivityFeedPanel` — shared feed body used by both the dropdown and the Activity page cards
+- `ActivityFeed` — dropdown wrapper (absolute positioning, outside-click/Escape close, animation)
+
+Shared panel behavior:
+
+- **Header** titled "Recent activity", with "Clear" and a `Show all projects` toggle
 - **Filter chips** — multi-select chips directly below the header: `Worktree`, `Hooks`, `Agents`, and `System`. Multiple chips can be enabled simultaneously; when none are selected, all events are shown.
-- **Action-required section** — top section for active agent contexts whose latest event requires user action (`agent_awaiting_input` or `metadata.requiresUserAction === true`)
-  - Uses explicit flags only (`agent_awaiting_input` with `requiresUserAction/awaitingUserInput`, or `metadata.requiresUserAction === true`), not keyword heuristics.
+- **Per-project filter persistence** — selected filter chips are persisted per project scope in `localStorage` and reused across both surfaces (bell dropdown and Activity page cards) after refresh.
+- **Action-required prioritization** — active agent contexts that require user action are pinned above regular events (no separate section header), and each row shows a warning-triangle badge over the category icon.
+  - `agent_awaiting_input` is treated as action-required by default, except explicit clearing events (`metadata.cleared === true` or `requiresUserAction/awaitingUserInput === false`).
+  - Non-`agent_awaiting_input` events require explicit `metadata.requiresUserAction === true` or `metadata.awaitingUserInput === true`.
 - **Event list** — each item shows icon, title, optional detail, relative timestamp, project name (if present), clickable issue ID/worktree ID, and an unseen teal dot when applicable
+  - Claude/Codex/Gemini rows use a black icon chip background for consistent contrast.
 - **Row-level subject navigation** — clicking a row navigates to its primary subject (issue, worktree, or Claude context). Hook-related rows with a worktree target open that worktree's **Hooks** tab.
 - **Inline link override** — clicking the inline worktree ID link always opens the worktree itself (default worktree navigation), even when row click would open a specific tab like Hooks.
 - **Integration icon override** — Jira/Linear task events render integration-specific icons
 - **Hook rows** — hook-related events use a hook icon and can expand inline to show child command/skill statuses with spinner/check/X icons
 - **Empty state** — shows "No recent activity" with a sleep icon
+- Accepts `onNavigateToWorktree` and `onNavigateToIssue` props for link navigation
+
+Dropdown-specific behavior:
+
 - Closes on outside click or Escape key
 - Animated with `motion/react` (fade + scale)
-- Accepts `onNavigateToWorktree` and `onNavigateToIssue` props for link navigation
+
+### ActivityPage Component
+
+`ActivityPage` (`apps/web-app/src/components/ActivityPage.tsx`) provides a full-page activity surface:
+
+- Renders one card per open project, with active project first
+- Uses a responsive grid: `grid-template-columns: repeat(auto-fit, minmax(500px, 1fr))`
+- Grid is constrained to the available page height; rows auto-share available vertical space and do not expand the page beyond the viewport
+- Each card keeps its own internal scroll area for activity rows
+- Reuses `ActivityFeedPanel` inside each running-project card (same rows, filters, clear)
+- Shows unavailable state cards for non-running projects (`starting`, `stopped`, `error`)
+- Uses `useProjectActivityFeeds` for per-project SSE streams and per-project read/clear state
+- Hydrates per-project events from local cache first and then refreshes in the background via SSE history/events
+- Shows a loading spinner (instead of the empty-state message) when a running project has no cache yet and is awaiting first stream payload
 
 ### ActivityBell Component
 
@@ -266,15 +295,15 @@ Returns: `{ events, unreadCount, markAllRead, clearAll }`
 
 ### Toast System
 
-`ToastContainer` (`apps/web-app/src/components/Toast.tsx`) renders toast notifications. Accepts an `onNavigateToWorktree` prop (wired from App.tsx).
+The web app uses `react-hot-toast` (`apps/web-app/src/main.tsx`) with dark styling.
 
-Toast features:
+Error toast behavior:
 
-- **Project name** — shown as a small label above the message when present
-- **Worktree link** — "Go to worktree →" link that navigates to the worktree
-- **Auto-dismiss** — 5s for success/info, 10s for errors; loading toasts persist until resolved
+- **Persistent errors** — error toasts use infinite duration and remain visible until the user clicks the `X`
+- **Global coverage** — errors are surfaced from API wrappers (`useApi`), React Query global handlers (`QueryCache`/`MutationCache`), runtime handlers (`window.error`, `window.unhandledrejection`), and component-level error state hooks (`useErrorToast`)
+- **Deduping** — near-duplicate errors are briefly deduped to prevent double toasts from overlapping handlers
 
-Toast scope policy: show toasts only for direct user-initiated action outcomes (success/failure). Activity events like auto-claims, agent progress, and hook lifecycle updates stay in the Activity feed.
+Activity events like auto-claims, agent progress, and hook lifecycle updates remain in the Activity feed.
 
 ### Hook Progress Presentation
 
@@ -335,16 +364,16 @@ notify({
 });
 ```
 
-| Param                | Required | Description                                                   |
-| -------------------- | -------- | ------------------------------------------------------------- |
-| `message`            | yes      | Status message (becomes `event.title`)                        |
-| `severity`           | no       | `info` (default), `success`, `warning`, `error`               |
-| `worktreeId`         | no       | Related worktree ID                                           |
-| `requiresUserAction` | no       | When `true`, event appears in the top action-required section |
+| Param                | Required | Description                                              |
+| -------------------- | -------- | -------------------------------------------------------- |
+| `message`            | yes      | Status message (becomes `event.title`)                   |
+| `severity`           | no       | `info` (default), `success`, `warning`, `error`          |
+| `worktreeId`         | no       | Related worktree ID                                      |
+| `requiresUserAction` | no       | When `true`, event is prioritized at the top of the feed |
 
 `notify` always creates `category: "agent"` events.
 
-When `requiresUserAction` is true, `notify` emits `type: "agent_awaiting_input"` and sets `metadata.requiresUserAction=true`, so it appears in the action-required section and activates the header badge.
+When `requiresUserAction` is true, `notify` emits `type: "agent_awaiting_input"` and sets `metadata.requiresUserAction=true`, so it is pinned to the top of the feed and activates the header badge.
 
 ## CLI: Awaiting User Input
 
