@@ -58,6 +58,12 @@ There is no test runner configured.
 - Always prefer TypeScript (`.ts`/`.tsx`) whenever possible.
 - Use `.js`/`.mjs`/`.cjs` only when required by runtime or tool constraints.
 
+## Import Policy
+
+- Do not use parent-relative imports (for example `../` or `../../`) in app/lib source files.
+- Only same-folder relative imports are allowed (for example `./file`).
+- For anything outside the current folder, use configured aliases.
+
 ## UI Theme Consistency
 
 - Always use the standard shared color palette and tokens from `apps/web-app/src/theme.ts`.

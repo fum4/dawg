@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.libs.json",
+  "compilerOptions": {
+    "paths": {
+      "@openkit/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

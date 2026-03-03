@@ -1,25 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "paths": {
-      "@openkit/agent/*": ["./libs/agent/src/*"],
-      "@openkit/cli/*": ["./apps/cli/src/*"],
-      "@openkit/core/*": ["./libs/core/src/*"],
-      "@openkit/instructions": ["./libs/instructions/src/index.ts"],
-      "@openkit/instructions/*": ["./libs/instructions/src/*"],
-      "@openkit/integrations/*": ["./libs/integrations/src/*"],
-      "@openkit/server/*": ["./apps/server/src/*"],
-      "@openkit/shared/*": ["./libs/shared/src/*"]
-    },
-    "isolatedModules": true,
-    "noEmit": true,
-    "declaration": true,
-    "outDir": "dist",
-    "jsx": "react-jsx"
-  },
   "include": [
     "apps/**/*.ts",
     "apps/**/*.tsx",

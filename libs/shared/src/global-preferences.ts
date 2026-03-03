@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import os from "os";
 
-import { DEFAULT_PORT } from "@openkit/shared/constants";
+import { DEFAULT_PORT } from "./constants";
 
 export interface GlobalPreferences {
   basePort: number;
