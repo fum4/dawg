@@ -173,15 +173,19 @@ function detectUserPlatform(): Platform {
 
 function detectUserArch(): Arch {
   const nav = navigator as NavigatorWithUAData;
-  const hints = [
-    nav.userAgentData?.architecture || "",
-    nav.userAgentData?.platform || "",
-    navigator.userAgent || "",
-  ]
+  const platform = detectUserPlatform();
+  const uaArchitecture = (nav.userAgentData?.architecture || "").toLowerCase();
+  const hints = [uaArchitecture, nav.userAgentData?.platform || "", navigator.userAgent || ""]
     .join(" ")
     .toLowerCase();
 
   if (/(arm64|aarch64|armv8|\barm\b)/.test(hints)) return "arm64";
+
+  // `userAgent` on macOS can include Intel-compatible tokens even on Apple Silicon.
+  // Only treat macOS x64 as reliable when provided by UA Client Hints architecture.
+  if (/\b(x86_64|x64|amd64|x86)\b/.test(uaArchitecture)) return "x64";
+  if (platform === "mac") return "other";
+
   if (/(x64|x86_64|amd64|intel|win64|x86)/.test(hints)) return "x64";
   return "other";
 }
@@ -674,22 +678,8 @@ function bindDropdowns(widgets: DownloadWidget[]) {
   });
 }
 
-function bindCopyButtons() {
-  document.querySelectorAll<HTMLButtonElement>(".copy-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const text = btn.dataset.copy || "";
-      try {
-        await navigator.clipboard.writeText(text);
-        btn.classList.add("copied");
-        setTimeout(() => btn.classList.remove("copied"), 1500);
-      } catch {}
-    });
-  });
-}
-
 async function init() {
   const widgets = getWidgets();
-  bindCopyButtons();
   if (widgets.length === 0) return;
 
   bindDropdowns(widgets);
