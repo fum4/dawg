@@ -15,19 +15,13 @@ import {
 const { autoUpdater } = electronUpdater as { autoUpdater: AppUpdater };
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const isPackagedApp = app.isPackaged;
+const devWorkspaceRoot = path.resolve(currentDir, "..", "..", "..");
+const workspaceRoot = isPackagedApp ? process.resourcesPath : devWorkspaceRoot;
 
-function resolveWorkspaceRoot(dir: string): string {
-  if (
-    dir.includes(path.join("apps", "desktop-app", "src")) ||
-    dir.includes(path.join("apps", "desktop-app", "dist"))
-  ) {
-    return path.resolve(dir, "..", "..", "..");
-  }
-  // Legacy fallback for older dist/electron layout.
-  return path.resolve(dir, "..", "..");
+function resolveDevPath(relativePath: string): string {
+  return path.join(devWorkspaceRoot, relativePath);
 }
-
-const workspaceRoot = resolveWorkspaceRoot(currentDir);
 
 // Set app name (shows in dock, menu bar, etc.)
 app.setName("OpenKit");
@@ -71,13 +65,11 @@ function setAppUpdateState(updates: Partial<AppUpdateState>) {
 }
 
 function getUiPath(): string {
-  const appLocalUi = path.join(workspaceRoot, "apps", "web-app", "dist", "index.html");
-  if (existsSync(appLocalUi)) {
-    return appLocalUi;
+  if (isPackagedApp) {
+    return path.join(process.resourcesPath, "web", "index.html");
   }
 
-  // Legacy fallback for older root dist/ui layout.
-  return path.join(workspaceRoot, "dist", "ui", "index.html");
+  return resolveDevPath(path.join("apps", "web-app", "dist", "index.html"));
 }
 
 function createMainWindow(): BrowserWindow {
@@ -86,6 +78,12 @@ function createMainWindow(): BrowserWindow {
     mainWindow.focus();
     return mainWindow;
   }
+
+  const iconCandidates = [
+    resolveDevPath(path.join("apps", "desktop-app", "assets", "icon.png")),
+    path.join(workspaceRoot, "assets", "icon.png"),
+  ];
+  const iconPath = iconCandidates.find((candidate) => existsSync(candidate));
 
   // Get saved window bounds or use defaults
   const savedBounds = preferencesManager.getWindowBounds();
@@ -100,7 +98,7 @@ function createMainWindow(): BrowserWindow {
     title: "OpenKit",
     titleBarStyle: "hiddenInset" as const,
     trafficLightPosition: { x: 12, y: 12 },
-    icon: path.join(workspaceRoot, "apps", "desktop-app", "assets", "icon.png"),
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(currentDir, "preload.cjs"),
       nodeIntegration: false,
