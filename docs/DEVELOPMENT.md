@@ -67,7 +67,7 @@ App script contract: app packages expose a non-watch `preview` script for runnin
 OpenKit uses Nx for workspace orchestration and task caching while keeping app-level build tools (tsup, Vite, electron-builder).
 
 - Workspace config lives in `nx.json`
-- Nx `sharedGlobals` cache inputs include root package/lock metadata plus shared build config files (`tsconfig.base.json`, `tsconfig.apps.json`, `tsconfig.libs.json`, `tsconfig.json`, and core app build configs like tsup/vite/electron-builder) so cache invalidates correctly when shared defaults change.
+- Nx `sharedGlobals` cache inputs include root package/lock metadata plus shared build config files (`tsconfig.base.json`, `tsconfig.apps.json`, `tsconfig.libs.json`, `tsconfig.workspace.json`, and core app build configs like tsup/vite/electron-builder) so cache invalidates correctly when shared defaults change.
 - pnpm workspace config lives in `pnpm-workspace.yaml` (globs `apps/*`, `libs/*`, and `packages/*`; only directories with their own `package.json` are treated as pnpm packages)
 - Project configs are colocated as `project.json` in:
   - `apps/web-app` (`web-app`)
@@ -81,7 +81,7 @@ Package layout:
 
 - Root `package.json` is the workspace orchestration entrypoint (marked `private` to prevent accidental npm publish).
 - `apps/cli`, `apps/server`, `apps/web-app`, and `apps/desktop-app` own their direct scripts and dependencies.
-- Root TypeScript configs are split by role: `tsconfig.base.json` (shared compiler defaults), `tsconfig.apps.json` (app defaults), `tsconfig.libs.json` (library defaults), and `tsconfig.json` (workspace aggregate).
+- Root TypeScript configs are split by role: `tsconfig.base.json` (shared compiler defaults), `tsconfig.apps.json` (app defaults), `tsconfig.libs.json` (library defaults), and `tsconfig.workspace.json` (workspace aggregate).
 - `apps/website/package.json` and `apps/mobile-app/package.json` remain independently tooled ecosystems (Astro and Expo).
 
 Common commands:
@@ -277,8 +277,8 @@ The web app uses Tailwind v4 through CSS-first configuration in `apps/web-app/sr
 TypeScript uses a layered setup:
 
 - Root `tsconfig.base.json` defines shared compiler defaults (emit-neutral).
-- Root `tsconfig.apps.json` / `tsconfig.libs.json` define app/library defaults.
-- Root `tsconfig.json` is the workspace aggregate config.
+- Root `tsconfig.apps.json` / `tsconfig.libs.json` define app/library defaults (including the shared `@openkit/shared/*` path alias).
+- Root `tsconfig.workspace.json` is the workspace aggregate config.
 - Each app owns `apps/<app>/tsconfig.json` and can override as needed (for example `apps/desktop-app` uses NodeNext emit settings, `apps/web-app` adds `vite/client` types).
 
 - **Target/Module:** ES2022 / ESNext with Bundler resolution
