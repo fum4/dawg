@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bot, FolderOpen, FolderSearch, HardDrive, ScanSearch, Settings2 } from "lucide-react";
+import { FolderOpen, FolderSearch, HardDrive, ScanSearch, Settings2 } from "lucide-react";
 
 import { useServer } from "../contexts/ServerContext";
 import { useApi } from "../hooks/useApi";
@@ -57,14 +57,6 @@ const MODES: { id: ScanMode; label: string; description: string; icon: typeof Sc
   },
 ];
 
-const AGENT_TARGETS = [
-  { id: "claude", label: "Claude Code" },
-  { id: "cursor", label: "Cursor" },
-  { id: "gemini", label: "Gemini CLI" },
-  { id: "vscode", label: "VS Code" },
-  { id: "codex", label: "Codex" },
-] as const;
-
 export function McpServerScanModal({
   onImported,
   onClose,
@@ -88,10 +80,6 @@ export function McpServerScanModal({
   const [selectedMcps, setSelectedMcps] = useState<Set<string>>(new Set());
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
-  const [agentScope, setAgentScope] = useState<"global" | "project">("project");
-  const [agentDeployTargets, setAgentDeployTargets] = useState<string[]>(
-    AGENT_TARGETS.map((target) => target.id),
-  );
   const [error, setError] = useState<string | null>(null);
   useErrorToast(error, "mcp-server-scan-modal");
   const autoScanTriggered = useRef(false);
@@ -244,10 +232,15 @@ export function McpServerScanModal({
     if (selectedAgents.size > 0 && agentResults) {
       const toImport = agentResults
         .filter((r) => selectedAgents.has(r.agentPath))
-        .map((r) => ({ name: r.name, agentPath: r.agentPath }));
+        .map((r) => ({
+          name: r.name,
+          agentPath: r.agentPath,
+          scope: r.defaultDeployment?.scope,
+          deployAgents: r.defaultDeployment?.deployAgents,
+        }));
       if (toImport.length > 0) {
         promises.push(
-          api.importClaudeAgents(toImport, agentScope, agentDeployTargets).then((result) => ({
+          api.importClaudeAgents(toImport).then((result) => ({
             success: result.success,
             error: result.error,
             imported: result.imported,
@@ -294,6 +287,7 @@ export function McpServerScanModal({
       icon={<ScanSearch className="w-4 h-4 text-[#9ca3af]" />}
       onClose={onClose}
       width="lg"
+      contentClassName="px-5 pt-4 pb-0"
       footer={
         showResults ? (
           <>
@@ -303,6 +297,7 @@ export function McpServerScanModal({
                 setMcpResults(null);
                 setSkillResults(null);
                 setAgentResults(null);
+                setSelectedAgents(new Set());
               }}
               className={`px-3 py-1.5 text-xs rounded-lg ${text.muted} hover:${text.secondary} transition-colors`}
             >
@@ -417,7 +412,7 @@ export function McpServerScanModal({
                   No new MCP servers found.
                 </p>
               ) : (
-                <div className="space-y-1 max-h-72 overflow-y-auto">
+                <div className="space-y-1 max-h-72 overflow-y-auto pb-5">
                   {mcpResults!.map((r) => (
                     <label
                       key={r.key}
@@ -458,7 +453,7 @@ export function McpServerScanModal({
               {skillCount === 0 ? (
                 <p className={`${text.muted} text-xs py-6 text-center`}>No new skills found.</p>
               ) : (
-                <div className="space-y-1 max-h-72 overflow-y-auto">
+                <div className="space-y-1 max-h-72 overflow-y-auto pb-5">
                   {skillResults!.map((r) => (
                     <label
                       key={r.name}
@@ -491,90 +486,32 @@ export function McpServerScanModal({
               {agentCount === 0 ? (
                 <p className={`${text.muted} text-xs py-6 text-center`}>No new agents found.</p>
               ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3 gap-2">
-                    <p className={`${text.dimmed} text-[11px] flex-1`}>
-                      Import scanned `agents/*.md` files as custom agents and deploy to selected
-                      tools.
-                    </p>
-                    <div className="flex items-center bg-white/[0.04] rounded-lg p-0.5">
-                      {(["project", "global"] as const).map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setAgentScope(s)}
-                          className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors ${
-                            agentScope === s
-                              ? "text-[#d1d5db] bg-white/[0.06]"
-                              : `${text.dimmed} hover:${text.muted}`
-                          }`}
-                        >
-                          {s === "global" ? "Global" : "Project"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {AGENT_TARGETS.map((target) => {
-                      const selected = agentDeployTargets.includes(target.id);
-                      return (
-                        <label
-                          key={target.id}
-                          className="flex items-center gap-1.5 cursor-pointer group"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selected}
-                            onChange={() =>
-                              setAgentDeployTargets((prev) =>
-                                prev.includes(target.id)
-                                  ? prev.filter((id) => id !== target.id)
-                                  : [...prev, target.id],
-                              )
-                            }
-                            className="accent-cyan-400"
-                          />
-                          <span
-                            className={`text-[11px] ${selected ? text.secondary : text.dimmed} group-hover:${text.secondary} transition-colors`}
-                          >
-                            {target.label}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <div className="space-y-1 max-h-72 overflow-y-auto">
-                    {agentResults!.map((agent) => {
-                      return (
-                        <label
-                          key={agent.agentPath}
-                          className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-white/[0.04] transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedAgents.has(agent.agentPath)}
-                            onChange={() => toggleAgent(agent.agentPath)}
-                            className="mt-[7px] accent-cyan-400"
-                          />
-                          <Bot className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0 mt-1" />
-                          <div className="flex-1 min-w-0">
-                            <span className={`text-xs font-medium ${text.primary}`}>
-                              {agent.name}
-                            </span>
-                            {agent.description && (
-                              <div className={`text-[11px] ${text.muted} truncate`}>
-                                {agent.description}
-                              </div>
-                            )}
-                            <div className={`text-[10px] ${text.dimmed} mt-0.5 font-mono truncate`}>
-                              {agent.agentPath}
-                            </div>
+                <div className="space-y-1 max-h-72 overflow-y-auto pb-5">
+                  {agentResults!.map((agent) => (
+                    <label
+                      key={agent.agentPath}
+                      className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-white/[0.04] transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedAgents.has(agent.agentPath)}
+                        onChange={() => toggleAgent(agent.agentPath)}
+                        className="mt-[7px] accent-teal-400"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-xs font-medium ${text.primary}`}>{agent.name}</span>
+                        {agent.description && (
+                          <div className={`text-[11px] ${text.muted} truncate`}>
+                            {agent.description}
                           </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </>
+                        )}
+                        <div className={`text-[10px] ${text.dimmed} mt-0.5 font-mono truncate`}>
+                          {agent.agentPath}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               )}
             </div>
           ) : (
@@ -583,7 +520,7 @@ export function McpServerScanModal({
                 Claude Plugins are managed by Claude CLI and appear automatically in the sidebar. No
                 import needed.
               </p>
-              <div className="space-y-1 max-h-72 overflow-y-auto">
+              <div className="space-y-1 max-h-72 overflow-y-auto pb-5">
                 {plugins.map((p) => (
                   <div
                     key={p.id}

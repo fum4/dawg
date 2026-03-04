@@ -467,8 +467,13 @@ export function useApi() {
         api.scanClaudeAgents(options, serverUrl),
 
       importClaudeAgents: (
-        agents: Array<{ name: string; agentPath: string }>,
-        scope: "global" | "project",
+        agents: Array<{
+          name: string;
+          agentPath: string;
+          scope?: "global" | "project";
+          deployAgents?: string[];
+        }>,
+        scope?: "global" | "project",
         deployAgents?: string[],
       ) => api.importClaudeAgents(agents, scope, deployAgents, serverUrl),
 

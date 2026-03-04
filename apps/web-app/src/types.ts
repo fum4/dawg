@@ -304,6 +304,10 @@ export interface ClaudeAgentScanResult {
   description: string;
   agentPath: string;
   alreadyInRegistry: boolean;
+  defaultDeployment?: {
+    scope: "global" | "project";
+    deployAgents: Array<"claude" | "cursor" | "gemini" | "vscode" | "codex">;
+  };
 }
 
 export interface AvailablePlugin {

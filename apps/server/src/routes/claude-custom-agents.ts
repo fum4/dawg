@@ -50,6 +50,10 @@ interface CustomAgentScanResult {
   description: string;
   agentPath: string;
   alreadyInRegistry: boolean;
+  defaultDeployment?: {
+    scope: CustomAgentScope;
+    deployAgents: AgentId[];
+  };
 }
 
 const SUPPORTED_AGENTS = Object.keys(CUSTOM_AGENT_SPECS) as AgentId[];
@@ -406,9 +410,31 @@ function scanForAgents(
   roots: string[],
   maxDepth: number,
   knownAgentNames: Set<string>,
+  projectDir: string,
 ): CustomAgentScanResult[] {
   const discovered: CustomAgentScanResult[] = [];
   const seenPaths = new Set<string>();
+
+  function inferDefaultDeployment(agentPath: string): {
+    scope: CustomAgentScope;
+    deployAgents: AgentId[];
+  } | null {
+    const agentDirPath = path.resolve(path.dirname(agentPath));
+
+    for (const agentId of SUPPORTED_AGENTS) {
+      const globalDir = resolveAgentDeployDir(agentId, "global", projectDir);
+      if (globalDir && path.resolve(globalDir) === agentDirPath) {
+        return { scope: "global", deployAgents: [agentId] };
+      }
+
+      const projectScopeDir = resolveAgentDeployDir(agentId, "project", projectDir);
+      if (projectScopeDir && path.resolve(projectScopeDir) === agentDirPath) {
+        return { scope: "project", deployAgents: [agentId] };
+      }
+    }
+
+    return null;
+  }
 
   function scanAgentDir(agentsDir: string) {
     if (!existsSync(agentsDir)) return;
@@ -437,6 +463,7 @@ function scanForAgents(
           description: extractDescription(content),
           agentPath: resolvedPath,
           alreadyInRegistry: knownAgentNames.has(fileName),
+          defaultDeployment: inferDefaultDeployment(resolvedPath) ?? undefined,
         });
       }
     } catch {
@@ -660,13 +687,18 @@ export function registerClaudeCustomAgentRoutes(app: Hono, manager: WorktreeMana
       maxDepth = 6;
     }
 
-    const discovered = scanForAgents(scanRoots, maxDepth, knownNames);
+    const discovered = scanForAgents(scanRoots, maxDepth, knownNames, projectDir);
     return c.json({ discovered });
   });
 
   app.post("/api/claude/custom-agents/import", async (c) => {
     const body = await c.req.json<{
-      agents: Array<{ name: string; agentPath: string }>;
+      agents: Array<{
+        name: string;
+        agentPath: string;
+        scope?: CustomAgentScope;
+        deployAgents?: AgentId[];
+      }>;
       scope?: CustomAgentScope;
       deployAgents?: AgentId[];
     }>();
@@ -677,7 +709,8 @@ export function registerClaudeCustomAgentRoutes(app: Hono, manager: WorktreeMana
 
     ensureRegistryDir();
     const imported: string[] = [];
-    const deployNames = new Set<string>();
+    const fallbackScope = body.scope === "global" ? "global" : "project";
+    const fallbackDeployAgents = sanitizeDeployAgents(body.deployAgents, ["claude"]);
 
     for (const entry of body.agents) {
       if (!entry.agentPath || !existsSync(entry.agentPath)) continue;
@@ -699,14 +732,11 @@ export function registerClaudeCustomAgentRoutes(app: Hono, manager: WorktreeMana
         }
       }
 
-      deployNames.add(baseName);
-    }
-
-    const scope = body.scope === "global" ? "global" : "project";
-    const deployAgents = sanitizeDeployAgents(body.deployAgents, ["claude"]);
-    for (const agentName of deployNames) {
+      const scope =
+        entry.scope === "global" ? "global" : entry.scope === "project" ? "project" : fallbackScope;
+      const deployAgents = sanitizeDeployAgents(entry.deployAgents, fallbackDeployAgents);
       for (const agentId of deployAgents) {
-        deployCustomAgentToTarget(agentName, agentId, scope, projectDir);
+        deployCustomAgentToTarget(baseName, agentId, scope, projectDir);
       }
     }
 

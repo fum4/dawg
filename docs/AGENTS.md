@@ -617,17 +617,17 @@ Valid `fileId` values: `claude-md` (CLAUDE.md), `agents-md` (AGENTS.md).
 
 ### Custom Agents
 
-| Method   | Endpoint                                 | Description                                           |
-| -------- | ---------------------------------------- | ----------------------------------------------------- |
-| `GET`    | `/api/claude/custom-agents`              | List registry agents + per-tool deployment status     |
-| `GET`    | `/api/claude/custom-agents/:id`          | Get custom agent detail                               |
-| `POST`   | `/api/claude/custom-agents`              | Create registry markdown (`deployAgents`, `scope`)    |
-| `PATCH`  | `/api/claude/custom-agents/:id`          | Update registry markdown content                      |
-| `DELETE` | `/api/claude/custom-agents/:id`          | Delete registry markdown + undeploy from all tools    |
-| `POST`   | `/api/claude/custom-agents/:id/deploy`   | Deploy to tool (`{ agent, scope }`)                   |
-| `POST`   | `/api/claude/custom-agents/:id/undeploy` | Undeploy from tool (`{ agent, scope }`)               |
-| `POST`   | `/api/claude/custom-agents/scan`         | Scan filesystem for custom agent markdown             |
-| `POST`   | `/api/claude/custom-agents/import`       | Import into registry + deploy to selected tools/scope |
+| Method   | Endpoint                                 | Description                                                                                            |
+| -------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET`    | `/api/claude/custom-agents`              | List registry agents + per-tool deployment status                                                      |
+| `GET`    | `/api/claude/custom-agents/:id`          | Get custom agent detail                                                                                |
+| `POST`   | `/api/claude/custom-agents`              | Create registry markdown (`deployAgents`, `scope`)                                                     |
+| `PATCH`  | `/api/claude/custom-agents/:id`          | Update registry markdown content                                                                       |
+| `DELETE` | `/api/claude/custom-agents/:id`          | Delete registry markdown + undeploy from all tools                                                     |
+| `POST`   | `/api/claude/custom-agents/:id/deploy`   | Deploy to tool (`{ agent, scope }`)                                                                    |
+| `POST`   | `/api/claude/custom-agents/:id/undeploy` | Undeploy from tool (`{ agent, scope }`)                                                                |
+| `POST`   | `/api/claude/custom-agents/scan`         | Scan filesystem for custom agent markdown                                                              |
+| `POST`   | `/api/claude/custom-agents/import`       | Import into registry and apply per-agent detected deployment defaults (or optional explicit overrides) |
 
 ### Claude Plugins
 

@@ -145,6 +145,15 @@ interface ClaudeAgentEntry {
   deployments?: Record<string, { global?: boolean; project?: boolean }>;
 }
 
+interface PluginMetaSnapshot {
+  id: string;
+  name: string;
+  scope: "user" | "project" | "local";
+  enabled: boolean;
+  marketplace: string;
+  installPath: string;
+}
+
 const SUPPORTED_AGENTS = Object.keys(CUSTOM_AGENT_SPECS) as AgentId[];
 const SUPPORTED_SCOPES = new Set(["global", "project"]);
 
@@ -245,6 +254,43 @@ function scanPluginAgents(
   } catch {
     return [];
   }
+}
+
+// Keep a short-lived snapshot of plugin metadata so agent detail reads do not
+// depend on a fresh CLI listing on every click.
+const pluginMetaCache = new Map<string, { value: PluginMetaSnapshot; expiresAt: number }>();
+const PLUGIN_META_TTL_MS = 60_000;
+
+function setPluginMetaSnapshot(snapshot: PluginMetaSnapshot): void {
+  pluginMetaCache.set(snapshot.id, {
+    value: snapshot,
+    expiresAt: Date.now() + PLUGIN_META_TTL_MS,
+  });
+}
+
+function getPluginMetaSnapshot(id: string): PluginMetaSnapshot | null {
+  const cached = pluginMetaCache.get(id);
+  if (!cached) return null;
+  if (Date.now() > cached.expiresAt) {
+    pluginMetaCache.delete(id);
+    return null;
+  }
+  return cached.value;
+}
+
+function snapshotPluginMeta(plugin: Record<string, unknown>): PluginMetaSnapshot | null {
+  const id = (plugin.id ?? plugin.name ?? "") as string;
+  if (!id) return null;
+  const installPath = typeof plugin.installPath === "string" ? plugin.installPath : "";
+  if (!installPath) return null;
+  return {
+    id,
+    name: (plugin.name ?? plugin.id ?? "") as string,
+    scope: (plugin.scope ?? "user") as "user" | "project" | "local",
+    enabled: plugin.enabled !== false,
+    marketplace: (plugin.marketplace || (id.includes("@") ? id.split("@").pop() : "")) as string,
+    installPath,
+  };
 }
 
 function scanPluginComponents(installPath: string): PluginComponents {
@@ -476,6 +522,8 @@ export function registerClaudePluginRoutes(app: Hono, manager: WorktreeManager) 
             : [];
         const plugins = await Promise.all(
           cliPlugins.map(async (p) => {
+            const snapshot = snapshotPluginMeta(p);
+            if (snapshot) setPluginMetaSnapshot(snapshot);
             const installPath = typeof p.installPath === "string" ? p.installPath : "";
             const pluginId = (p.id ?? p.name ?? "") as string;
             const components = installPath ? scanPluginComponents(installPath) : null;
@@ -583,6 +631,8 @@ export function registerClaudePluginRoutes(app: Hono, manager: WorktreeManager) 
 
     const agents = cliPlugins
       .flatMap((plugin) => {
+        const snapshot = snapshotPluginMeta(plugin);
+        if (snapshot) setPluginMetaSnapshot(snapshot);
         const installPath = typeof plugin.installPath === "string" ? plugin.installPath : "";
         if (!installPath || !existsSync(installPath)) return [];
         const pluginId = (plugin.id ?? plugin.name ?? "") as string;
@@ -646,24 +696,36 @@ export function registerClaudePluginRoutes(app: Hono, manager: WorktreeManager) 
       };
     }
 
-    const result = await runClaude(["plugin", "list", "--json"]);
-    if (!result.success) {
-      return { status: 500 as const, body: { error: "Failed to list plugins" } };
+    let pluginMeta = getPluginMetaSnapshot(pluginId);
+    if (!pluginMeta) {
+      const result = await runClaude(["plugin", "list", "--json"]);
+      if (!result.success) {
+        return {
+          status: 500 as const,
+          body: { error: result.stderr || "Failed to list plugins" },
+        };
+      }
+
+      const parsedList = tryParseJson<unknown>(result.stdout, []);
+      const cliPlugins: Array<Record<string, unknown>> = Array.isArray(parsedList)
+        ? parsedList
+        : Array.isArray((parsedList as Record<string, unknown>)?.installed)
+          ? ((parsedList as Record<string, unknown>).installed as Array<Record<string, unknown>>)
+          : [];
+
+      for (const plugin of cliPlugins) {
+        const snapshot = snapshotPluginMeta(plugin);
+        if (!snapshot) continue;
+        setPluginMetaSnapshot(snapshot);
+      }
+      pluginMeta = getPluginMetaSnapshot(pluginId);
     }
 
-    const parsedList = tryParseJson<unknown>(result.stdout, []);
-    const cliPlugins: Array<Record<string, unknown>> = Array.isArray(parsedList)
-      ? parsedList
-      : Array.isArray((parsedList as Record<string, unknown>)?.installed)
-        ? ((parsedList as Record<string, unknown>).installed as Array<Record<string, unknown>>)
-        : [];
-
-    const plugin = cliPlugins.find((p) => (p.id ?? p.name ?? "") === pluginId);
-    if (!plugin) {
+    if (!pluginMeta) {
       return { status: 404 as const, body: { error: "Plugin not found" } };
     }
 
-    const installPath = typeof plugin.installPath === "string" ? plugin.installPath : "";
+    const installPath = pluginMeta.installPath;
     if (!installPath || !existsSync(installPath)) {
       return { status: 404 as const, body: { error: "Plugin install path not found" } };
     }
@@ -682,11 +744,10 @@ export function registerClaudePluginRoutes(app: Hono, manager: WorktreeManager) 
       return { status: 500 as const, body: { error: "Failed to read agent definition" } };
     }
 
-    const pluginName = (plugin.name ?? plugin.id ?? "") as string;
-    const pluginScope = (plugin.scope ?? "user") as "user" | "project" | "local";
-    const pluginEnabled = plugin.enabled !== false;
-    const marketplace = (plugin.marketplace ||
-      (pluginId.includes("@") ? pluginId.split("@").pop() : "")) as string;
+    const pluginName = pluginMeta.name;
+    const pluginScope = pluginMeta.scope;
+    const pluginEnabled = pluginMeta.enabled;
+    const marketplace = pluginMeta.marketplace;
 
     return {
       status: 200 as const,

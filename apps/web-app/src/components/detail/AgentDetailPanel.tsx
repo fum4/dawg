@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useClaudeAgentDetail } from "../../hooks/useSkills";
 import { border, text } from "../../theme";
 import { useApi } from "../../hooks/useApi";
+import { useErrorToast } from "../../hooks/useErrorToast";
 import { MarkdownContent } from "../MarkdownContent";
 import { Spinner } from "../Spinner";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -116,6 +117,7 @@ export function AgentDetailPanel({ agentId, onMissing, onDeleted }: AgentDetailP
   const api = useApi();
   const queryClient = useQueryClient();
   const { agent, isLoading, error } = useClaudeAgentDetail(agentId);
+  useErrorToast(error, `agents-view:agent-detail:${agentId}`);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -134,6 +136,15 @@ export function AgentDetailPanel({ agentId, onMissing, onDeleted }: AgentDetailP
   useEffect(() => {
     if (!isLoading && !error && !agent) onMissing();
   }, [isLoading, error, agent, onMissing]);
+
+  useEffect(() => {
+    if (!error) return;
+    const message = error.toLowerCase();
+    const isMissingAgent = message.includes("not found") || message.includes("invalid agent id");
+    if (!isMissingAgent) return;
+    void queryClient.invalidateQueries({ queryKey: ["claudeAgents"] });
+    onMissing();
+  }, [error, onMissing, queryClient]);
 
   const saveDefinition = useCallback(
     async (content: string) => {

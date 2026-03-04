@@ -2468,8 +2468,13 @@ export async function scanClaudeAgents(
 }
 
 export async function importClaudeAgents(
-  agents: Array<{ name: string; agentPath: string }>,
-  scope: "global" | "project",
+  agents: Array<{
+    name: string;
+    agentPath: string;
+    scope?: "global" | "project";
+    deployAgents?: string[];
+  }>,
+  scope?: "global" | "project",
   deployAgents?: string[],
   serverUrl: string | null = null,
 ): Promise<{ success: boolean; imported?: string[]; error?: string }> {

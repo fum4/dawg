@@ -7,6 +7,7 @@ import { useServer } from "../contexts/ServerContext";
 import { reportPersistentErrorToast } from "../errorToasts";
 import { useApi } from "../hooks/useApi";
 import { useConfig } from "../hooks/useConfig";
+import { useErrorToast } from "../hooks/useErrorToast";
 import { useMcpServers, useMcpDeploymentStatus } from "../hooks/useMcpServers";
 import {
   useSkills,
@@ -99,8 +100,10 @@ export function AgentsView() {
     agents,
     isLoading: agentsLoading,
     isFetching: agentsFetching,
+    error: agentsError,
     refetch: refetchAgents,
   } = useClaudeAgents();
+  useErrorToast(agentsError, "agents-view:agents-fetch");
   const { plugins, isLoading: pluginsLoading, refetch: refetchPlugins } = useClaudePlugins();
   const [pluginActing, setPluginActing] = useState(false);
 
