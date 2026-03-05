@@ -394,6 +394,10 @@ export function registerWorktreeRoutes(
   manager: WorktreeManager,
   terminalManager?: TerminalManager,
 ) {
+  const toResolutionStatus = (code: string): 404 | 409 => {
+    return code === "WORKTREE_ID_AMBIGUOUS" ? 409 : 404;
+  };
+
   app.get("/api/worktrees", (c) => {
     const worktrees = manager.getWorktrees();
     return c.json({ worktrees });
@@ -434,9 +438,9 @@ export function registerWorktreeRoutes(
 
   app.get("/api/worktrees/:id/open-targets", async (c) => {
     const id = c.req.param("id");
-    const worktree = manager.getWorktrees().find((w) => w.id === id);
-    if (!worktree) {
-      return c.json({ success: false, error: `Worktree "${id}" not found` }, 404);
+    const resolved = manager.resolveWorktree(id);
+    if (!resolved.success) {
+      return c.json({ success: false, error: resolved.error }, toResolutionStatus(resolved.code));
     }
 
     const targets = await getAvailableOpenTargets();
@@ -471,10 +475,11 @@ export function registerWorktreeRoutes(
         );
       }
 
-      const worktree = manager.getWorktrees().find((w) => w.id === id);
-      if (!worktree) {
-        return c.json({ success: false, error: `Worktree "${id}" not found` }, 404);
+      const resolved = manager.resolveWorktree(id);
+      if (!resolved.success) {
+        return c.json({ success: false, error: resolved.error }, toResolutionStatus(resolved.code));
       }
+      const { worktree } = resolved;
 
       manager.updateConfig({ openProjectTarget: requestedTarget });
 
@@ -510,8 +515,15 @@ export function registerWorktreeRoutes(
 
   app.delete("/api/worktrees/:id", async (c) => {
     const id = c.req.param("id");
-    terminalManager?.destroyAllForWorktree(id);
+    const resolved = manager.resolveWorktreeId(id);
+    if (!resolved.success && resolved.code === "WORKTREE_ID_AMBIGUOUS") {
+      return c.json({ success: false, error: resolved.error }, 409);
+    }
+    const canonicalWorktreeId = resolved.success ? resolved.worktreeId : null;
     const result = await manager.removeWorktree(id);
+    if (result.success && canonicalWorktreeId) {
+      terminalManager?.destroyAllForWorktree(canonicalWorktreeId);
+    }
     return c.json(result, result.success ? 200 : 400);
   });
 
@@ -560,8 +572,12 @@ export function registerWorktreeRoutes(
       if (!["jira", "linear", "local"].includes(source)) {
         return c.json({ success: false, error: "source must be jira, linear, or local" }, 400);
       }
+      const resolved = manager.resolveWorktreeId(id);
+      if (!resolved.success) {
+        return c.json({ success: false, error: resolved.error }, toResolutionStatus(resolved.code));
+      }
       const notesManager = manager.getNotesManager();
-      notesManager.setLinkedWorktreeId(source, issueId, id);
+      notesManager.setLinkedWorktreeId(source, issueId, resolved.worktreeId);
       return c.json({ success: true });
     } catch (error) {
       return c.json(
@@ -578,9 +594,13 @@ export function registerWorktreeRoutes(
   app.delete("/api/worktrees/:id/link", async (c) => {
     const id = c.req.param("id");
     try {
+      const resolved = manager.resolveWorktreeId(id);
+      if (!resolved.success) {
+        return c.json({ success: false, error: resolved.error }, toResolutionStatus(resolved.code));
+      }
       const notesManager = manager.getNotesManager();
       const linkMap = notesManager.buildWorktreeLinkMap();
-      const linked = linkMap.get(id);
+      const linked = linkMap.get(resolved.worktreeId);
       if (!linked) {
         return c.json({ success: false, error: "Worktree is not linked to any issue" }, 400);
       }
