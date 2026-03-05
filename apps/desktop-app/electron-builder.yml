@@ -1,7 +1,8 @@
 appId: com.openkit.app
 productName: OpenKit
 publish:
-  provider: github
+  provider: generic
+  url: https://github.com/openkit/openkit/releases/latest/download
 directories:
   app: .
   output: release

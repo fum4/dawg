@@ -137,6 +137,7 @@ npm publishing is currently paused.
     macOS PR packaging uses the same shared build/sign/notarize action as release packaging (`.github/actions/package-desktop-macos`). Signing/notarization is enabled only when the PR head is in the same repository; fork PR heads are built unsigned to avoid exposing Apple secrets to untrusted code.
     The shared macOS packaging flow accepts either `APPLE_ID`/`APPLE_TEAM_ID`/`APPLE_APP_SPECIFIC_PASSWORD` or legacy `APPLE_NOTARIZATION_APPLE_ID`/`APPLE_NOTARIZATION_TEAM_ID`/`APPLE_NOTARIZATION_PASSWORD` secrets.
 - The release workflow still runs `pnpm check:all` and creates release tags plus the GitHub release.
+- `release-it` bumps the root version and then runs `node ./scripts/bump-affected-app-versions.mjs` (`after:bump`) to patch-bump only affected apps since the previous release tag (`v*`) (via Nx affected apps, with git-path fallback), excluding `apps/mobile-app`.
 - Desktop release assets are built/uploaded in `.github/workflows/package-release.yml` on release tag pushes (`v*`), including updater metadata/assets (`latest*.yml`, macOS ZIPs, and blockmaps) required by `electron-updater`.
 - npm-specific publish steps are commented out in `.github/workflows/release.yml`.
 
