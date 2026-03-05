@@ -38,7 +38,7 @@ ActivityLog (backend)
 | `apps/server/src/routes/activity.ts`                  | REST endpoint `GET /api/activity`                                                                                |
 | `apps/server/src/routes/events.ts`                    | SSE endpoint — streams `activity` and `activity-history` messages                                                |
 | `apps/server/src/manager.ts`                          | Creates `ActivityLog` instance, emits events from worktree lifecycle                                             |
-| `libs/agent/src/actions.ts`                           | `notify` MCP action — lets agents send custom activity events                                                    |
+| `libs/agents/src/actions.ts`                          | `notify` MCP action — lets agents send custom activity events                                                    |
 | `apps/cli/src/activity.ts`                            | CLI command for terminal agents to emit awaiting-input activity                                                  |
 | `apps/web-app/src/components/ActivityFeed.tsx`        | Shared feed panel (`ActivityFeedPanel`) + dropdown wrapper (`ActivityFeed`) + `ActivityBell` button              |
 | `apps/web-app/src/components/ActivityPage.tsx`        | Dedicated Activity view with per-project activity cards                                                          |
@@ -353,7 +353,7 @@ Clicking a native notification brings the main window to focus.
 
 ## MCP: notify Action
 
-Agents can send custom activity events via the `notify` MCP tool (`libs/agent/src/actions.ts`):
+Agents can send custom activity events via the `notify` MCP tool (`libs/agents/src/actions.ts`):
 
 ```js
 notify({

@@ -81,6 +81,7 @@ Package layout:
 
 - Root `package.json` is the workspace orchestration entrypoint (marked `private` to prevent accidental npm publish).
 - `apps/cli`, `apps/server`, `apps/web-app`, and `apps/desktop-app` own their direct scripts and dependencies.
+- `libs/shared/package.json` owns shared runtime dependencies used by shared helpers.
 - Root TypeScript configs are split by role: `tsconfig.base.json` (shared compiler defaults), `tsconfig.apps.json` (app defaults), `tsconfig.libs.json` (library defaults), and `tsconfig.workspace.json` (workspace aggregate).
 - `apps/website/package.json` and `apps/mobile-app/package.json` remain independently tooled ecosystems (Astro and Expo).
 
@@ -229,7 +230,7 @@ Both `cli` and `server` use tsup for production build output:
   - **Entry points:** `apps/cli/src/index.ts` (CLI), `apps/cli/src/electron-entry.ts` (Electron bridge export)
   - **Format:** ESM (`"type": "module"` in package.json)
   - **Externals:** `node-pty` (native module) and `electron`
-  - **esbuild loader:** `.md` files are inlined as text strings (used by `libs/instructions/src/`)
+  - **esbuild loader:** `.md` files are inlined as text strings (used by `libs/agents/src/`)
   - **Output:** `apps/cli/dist/`
 - `apps/server/tsup.config.ts`
   - **Entry point:** `apps/server/src/standalone.ts`
@@ -453,7 +454,7 @@ This follows an established pattern. You will need:
 - **Hono for HTTP.** The backend uses Hono with `@hono/node-server`, not Express.
 - **React 18 + React Query.** State management is via React Query for server state and `useState`/`useContext` for UI state. No Redux or Zustand.
 - **Motion (Framer Motion v12+).** Animations use the `motion/react` import path.
-- **Keep agent instructions in sync with MCP changes.** When modifying MCP tools, workflows, or hooks behavior, update the relevant `.md` files in `libs/instructions/src/` (MCP instructions, agent skills/rules, hook skill definitions). All instruction text is centralized there — consumer files import from the barrel at `libs/instructions/src/index.ts`. Also update the inline instructions block in `docs/MCP.md`.
+- **Keep agent instructions in sync with MCP changes.** When modifying MCP tools, workflows, or hooks behavior, update the relevant `.md` files in `libs/agents/src/` (MCP instructions, agent skills/rules, hook skill definitions). All instruction text is centralized there — consumer files import from the barrel at `libs/agents/src/instructions.ts`. Also update the inline instructions block in `docs/MCP.md`.
 
 ## Platform Constraints
 
