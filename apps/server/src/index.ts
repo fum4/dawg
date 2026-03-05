@@ -56,22 +56,13 @@ import type { WorktreeConfig } from "./types";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 function resolveProjectRoot(startDir: string): string {
-  const candidates = [
-    path.resolve(startDir, "..", "..", ".."), // apps/server/src or apps/cli/dist -> root
-    path.resolve(startDir, ".."), // dist -> root (legacy)
-    path.resolve(startDir, "..", ".."), // fallback
-  ];
-
-  for (const candidate of candidates) {
-    if (
-      existsSync(path.join(candidate, "package.json")) &&
-      existsSync(path.join(candidate, "apps"))
-    ) {
-      return candidate;
-    }
+  const bundledRoot = process.env.OPENKIT_BUNDLED_ROOT;
+  if (bundledRoot && existsSync(path.join(bundledRoot, "web", "index.html"))) {
+    return bundledRoot;
   }
 
-  return path.resolve(startDir, "..");
+  const devWorkspaceRoot = path.resolve(startDir, "..", "..", "..");
+  return devWorkspaceRoot;
 }
 
 const projectRoot = resolveProjectRoot(currentDir);

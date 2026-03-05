@@ -3,7 +3,7 @@ import path from "path";
 
 import { APP_NAME, CONFIG_DIR_NAME } from "@openkit/shared/constants";
 
-export { MCP_INSTRUCTIONS } from "@openkit/instructions";
+export { MCP_INSTRUCTIONS } from "./instructions";
 import { formatCommitMessage } from "@openkit/server/commit-message";
 import { resolveGitPolicy } from "@openkit/server/git-policy";
 import type { WorktreeManager } from "@openkit/server/manager";
