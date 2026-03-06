@@ -105,6 +105,44 @@ function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function isTransientUpdateMetadataNotReadyError(error: unknown): boolean {
+  const message = toErrorMessage(error, "").toLowerCase();
+  if (!message) return false;
+
+  const referencesMacMetadata =
+    message.includes("latest-mac.yml") || message.includes("/latest/download/latest");
+  const indicatesMissingMetadata =
+    message.includes("cannot find channel") ||
+    message.includes("channel") ||
+    message.includes("404") ||
+    message.includes("not found");
+
+  return referencesMacMetadata && indicatesMissingMetadata;
+}
+
+function handleUpdateCheckError(error: unknown, context: string): { transient: boolean } {
+  if (isTransientUpdateMetadataNotReadyError(error)) {
+    console.info(
+      `[auto-updater] ${context}: update metadata not ready yet (release assets still propagating); will retry later`,
+      error,
+    );
+    setAppUpdateState({
+      status: "idle",
+      error: null,
+      progress: null,
+    });
+    return { transient: true };
+  }
+
+  console.error(`[auto-updater] ${context} failed`, error);
+  setAppUpdateState({
+    status: "error",
+    error: toErrorMessage(error, "Failed to check for updates"),
+    progress: null,
+  });
+  return { transient: false };
+}
+
 async function downloadUpdateWithRetry(): Promise<boolean> {
   if (activeUpdateDownloadPromise) {
     return activeUpdateDownloadPromise;
@@ -351,7 +389,14 @@ function setupIpcHandlers() {
 
   ipcMain.handle("check-app-updates", async () => {
     if (!app.isPackaged) return appUpdateState;
-    await autoUpdater.checkForUpdates();
+    try {
+      await autoUpdater.checkForUpdates();
+    } catch (error) {
+      const handled = handleUpdateCheckError(error, "manual update check");
+      if (!handled.transient) {
+        throw error;
+      }
+    }
     return appUpdateState;
   });
 
@@ -502,30 +547,17 @@ function setupAutoUpdater() {
     if (suppressAutoUpdaterErrorState) {
       return;
     }
-    console.error("[auto-updater] update check failed", error);
-    setAppUpdateState({
-      status: "error",
-      error: error.message,
-      progress: null,
-    });
+    handleUpdateCheckError(error, "update check");
   });
 
   autoUpdater.checkForUpdates().catch((error: unknown) => {
-    console.error("[auto-updater] initial update check failed", error);
-    setAppUpdateState({
-      status: "error",
-      error: error instanceof Error ? error.message : "Failed to check for updates",
-    });
+    handleUpdateCheckError(error, "initial update check");
   });
 
   const periodicCheck = setInterval(
     () => {
       autoUpdater.checkForUpdates().catch((error: unknown) => {
-        console.error("[auto-updater] periodic update check failed", error);
-        setAppUpdateState({
-          status: "error",
-          error: error instanceof Error ? error.message : "Failed to check for updates",
-        });
+        handleUpdateCheckError(error, "periodic update check");
       });
     },
     1000 * 60 * 10,

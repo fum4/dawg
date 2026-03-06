@@ -42,7 +42,7 @@ interface HeaderProps {
     openHooksTab?: boolean;
   }) => void;
   onNavigateToIssue?: (target: {
-    source: "jira" | "linear";
+    source: "jira" | "linear" | "local";
     issueId: string;
     projectName?: string;
     sourceServerUrl?: string;
@@ -80,7 +80,6 @@ export function Header({
   const api = useApi();
   const { activeProject, serverUrl } = useServer();
   const [appUpdate, setAppUpdate] = useState<AppUpdateState | null>(null);
-  const [hasResolvedInitialUpdateState, setHasResolvedInitialUpdateState] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(true);
   const [selectedFilterGroups, setSelectedFilterGroups] = useState<ActivityFilterGroup[]>([]);
@@ -290,34 +289,22 @@ export function Header({
   };
 
   useEffect(() => {
-    if (!window.electronAPI) {
-      setHasResolvedInitialUpdateState(true);
-      return;
-    }
+    if (!window.electronAPI) return;
     if (
       typeof window.electronAPI.getAppUpdateState !== "function" ||
       typeof window.electronAPI.onAppUpdateState !== "function"
     ) {
-      setHasResolvedInitialUpdateState(true);
       return;
     }
-    setHasResolvedInitialUpdateState(false);
     window.electronAPI
       .getAppUpdateState()
-      .then((state) => {
-        setAppUpdate(state);
-        setHasResolvedInitialUpdateState(true);
-      })
+      .then(setAppUpdate)
       .catch((error) => {
-        setHasResolvedInitialUpdateState(true);
         reportPersistentErrorToast(error, "Failed to initialize updater state", {
           scope: "header:updater-init",
         });
       });
-    const unsubscribe = window.electronAPI.onAppUpdateState((state) => {
-      setAppUpdate(state);
-      setHasResolvedInitialUpdateState(true);
-    });
+    const unsubscribe = window.electronAPI.onAppUpdateState((state) => setAppUpdate(state));
     return unsubscribe;
   }, []);
 
@@ -325,12 +312,6 @@ export function Header({
     if (!appUpdate) return false;
     return ["available", "downloading", "downloaded", "error"].includes(appUpdate.status);
   }, [appUpdate]);
-
-  const shouldShowUpdateLoading = useMemo(() => {
-    if (!window.electronAPI) return false;
-    if (!hasResolvedInitialUpdateState) return true;
-    return appUpdate?.status === "checking";
-  }, [appUpdate, hasResolvedInitialUpdateState]);
 
   const updateBaseText = useMemo(() => {
     if (!appUpdate) return "";
@@ -479,15 +460,6 @@ export function Header({
                   {inputHintPopover}
                 </div>
               )}
-            </div>
-          )}
-
-          {shouldShowUpdateLoading && (
-            <div className="h-7 w-[124px] inline-flex items-center justify-center">
-              <span
-                className="h-3.5 w-3.5 rounded-full border border-amber-200/30 border-t-amber-100 animate-spin"
-                aria-label="Checking for updates"
-              />
             </div>
           )}
 

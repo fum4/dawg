@@ -456,7 +456,7 @@ export default function App() {
     openHooksTab?: boolean;
   } | null>(null);
   const [pendingIssueNotificationNav, setPendingIssueNotificationNav] = useState<{
-    source: "jira" | "linear";
+    source: "jira" | "linear" | "local";
     issueId: string;
     targetProjectId: string | null;
   } | null>(null);
@@ -538,7 +538,9 @@ export default function App() {
     const sel: Selection =
       pendingIssueNotificationNav.source === "jira"
         ? { type: "issue", key: pendingIssueNotificationNav.issueId }
-        : { type: "linear-issue", identifier: pendingIssueNotificationNav.issueId };
+        : pendingIssueNotificationNav.source === "linear"
+          ? { type: "linear-issue", identifier: pendingIssueNotificationNav.issueId }
+          : { type: "custom-task", id: pendingIssueNotificationNav.issueId };
     setActiveCreateTabState("issues");
     if (serverUrl) {
       localStorage.setItem(`OpenKit:wsTab:${serverUrl}`, "issues");
@@ -2172,7 +2174,7 @@ export default function App() {
     projectName: navProjectName,
     sourceServerUrl,
   }: {
-    source: "jira" | "linear";
+    source: "jira" | "linear" | "local";
     issueId: string;
     projectName?: string;
     sourceServerUrl?: string;
@@ -2189,7 +2191,11 @@ export default function App() {
       setSelection({ type: "issue", key: issueId });
       return;
     }
-    setSelection({ type: "linear-issue", identifier: issueId });
+    if (source === "linear") {
+      setSelection({ type: "linear-issue", identifier: issueId });
+      return;
+    }
+    setSelection({ type: "custom-task", id: issueId });
   };
 
   return (
