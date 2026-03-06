@@ -145,7 +145,7 @@ interface PendingNotificationNavState {
 }
 
 interface PendingIssueNotificationNavState {
-  source: "jira" | "linear";
+  source: "jira" | "linear" | "local";
   issueId: string;
   targetProjectId: string | null;
 }
