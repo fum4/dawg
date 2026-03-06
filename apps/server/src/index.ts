@@ -1,7 +1,6 @@
 import { createAdaptorServer } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createNodeWebSocket } from "@hono/node-ws";
-import { execFileSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import net from "net";
 import os from "os";
@@ -18,6 +17,7 @@ import {
   DEFAULT_PORT,
   LEGACY_CLI_COMMAND,
 } from "@openkit/shared/constants";
+import { isCommandOnPath } from "@openkit/shared/command-path";
 import { resolveAvailableWebUiPath } from "@openkit/shared/ui-components";
 import { log } from "@openkit/shared/logger";
 import { checkGhAuth } from "@openkit/integrations/github/gh-client";
@@ -285,14 +285,7 @@ function ensureCliInPath() {
       ? `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${runtimePath}" "${builtCliPath}" "$@"\n`
       : `#!/bin/sh\nexec "${runtimePath}" "${builtCliPath}" "$@"\n`;
 
-    const wrappersToInstall = commandNames.filter((cmd) => {
-      try {
-        execFileSync("which", [cmd], { stdio: "ignore" });
-        return false;
-      } catch {
-        return true;
-      }
-    });
+    const wrappersToInstall = commandNames.filter((cmd) => !isCommandOnPath(cmd));
     if (wrappersToInstall.length === 0) return;
 
     for (const commandName of wrappersToInstall) {

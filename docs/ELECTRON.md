@@ -285,6 +285,7 @@ productName: OpenKit
 - **asarUnpack**: Only `node_modules/node-pty/**` is unpacked from the asar archive.
 - **extraResources**: `apps/cli/dist`, `apps/web-app/dist`, and `apps/server/dist/runtime` are copied into `Resources/cli`, `Resources/web`, and `Resources/runtime` respectively for deterministic packaged runtime paths.
 - **Included files**: `dist/**/*`, `assets/**/*`, `package.json` (plus production dependencies from `apps/desktop-app/package.json`)
+- **Packaged CLI lookup**: server-side command checks/launches used by integrations and "Open In..." flows augment `PATH` with common macOS bin paths (`/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`, `/bin`, `/opt/local/bin`) so installed CLIs/editors can be detected reliably in packaged app environments.
 - **macOS notarization hook**: `afterSign` runs `apps/desktop-app/electron-builder-notarize.cjs`. The hook notarizes only macOS builds and skips gracefully when signing credentials are not present.
 - **Output directory**: `apps/desktop-app/release/`
 
