@@ -473,10 +473,10 @@ export function Header({
             <button
               type="button"
               onClick={handleUpdateChipClick}
-              className={`relative h-7 px-2.5 rounded-md text-[10px] text-amber-100 transition-colors duration-150 overflow-hidden inline-flex items-center justify-center gap-1.5 ${
+              className={`relative h-7 px-2.5 rounded-md text-[10px] text-amber-100/75 transition-colors duration-150 overflow-hidden inline-flex items-center justify-center gap-1.5 ${
                 appUpdate.status === "downloading"
                   ? "bg-transparent hover:bg-transparent"
-                  : "bg-amber-400/16 hover:bg-amber-400/24"
+                  : "bg-amber-300/10 hover:bg-amber-300/14"
               }`}
               title={updateBaseText}
             >
@@ -491,7 +491,7 @@ export function Header({
             </button>
           )}
 
-          <div className="relative">
+          <div className="relative ml-1.5">
             <ActivityBell unreadCount={unreadCount} isOpen={feedOpen} onClick={handleToggleFeed} />
             <AnimatePresence>
               {feedOpen && (
