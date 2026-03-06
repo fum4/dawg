@@ -80,7 +80,7 @@ export function Header({
   const api = useApi();
   const { activeProject, serverUrl } = useServer();
   const [appUpdate, setAppUpdate] = useState<AppUpdateState | null>(null);
-  const [isUpdateHovered, setIsUpdateHovered] = useState(false);
+  const [hasResolvedInitialUpdateState, setHasResolvedInitialUpdateState] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(true);
   const [selectedFilterGroups, setSelectedFilterGroups] = useState<ActivityFilterGroup[]>([]);
@@ -290,31 +290,47 @@ export function Header({
   };
 
   useEffect(() => {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI) {
+      setHasResolvedInitialUpdateState(true);
+      return;
+    }
     if (
       typeof window.electronAPI.getAppUpdateState !== "function" ||
       typeof window.electronAPI.onAppUpdateState !== "function"
     ) {
+      setHasResolvedInitialUpdateState(true);
       return;
     }
+    setHasResolvedInitialUpdateState(false);
     window.electronAPI
       .getAppUpdateState()
-      .then(setAppUpdate)
+      .then((state) => {
+        setAppUpdate(state);
+        setHasResolvedInitialUpdateState(true);
+      })
       .catch((error) => {
+        setHasResolvedInitialUpdateState(true);
         reportPersistentErrorToast(error, "Failed to initialize updater state", {
           scope: "header:updater-init",
         });
       });
-    const unsubscribe = window.electronAPI.onAppUpdateState((state) => setAppUpdate(state));
+    const unsubscribe = window.electronAPI.onAppUpdateState((state) => {
+      setAppUpdate(state);
+      setHasResolvedInitialUpdateState(true);
+    });
     return unsubscribe;
   }, []);
 
   const shouldShowUpdateChip = useMemo(() => {
     if (!appUpdate) return false;
-    return ["checking", "available", "downloading", "downloaded", "error"].includes(
-      appUpdate.status,
-    );
+    return ["available", "downloading", "downloaded", "error"].includes(appUpdate.status);
   }, [appUpdate]);
+
+  const shouldShowUpdateLoading = useMemo(() => {
+    if (!window.electronAPI) return false;
+    if (!hasResolvedInitialUpdateState) return true;
+    return appUpdate?.status === "checking";
+  }, [appUpdate, hasResolvedInitialUpdateState]);
 
   const updateBaseText = useMemo(() => {
     if (!appUpdate) return "";
@@ -322,42 +338,22 @@ export function Header({
       case "checking":
         return "Checking updates";
       case "available":
-        return "Update available";
-      case "downloading":
-        return appUpdate.progress != null
-          ? `Downloading ${Math.round(appUpdate.progress)}%`
-          : "Downloading update";
-      case "downloaded":
-        return "Update available";
-      case "error":
-        return "Update failed";
-      default:
-        return "";
-    }
-  }, [appUpdate]);
-
-  const updateHoverText = useMemo(() => {
-    if (!appUpdate) return "";
-    switch (appUpdate.status) {
-      case "available":
         return "Download update";
       case "downloading":
         return appUpdate.progress != null
           ? `Downloading ${Math.round(appUpdate.progress)}%`
           : "Downloading update";
       case "downloaded":
-        return "Install update";
+        return "Update";
       case "error":
         return "Retry update";
-      case "checking":
-        return "Checking for updates";
       default:
         return "";
     }
   }, [appUpdate]);
 
   const updateIcon = useMemo(() => {
-    if (appUpdate?.status === "downloading" || appUpdate?.status === "checking") {
+    if (appUpdate?.status === "downloading") {
       return <Download className="w-3 h-3 flex-shrink-0 animate-pulse" />;
     }
     return <Download className="w-3 h-3 flex-shrink-0" />;
@@ -486,19 +482,24 @@ export function Header({
             </div>
           )}
 
+          {shouldShowUpdateLoading && (
+            <div className="h-7 w-[124px] inline-flex items-center justify-center">
+              <span
+                className="h-3.5 w-3.5 rounded-full border border-amber-200/30 border-t-amber-100 animate-spin"
+                aria-label="Checking for updates"
+              />
+            </div>
+          )}
+
           {shouldShowUpdateChip && appUpdate && (
             <button
               type="button"
               onClick={handleUpdateChipClick}
-              onMouseEnter={() => setIsUpdateHovered(true)}
-              onMouseLeave={() => setIsUpdateHovered(false)}
-              className="relative h-7 w-[124px] px-2.5 rounded-md text-[10px] text-amber-100 hover:bg-[#1f2937] transition-colors duration-150 overflow-hidden inline-flex items-center justify-center gap-1.5"
-              title={updateHoverText || updateBaseText}
+              className="relative h-7 w-[124px] px-2.5 rounded-md border border-amber-300/35 bg-amber-400/20 text-[10px] text-amber-100 hover:bg-amber-400/30 transition-colors duration-150 overflow-hidden inline-flex items-center justify-center gap-1.5"
+              title={updateBaseText}
             >
               {updateIcon}
-              <span className="truncate text-center">
-                {isUpdateHovered ? updateHoverText || updateBaseText : updateBaseText}
-              </span>
+              <span className="truncate text-center">{updateBaseText}</span>
               {appUpdate.status === "downloading" && (
                 <span
                   className="absolute bottom-0 left-0 h-[1.5px] bg-amber-300 transition-[width] duration-200"
