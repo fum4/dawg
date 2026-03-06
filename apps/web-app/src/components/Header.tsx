@@ -1,5 +1,5 @@
 import { AnimatePresence } from "motion/react";
-import { Download } from "lucide-react";
+import { Download, Rocket, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ACTIVITY_TYPES } from "@openkit/shared/activity-event";
@@ -325,7 +325,7 @@ export function Header({
           ? `Downloading ${Math.round(appUpdate.progress)}%`
           : "Downloading update";
       case "downloaded":
-        return "Update";
+        return "Install update";
       case "error":
         return "Retry update";
       default:
@@ -334,6 +334,12 @@ export function Header({
   }, [appUpdate]);
 
   const updateIcon = useMemo(() => {
+    if (appUpdate?.status === "downloaded") {
+      return <Rocket className="w-3 h-3 flex-shrink-0" />;
+    }
+    if (appUpdate?.status === "error") {
+      return <RotateCcw className="w-3 h-3 flex-shrink-0" />;
+    }
     if (appUpdate?.status === "downloading") {
       return <Download className="w-3 h-3 flex-shrink-0 animate-pulse" />;
     }
@@ -467,7 +473,11 @@ export function Header({
             <button
               type="button"
               onClick={handleUpdateChipClick}
-              className="relative h-7 w-[124px] px-2.5 rounded-md border border-amber-300/35 bg-amber-400/20 text-[10px] text-amber-100 hover:bg-amber-400/30 transition-colors duration-150 overflow-hidden inline-flex items-center justify-center gap-1.5"
+              className={`relative h-7 px-2.5 rounded-md text-[10px] text-amber-100 transition-colors duration-150 overflow-hidden inline-flex items-center justify-center gap-1.5 ${
+                appUpdate.status === "downloading"
+                  ? "bg-transparent hover:bg-transparent"
+                  : "bg-amber-400/16 hover:bg-amber-400/24"
+              }`}
               title={updateBaseText}
             >
               {updateIcon}

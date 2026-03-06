@@ -263,7 +263,7 @@ export default function App() {
   } = useServer();
   const [hookUpdateKey, setHookUpdateKey] = useState(0);
   const { worktrees, isConnected, error, refetch } = useWorktrees(
-    useCallback((message, level) => {
+    useCallback((message: string, level: "error" | "info") => {
       if (level === "error") {
         showPersistentErrorToast(message, { scope: "sse:notification" });
       }
