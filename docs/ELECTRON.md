@@ -277,7 +277,7 @@ productName: OpenKit
 ### Packaging Details
 
 - **App icons**: Electron Builder uses desktop-app scoped assets (`apps/desktop-app/assets/icon.icns` for macOS, `apps/desktop-app/assets/icon.png` for Linux).
-- **Auto-update publish config**: `apps/desktop-app/electron-builder.yml` sets `publish.provider: generic` with `https://github.com/openkit/openkit/releases/latest/download`, and builds both `dmg` and `zip` targets for macOS so update metadata can be generated without relying on GitHub's `releases.atom` feed.
+- **Auto-update publish config**: `apps/desktop-app/electron-builder.yml` sets `publish.provider: generic` with `https://github.com/fum4/openkit/releases/latest/download`, and builds both `dmg` and `zip` targets for macOS so update metadata can be generated without relying on GitHub's `releases.atom` feed.
 - **Packaging app root**: `directories.app` is `apps/desktop-app` (configured as `.` relative to `apps/desktop-app/electron-builder.yml`), so runtime dependencies are resolved from `apps/desktop-app/package.json`.
 - **Version source of truth**: root `package.json` still drives release tags. During releases, `release-it` runs `scripts/bump-affected-app-versions.mjs` (`after:bump`) to patch-bump only affected app package versions since the previous release tag (except `apps/mobile-app`) before creating the release commit/tag.
 - **asar**: Enabled. The app is bundled into an asar archive for faster loading.

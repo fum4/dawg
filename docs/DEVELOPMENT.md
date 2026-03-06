@@ -139,6 +139,7 @@ npm publishing is currently paused.
 - The release workflow still runs `pnpm check:all` and creates release tags plus the GitHub release.
 - `release-it` bumps the root version and then runs `node ./scripts/bump-affected-app-versions.mjs` (`after:bump`) to patch-bump only affected apps since the previous release tag (`v*`) (via Nx affected apps, with git-path fallback), excluding `apps/mobile-app`.
 - Desktop release assets are built/uploaded in `.github/workflows/package-release.yml` on release tag pushes (`v*`), including updater metadata/assets (`latest*.yml`, macOS ZIPs, and blockmaps) required by `electron-updater`.
+- Shared macOS packaging action (`.github/actions/package-desktop-macos`) retries the packaging command up to 3 times to reduce transient Electron download failures that can otherwise prevent updater metadata from being uploaded.
 - npm-specific publish steps are commented out in `.github/workflows/release.yml`.
 
 ## Dependency Updates
