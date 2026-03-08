@@ -35,6 +35,10 @@ function getBaseUrl(serverUrl: string | null): string {
   return serverUrl ?? "";
 }
 
+function isJsonResponse(res: Response): boolean {
+  return (res.headers.get("content-type") ?? "").includes("application/json");
+}
+
 export type OpenProjectTarget =
   | "file-manager"
   | "cursor"
@@ -859,6 +863,8 @@ export async function updateJiraConfig(
   autoStartClaudeOnNewIssue?: boolean,
   autoStartClaudeSkipPermissions?: boolean,
   autoStartClaudeFocusTerminal?: boolean,
+  autoUpdateIssueStatusOnAgentStart?: boolean,
+  autoUpdateIssueStatusName?: string | null,
   serverUrl: string | null = null,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -870,6 +876,8 @@ export async function updateJiraConfig(
       autoStartClaudeOnNewIssue?: boolean;
       autoStartClaudeSkipPermissions?: boolean;
       autoStartClaudeFocusTerminal?: boolean;
+      autoUpdateIssueStatusOnAgentStart?: boolean;
+      autoUpdateIssueStatusName?: string | null;
     } = { defaultProjectKey };
     if (refreshIntervalMinutes !== undefined) body.refreshIntervalMinutes = refreshIntervalMinutes;
     if (dataLifecycle !== undefined) body.dataLifecycle = dataLifecycle;
@@ -882,6 +890,12 @@ export async function updateJiraConfig(
     }
     if (autoStartClaudeFocusTerminal !== undefined) {
       body.autoStartClaudeFocusTerminal = autoStartClaudeFocusTerminal;
+    }
+    if (autoUpdateIssueStatusOnAgentStart !== undefined) {
+      body.autoUpdateIssueStatusOnAgentStart = autoUpdateIssueStatusOnAgentStart;
+    }
+    if (autoUpdateIssueStatusName !== undefined) {
+      body.autoUpdateIssueStatusName = autoUpdateIssueStatusName;
     }
     const res = await fetch(`${getBaseUrl(serverUrl)}/api/jira/config`, {
       method: "PATCH",
@@ -909,6 +923,287 @@ export async function disconnectJira(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to disconnect Jira",
+    };
+  }
+}
+
+export async function fetchJiraStatusOptions(
+  serverUrl: string | null = null,
+): Promise<{ options: Array<{ name: string }>; error?: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl(serverUrl)}/api/jira/status-options`);
+    if (!isJsonResponse(res)) {
+      return { options: [] };
+    }
+    return await res.json();
+  } catch (err) {
+    return {
+      options: [],
+      error: err instanceof Error ? err.message : "Failed to fetch Jira status options",
+    };
+  }
+}
+
+export async function fetchJiraIssueStatusOptions(
+  key: string,
+  serverUrl: string | null = null,
+): Promise<{ options: Array<{ id: string; name: string }>; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/status-options`,
+    );
+    if (!isJsonResponse(res)) {
+      return { options: [] };
+    }
+    return await res.json();
+  } catch (err) {
+    return {
+      options: [],
+      error: err instanceof Error ? err.message : "Failed to fetch Jira issue status options",
+    };
+  }
+}
+
+export async function fetchJiraPriorityOptions(
+  serverUrl: string | null = null,
+): Promise<{ options: Array<{ id: string; name: string }>; error?: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl(serverUrl)}/api/jira/priorities`);
+    if (!isJsonResponse(res)) {
+      return { options: [] };
+    }
+    return await res.json();
+  } catch (err) {
+    return {
+      options: [],
+      error: err instanceof Error ? err.message : "Failed to fetch Jira priority options",
+    };
+  }
+}
+
+export async function fetchJiraIssueTypeOptions(
+  key: string,
+  serverUrl: string | null = null,
+): Promise<{ options: Array<{ id: string; name: string }>; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/type-options`,
+    );
+    if (!isJsonResponse(res)) {
+      return { options: [] };
+    }
+    return await res.json();
+  } catch (err) {
+    return {
+      options: [],
+      error: err instanceof Error ? err.message : "Failed to fetch Jira issue type options",
+    };
+  }
+}
+
+export async function updateJiraIssueStatus(
+  key: string,
+  statusName: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/status`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusName }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Jira issue status" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Jira issue status",
+    };
+  }
+}
+
+export async function updateJiraIssuePriority(
+  key: string,
+  priorityName: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/priority`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priorityName }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Jira issue priority" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Jira issue priority",
+    };
+  }
+}
+
+export async function updateJiraIssueType(
+  key: string,
+  typeName: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/type`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typeName }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Jira issue type" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Jira issue type",
+    };
+  }
+}
+
+export async function updateJiraIssueDescription(
+  key: string,
+  description: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/description`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Jira description" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Jira description",
+    };
+  }
+}
+
+export async function updateJiraIssueSummary(
+  key: string,
+  summary: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/summary`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Jira summary" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Jira summary",
+    };
+  }
+}
+
+export async function addJiraIssueComment(
+  key: string,
+  comment: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/comments`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to add Jira comment" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to add Jira comment",
+    };
+  }
+}
+
+export async function updateJiraIssueComment(
+  key: string,
+  commentId: string,
+  comment: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/comments/${encodeURIComponent(commentId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Jira comment" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Jira comment",
+    };
+  }
+}
+
+export async function deleteJiraIssueComment(
+  key: string,
+  commentId: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/jira/issues/${encodeURIComponent(key)}/comments/${encodeURIComponent(commentId)}`,
+      {
+        method: "DELETE",
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to delete Jira comment" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete Jira comment",
     };
   }
 }
@@ -1015,6 +1310,8 @@ export async function updateLinearConfig(
   autoStartClaudeOnNewIssue?: boolean,
   autoStartClaudeSkipPermissions?: boolean,
   autoStartClaudeFocusTerminal?: boolean,
+  autoUpdateIssueStatusOnAgentStart?: boolean,
+  autoUpdateIssueStatusName?: string | null,
   serverUrl: string | null = null,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -1026,6 +1323,8 @@ export async function updateLinearConfig(
       autoStartClaudeOnNewIssue?: boolean;
       autoStartClaudeSkipPermissions?: boolean;
       autoStartClaudeFocusTerminal?: boolean;
+      autoUpdateIssueStatusOnAgentStart?: boolean;
+      autoUpdateIssueStatusName?: string | null;
     } = { defaultTeamKey };
     if (refreshIntervalMinutes !== undefined) body.refreshIntervalMinutes = refreshIntervalMinutes;
     if (dataLifecycle !== undefined) body.dataLifecycle = dataLifecycle;
@@ -1038,6 +1337,12 @@ export async function updateLinearConfig(
     }
     if (autoStartClaudeFocusTerminal !== undefined) {
       body.autoStartClaudeFocusTerminal = autoStartClaudeFocusTerminal;
+    }
+    if (autoUpdateIssueStatusOnAgentStart !== undefined) {
+      body.autoUpdateIssueStatusOnAgentStart = autoUpdateIssueStatusOnAgentStart;
+    }
+    if (autoUpdateIssueStatusName !== undefined) {
+      body.autoUpdateIssueStatusName = autoUpdateIssueStatusName;
     }
     const res = await fetch(`${getBaseUrl(serverUrl)}/api/linear/config`, {
       method: "PATCH",
@@ -1065,6 +1370,241 @@ export async function disconnectLinear(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to disconnect Linear",
+    };
+  }
+}
+
+export async function fetchLinearStatusOptions(
+  serverUrl: string | null = null,
+): Promise<{ options: Array<{ name: string; type: string; color: string }>; error?: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl(serverUrl)}/api/linear/status-options`);
+    if (!isJsonResponse(res)) {
+      return { options: [] };
+    }
+    return await res.json();
+  } catch (err) {
+    return {
+      options: [],
+      error: err instanceof Error ? err.message : "Failed to fetch Linear status options",
+    };
+  }
+}
+
+export async function fetchLinearIssueStatusOptions(
+  identifier: string,
+  serverUrl: string | null = null,
+): Promise<{ options: Array<{ name: string; type: string; color: string }>; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/status-options`,
+    );
+    if (!isJsonResponse(res)) {
+      return { options: [] };
+    }
+    return await res.json();
+  } catch (err) {
+    return {
+      options: [],
+      error: err instanceof Error ? err.message : "Failed to fetch Linear issue status options",
+    };
+  }
+}
+
+export async function fetchLinearPriorityOptions(
+  serverUrl: string | null = null,
+): Promise<{ options: Array<{ value: number; label: string }>; error?: string }> {
+  try {
+    const res = await fetch(`${getBaseUrl(serverUrl)}/api/linear/priority-options`);
+    if (!isJsonResponse(res)) {
+      return { options: [] };
+    }
+    return await res.json();
+  } catch (err) {
+    return {
+      options: [],
+      error: err instanceof Error ? err.message : "Failed to fetch Linear priority options",
+    };
+  }
+}
+
+export async function updateLinearIssueStatus(
+  identifier: string,
+  statusName: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/status`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusName }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Linear issue status" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Linear issue status",
+    };
+  }
+}
+
+export async function updateLinearIssuePriority(
+  identifier: string,
+  priority: number,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/priority`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Linear issue priority" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Linear issue priority",
+    };
+  }
+}
+
+export async function updateLinearIssueDescription(
+  identifier: string,
+  description: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/description`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Linear description" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Linear description",
+    };
+  }
+}
+
+export async function updateLinearIssueTitle(
+  identifier: string,
+  title: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/title`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Linear title" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Linear title",
+    };
+  }
+}
+
+export async function addLinearIssueComment(
+  identifier: string,
+  comment: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/comments`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to add Linear comment" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to add Linear comment",
+    };
+  }
+}
+
+export async function updateLinearIssueComment(
+  identifier: string,
+  commentId: string,
+  comment: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/comments/${encodeURIComponent(commentId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to update Linear comment" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update Linear comment",
+    };
+  }
+}
+
+export async function deleteLinearIssueComment(
+  identifier: string,
+  commentId: string,
+  serverUrl: string | null = null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(
+      `${getBaseUrl(serverUrl)}/api/linear/issues/${encodeURIComponent(identifier)}/comments/${encodeURIComponent(commentId)}`,
+      {
+        method: "DELETE",
+      },
+    );
+    if (isJsonResponse(res)) return await res.json();
+    if (res.ok) return { success: true };
+    const body = await res.text();
+    return { success: false, error: body || "Failed to delete Linear comment" };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete Linear comment",
     };
   }
 }

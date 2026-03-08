@@ -44,6 +44,10 @@ export function loadJiraProjectConfig(configDir: string): JiraProjectConfig {
     autoStartClaudeOnNewIssue: jira.autoStartClaudeOnNewIssue as boolean | undefined,
     autoStartClaudeSkipPermissions: jira.autoStartClaudeSkipPermissions as boolean | undefined,
     autoStartClaudeFocusTerminal: jira.autoStartClaudeFocusTerminal as boolean | undefined,
+    autoUpdateIssueStatusOnAgentStart: jira.autoUpdateIssueStatusOnAgentStart as
+      | boolean
+      | undefined,
+    autoUpdateIssueStatusName: jira.autoUpdateIssueStatusName as string | undefined,
   };
 }
 

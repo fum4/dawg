@@ -454,7 +454,9 @@ Get Jira integration status and configuration.
     "autoStartAgent": "claude",
     "autoStartClaudeOnNewIssue": false,
     "autoStartClaudeSkipPermissions": true,
-    "autoStartClaudeFocusTerminal": true
+    "autoStartClaudeFocusTerminal": true,
+    "autoUpdateIssueStatusOnAgentStart": false,
+    "autoUpdateIssueStatusName": null
   }
   ```
 
@@ -486,9 +488,112 @@ Update Jira project configuration, including optional auto-start agent behavior 
     "autoStartAgent": "codex",
     "autoStartClaudeOnNewIssue": true,
     "autoStartClaudeSkipPermissions": true,
-    "autoStartClaudeFocusTerminal": true
+    "autoStartClaudeFocusTerminal": true,
+    "autoUpdateIssueStatusOnAgentStart": true,
+    "autoUpdateIssueStatusName": "In Progress"
   }
   ```
+- **Response**: `{ success: true }`
+
+#### `GET /api/jira/status-options`
+
+List available Jira status names from the configured default project (`defaultProjectKey`).
+
+- **Response**: `{ options: [{ name }] }`
+- **Error** (400): `{ options: [], error: "defaultProjectKey is not configured" }`
+
+#### `GET /api/jira/issues/:key/status-options`
+
+Get transition statuses currently available for a specific Jira issue.
+
+- **Response**: `{ options: [{ id, name }] }`
+
+#### `GET /api/jira/priorities`
+
+List available Jira priorities.
+
+- **Response**: `{ options: [{ id, name }] }`
+
+#### `GET /api/jira/issues/:key/type-options`
+
+List available Jira issue types for a specific issue (from Jira edit metadata).
+
+- **Response**: `{ options: [{ id, name }] }`
+
+#### `PATCH /api/jira/issues/:key/status`
+
+Transition a Jira issue to a new status.
+
+- **Request**:
+  ```json
+  { "statusName": "In Progress" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/jira/issues/:key/priority`
+
+Update a Jira issue priority.
+
+- **Request**:
+  ```json
+  { "priorityName": "High" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/jira/issues/:key/type`
+
+Update a Jira issue type.
+
+- **Request**:
+  ```json
+  { "typeName": "Bug" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/jira/issues/:key/description`
+
+Update a Jira issue description.
+
+- **Request**:
+  ```json
+  { "description": "Updated markdown/plain text description" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/jira/issues/:key/summary`
+
+Update a Jira issue summary (title).
+
+- **Request**:
+  ```json
+  { "summary": "Updated issue summary" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `POST /api/jira/issues/:key/comments`
+
+Add a comment to a Jira issue.
+
+- **Request**:
+  ```json
+  { "comment": "Working on this now." }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/jira/issues/:key/comments/:commentId`
+
+Update an existing Jira comment.
+
+- **Request**:
+  ```json
+  { "comment": "Updated comment body" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `DELETE /api/jira/issues/:key/comments/:commentId`
+
+Delete a Jira comment.
+
 - **Response**: `{ success: true }`
 
 #### `DELETE /api/jira/credentials`
@@ -559,7 +664,9 @@ Get Linear integration status and configuration.
     "autoStartAgent": "claude",
     "autoStartClaudeOnNewIssue": false,
     "autoStartClaudeSkipPermissions": true,
-    "autoStartClaudeFocusTerminal": true
+    "autoStartClaudeFocusTerminal": true,
+    "autoUpdateIssueStatusOnAgentStart": false,
+    "autoUpdateIssueStatusName": null
   }
   ```
 
@@ -587,9 +694,85 @@ Update Linear project configuration, including optional auto-start agent behavio
     "autoStartAgent": "gemini",
     "autoStartClaudeOnNewIssue": true,
     "autoStartClaudeSkipPermissions": true,
-    "autoStartClaudeFocusTerminal": true
+    "autoStartClaudeFocusTerminal": true,
+    "autoUpdateIssueStatusOnAgentStart": true,
+    "autoUpdateIssueStatusName": "In Progress"
   }
   ```
+- **Response**: `{ success: true }`
+
+#### `GET /api/linear/status-options`
+
+List available Linear workflow statuses (filtered by configured default team when present).
+
+- **Response**: `{ options: [{ name, type, color }] }`
+
+#### `GET /api/linear/issues/:identifier/status-options`
+
+List available Linear workflow statuses for the issue's actual team/project.
+
+- **Response**: `{ options: [{ name, type, color }] }`
+
+#### `GET /api/linear/priority-options`
+
+List available Linear priorities from Linear API metadata.
+
+- **Response**: `{ options: [{ value, label }] }`
+
+#### `PATCH /api/linear/issues/:identifier/status`
+
+Update a Linear issue status using options from the issue's actual team/project.
+
+- **Request**:
+  ```json
+  { "statusName": "In Progress" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/linear/issues/:identifier/description`
+
+Update a Linear issue description.
+
+- **Request**:
+  ```json
+  { "description": "Updated markdown description" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/linear/issues/:identifier/title`
+
+Update a Linear issue title.
+
+- **Request**:
+  ```json
+  { "title": "Updated issue title" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `POST /api/linear/issues/:identifier/comments`
+
+Add a comment to a Linear issue.
+
+- **Request**:
+  ```json
+  { "comment": "Taking this issue." }
+  ```
+- **Response**: `{ success: true }`
+
+#### `PATCH /api/linear/issues/:identifier/comments/:commentId`
+
+Update an existing Linear comment.
+
+- **Request**:
+  ```json
+  { "comment": "Updated comment body" }
+  ```
+- **Response**: `{ success: true }`
+
+#### `DELETE /api/linear/issues/:identifier/comments/:commentId`
+
+Delete a Linear comment.
+
 - **Response**: `{ success: true }`
 
 #### `DELETE /api/linear/credentials`
@@ -603,7 +786,7 @@ Disconnect Linear by removing stored credentials.
 List Linear issues assigned to the current user.
 
 - **Query params**: `?query=search+text` (optional)
-- **Response**: `{ issues: [{ identifier, title, state, priority, assignee, labels, url, ... }] }`
+- **Response**: `{ issues: [{ identifier, title, state, priority, priorityLabel, assignee, labels, url, ... }] }`
 - **Error** (400/500): `{ issues: [], error: "..." }`
 
 #### `GET /api/linear/issues/:identifier`

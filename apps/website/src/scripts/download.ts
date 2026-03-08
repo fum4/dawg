@@ -53,7 +53,6 @@ const RELEASES_API = "https://api.github.com/repos/fum4/openkit/releases/latest"
 const RELEASES_PAGE = "https://github.com/fum4/openkit/releases";
 const LATEST_DOWNLOAD_BASE = "https://github.com/fum4/openkit/releases/latest/download";
 const LATEST_MAC_MANIFEST = `${LATEST_DOWNLOAD_BASE}/latest-mac.yml`;
-const LATEST_LINUX_MANIFEST = `${LATEST_DOWNLOAD_BASE}/latest-linux.yml`;
 
 const FORMAT_SPECS: FormatSpec[] = [
   { suffix: ".appimage", platformHint: "linux", order: 0 },
@@ -114,14 +113,14 @@ const CANONICAL_OPTION_SLOTS: CanonicalOptionSlot[] = [
     title: "macOS (Intel)",
     matches: (option) => option.platform === "mac" && option.arch === "x64",
   },
-  {
-    id: "download-linux",
-    fallbackId: "fallback-linux-x64",
-    platform: "linux",
-    arch: "x64",
-    title: "Linux",
-    matches: (option) => option.platform === "linux",
-  },
+  // {
+  //   id: "download-linux",
+  //   fallbackId: "fallback-linux-x64",
+  //   platform: "linux",
+  //   arch: "x64",
+  //   title: "Linux",
+  //   matches: (option) => option.platform === "linux",
+  // },
 ];
 
 interface ManifestData {
@@ -149,15 +148,15 @@ function getFallbackOptions(): DownloadOption[] {
       title: "macOS (Intel)",
       url: RELEASES_PAGE,
     },
-    {
-      id: "fallback-linux-x64",
-      platform: "linux",
-      arch: "x64",
-      ext: ".AppImage",
-      extOrder: getFormatOrder(".appimage"),
-      title: "Linux",
-      url: RELEASES_PAGE,
-    },
+    // {
+    //   id: "fallback-linux-x64",
+    //   platform: "linux",
+    //   arch: "x64",
+    //   ext: ".AppImage",
+    //   extOrder: getFormatOrder(".appimage"),
+    //   title: "Linux",
+    //   url: RELEASES_PAGE,
+    // },
   ];
 }
 
@@ -287,37 +286,16 @@ function pickMacFile(files: string[], arch: "arm64" | "x64"): string | null {
   );
 }
 
-function pickLinuxFile(files: string[]): string | null {
-  const candidates = files.filter((file) => {
-    const normalized = file.toLowerCase();
-    return (
-      normalized.endsWith(".appimage") || normalized.endsWith(".deb") || normalized.endsWith(".rpm")
-    );
-  });
-
-  if (candidates.length === 0) return null;
-  return (
-    candidates.find((file) => file.toLowerCase().endsWith(".appimage")) ||
-    candidates.find((file) => file.toLowerCase().endsWith(".deb")) ||
-    candidates.find((file) => file.toLowerCase().endsWith(".rpm")) ||
-    candidates[0]
-  );
-}
-
 function getFormatOrder(ext: string): number {
   const format = FORMAT_SPECS.find((entry) => entry.suffix === ext.toLowerCase());
   return format?.order ?? 99;
 }
 
-function optionsFromWorkflowManifests(
-  macManifest: ManifestData | null,
-  linuxManifest: ManifestData | null,
-): DownloadOption[] {
+function optionsFromWorkflowManifests(macManifest: ManifestData | null): DownloadOption[] {
   const options: DownloadOption[] = [];
 
   const macArmFile = macManifest ? pickMacFile(macManifest.files, "arm64") : null;
   const macIntelFile = macManifest ? pickMacFile(macManifest.files, "x64") : null;
-  const linuxFile = linuxManifest ? pickLinuxFile(linuxManifest.files) : null;
 
   if (macArmFile) {
     const ext = getFileExt(macArmFile);
@@ -342,19 +320,6 @@ function optionsFromWorkflowManifests(
       extOrder: getFormatOrder(ext),
       title: "macOS (Intel)",
       url: resolveDownloadUrl(macIntelFile),
-    });
-  }
-
-  if (linuxFile) {
-    const ext = getFileExt(linuxFile);
-    options.push({
-      id: "workflow-linux-x64",
-      platform: "linux",
-      arch: "x64",
-      ext,
-      extOrder: getFormatOrder(ext),
-      title: "Linux",
-      url: resolveDownloadUrl(linuxFile),
     });
   }
 
@@ -484,7 +449,10 @@ function getCached(): DownloadInfo | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as DownloadInfo;
     if (!Array.isArray(parsed.options)) return null;
-    return parsed;
+    return {
+      version: typeof parsed.version === "string" ? parsed.version : "",
+      options: canonicalizeOptions(parsed.options),
+    };
   } catch {
     return null;
   }
@@ -514,26 +482,13 @@ async function fetchRelease(): Promise<DownloadInfo> {
     return info;
   } catch {
     try {
-      const [macManifestRes, linuxManifestRes] = await Promise.allSettled([
-        fetch(LATEST_MAC_MANIFEST),
-        fetch(LATEST_LINUX_MANIFEST),
-      ]);
+      const macManifestRes = await fetch(LATEST_MAC_MANIFEST);
 
-      const macManifestText =
-        macManifestRes.status === "fulfilled" && macManifestRes.value.ok
-          ? await macManifestRes.value.text()
-          : "";
-      const linuxManifestText =
-        linuxManifestRes.status === "fulfilled" && linuxManifestRes.value.ok
-          ? await linuxManifestRes.value.text()
-          : "";
+      const macManifestText = macManifestRes.ok ? await macManifestRes.text() : "";
 
       const macManifest = macManifestText ? parseManifest(macManifestText) : null;
-      const linuxManifest = linuxManifestText ? parseManifest(linuxManifestText) : null;
-      const manifestOptions = canonicalizeOptions(
-        optionsFromWorkflowManifests(macManifest, linuxManifest),
-      );
-      const manifestVersion = macManifest?.version || linuxManifest?.version || "";
+      const manifestOptions = canonicalizeOptions(optionsFromWorkflowManifests(macManifest));
+      const manifestVersion = macManifest?.version || "";
       const info: DownloadInfo = {
         version: manifestVersion,
         options: manifestOptions,

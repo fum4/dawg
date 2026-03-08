@@ -172,15 +172,17 @@ Auto-cleanup runs as a fire-and-forget operation whenever the issue list is fetc
 
 ### Configuration
 
-| Setting                          | Description                                                                                        | Default                            |
-| -------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `defaultProjectKey`              | Project key prefix for short issue IDs (e.g., `"PROJ"`)                                            | none                               |
-| `refreshIntervalMinutes`         | How often to poll for issue list updates                                                           | `5`                                |
-| `dataLifecycle`                  | Data persistence and cleanup settings                                                              | `saveOn: "view"`, cleanup disabled |
-| `autoStartAgent`                 | Which coding agent to auto-start (`claude`, `codex`, `gemini`, `opencode`)                         | `claude`                           |
-| `autoStartClaudeOnNewIssue`      | Automatically create/open a worktree and start the selected agent when newly fetched issues appear | `false`                            |
-| `autoStartClaudeSkipPermissions` | Run auto-started agent with skip-permissions enabled                                               | `true`                             |
-| `autoStartClaudeFocusTerminal`   | Redirect UI to the selected agent terminal when auto-start begins                                  | `true`                             |
+| Setting                             | Description                                                                                        | Default                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `defaultProjectKey`                 | Project key prefix for short issue IDs (e.g., `"PROJ"`)                                            | none                               |
+| `refreshIntervalMinutes`            | How often to poll for issue list updates                                                           | `5`                                |
+| `dataLifecycle`                     | Data persistence and cleanup settings                                                              | `saveOn: "view"`, cleanup disabled |
+| `autoStartAgent`                    | Which coding agent to auto-start (`claude`, `codex`, `gemini`, `opencode`)                         | `claude`                           |
+| `autoStartClaudeOnNewIssue`         | Automatically create/open a worktree and start the selected agent when newly fetched issues appear | `false`                            |
+| `autoStartClaudeSkipPermissions`    | Run auto-started agent with skip-permissions enabled                                               | `true`                             |
+| `autoStartClaudeFocusTerminal`      | Redirect UI to the selected agent terminal when auto-start begins                                  | `true`                             |
+| `autoUpdateIssueStatusOnAgentStart` | Automatically transition issue status when auto-start kicks off                                    | `false`                            |
+| `autoUpdateIssueStatusName`         | Jira status name used when auto-started agents begin work                                          | none                               |
 
 ---
 
@@ -223,7 +225,7 @@ query {
 
 Fetches up to 50 uncompleted, uncanceled issues assigned to the current user, ordered by `updatedAt`. Optionally filtered by team key and/or a text search query.
 
-Fields: `identifier`, `title`, `state { name type color }`, `priority`, `assignee { name }`, `updatedAt`, `labels { name color }`, `url`.
+Fields: `identifier`, `title`, `state { name type color }`, `priority`, `priorityLabel`, `assignee { name }`, `updatedAt`, `labels { name color }`, `url`.
 
 When a `query` parameter is provided, the `issueSearch` query is used instead of `issues`, enabling full-text search within the filtered set.
 
@@ -256,15 +258,17 @@ OpenKit uses the `type` field for auto-cleanup triggers. Issues with `completedA
 
 ### Configuration
 
-| Setting                          | Description                                                                                        | Default                            |
-| -------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `defaultTeamKey`                 | Team key prefix for short identifiers (e.g., `"ENG"`)                                              | none                               |
-| `refreshIntervalMinutes`         | How often to poll for issue list updates                                                           | `5`                                |
-| `dataLifecycle`                  | Data persistence and cleanup settings (same structure as Jira)                                     | `saveOn: "view"`, cleanup disabled |
-| `autoStartAgent`                 | Which coding agent to auto-start (`claude`, `codex`, `gemini`, `opencode`)                         | `claude`                           |
-| `autoStartClaudeOnNewIssue`      | Automatically create/open a worktree and start the selected agent when newly fetched issues appear | `false`                            |
-| `autoStartClaudeSkipPermissions` | Run auto-started agent with skip-permissions enabled                                               | `true`                             |
-| `autoStartClaudeFocusTerminal`   | Redirect UI to the selected agent terminal when auto-start begins                                  | `true`                             |
+| Setting                             | Description                                                                                        | Default                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `defaultTeamKey`                    | Team key prefix for short identifiers (e.g., `"ENG"`)                                              | none                               |
+| `refreshIntervalMinutes`            | How often to poll for issue list updates                                                           | `5`                                |
+| `dataLifecycle`                     | Data persistence and cleanup settings (same structure as Jira)                                     | `saveOn: "view"`, cleanup disabled |
+| `autoStartAgent`                    | Which coding agent to auto-start (`claude`, `codex`, `gemini`, `opencode`)                         | `claude`                           |
+| `autoStartClaudeOnNewIssue`         | Automatically create/open a worktree and start the selected agent when newly fetched issues appear | `false`                            |
+| `autoStartClaudeSkipPermissions`    | Run auto-started agent with skip-permissions enabled                                               | `true`                             |
+| `autoStartClaudeFocusTerminal`      | Redirect UI to the selected agent terminal when auto-start begins                                  | `true`                             |
+| `autoUpdateIssueStatusOnAgentStart` | Automatically transition issue status when auto-start kicks off                                    | `false`                            |
+| `autoUpdateIssueStatusName`         | Linear status name used when auto-started agents begin work                                        | none                               |
 
 ---
 
@@ -371,7 +375,16 @@ Navigate to the **Integrations** view in the OpenKit UI. Each integration has a 
 - **Jira**: API token setup form (base URL, email, token). After connecting: project key, refresh interval, and data lifecycle settings with auto-save.
 - **Linear**: API key setup form. After connecting: team key, refresh interval, and data lifecycle settings with auto-save.
 
-Both Jira and Linear cards include an `Auto-start agent` section. You first choose one agent (`Claude`, `Codex`, `Gemini`, or `OpenCode`), then configure the existing toggles. When auto-start is enabled, OpenKit watches freshly fetched issue lists and, for newly discovered issues, creates (or reuses) the issue worktree, starts the selected agent terminal session using the standard TASK.md-first workflow, and records activity feed events for both task detection and auto-start. Additional toggles control whether the selected agent runs with skip-permissions mode and whether the UI auto-focuses the selected agent terminal as soon as work begins.
+Both Jira and Linear cards include an `Auto-start agent` section. You first choose one agent (`Claude`, `Codex`, `Gemini`, or `OpenCode`), then configure toggles. When auto-start is enabled, OpenKit watches freshly fetched issue lists and, for newly discovered issues, creates (or reuses) the issue worktree, starts the selected agent terminal session using the standard TASK.md-first workflow, and records activity feed events for both task detection and auto-start. Additional toggles control whether the selected agent runs with skip-permissions mode, whether the UI auto-focuses the selected agent terminal, and whether issue status should auto-transition on agent start (including selecting the target status name).
+
+Jira and Linear detail panels also support issue updates directly from OpenKit:
+
+- Transition status
+- Update priority
+- Update issue type (Jira)
+- Edit title
+- Edit description
+- Add, edit, and delete comments
 
 Configuration changes in the UI are auto-saved with a 300ms debounce.
 
@@ -475,28 +488,50 @@ When creating a worktree from an issue (`POST /api/jira/task` or `POST /api/line
 
 ### Jira Endpoints
 
-| Method   | Path                    | Description                                                                          |
-| -------- | ----------------------- | ------------------------------------------------------------------------------------ |
-| `GET`    | `/api/jira/status`      | Connection status, config, and data lifecycle settings                               |
-| `POST`   | `/api/jira/setup`       | Connect with API token (`{ baseUrl, email, token }`)                                 |
-| `PATCH`  | `/api/jira/config`      | Update project key, refresh interval, lifecycle config, and auto-start agent options |
-| `DELETE` | `/api/jira/credentials` | Disconnect (removes jira key from integrations.json)                                 |
-| `GET`    | `/api/jira/issues`      | List assigned unresolved issues (optional `?query=` for search)                      |
-| `GET`    | `/api/jira/issues/:key` | Fetch full issue detail                                                              |
-| `GET`    | `/api/jira/attachment`  | Proxy an attachment URL with auth (`?url=`)                                          |
-| `POST`   | `/api/jira/task`        | Create worktree from issue (`{ issueKey, branch? }`)                                 |
+| Method   | Path                                        | Description                                                                          |
+| -------- | ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `GET`    | `/api/jira/status`                          | Connection status, config, and data lifecycle settings                               |
+| `POST`   | `/api/jira/setup`                           | Connect with API token (`{ baseUrl, email, token }`)                                 |
+| `PATCH`  | `/api/jira/config`                          | Update project key, refresh interval, lifecycle config, and auto-start agent options |
+| `DELETE` | `/api/jira/credentials`                     | Disconnect (removes jira key from integrations.json)                                 |
+| `GET`    | `/api/jira/issues`                          | List assigned unresolved issues (optional `?query=` for search)                      |
+| `GET`    | `/api/jira/issues/:key`                     | Fetch full issue detail                                                              |
+| `GET`    | `/api/jira/status-options`                  | List available status names for configured default project                           |
+| `GET`    | `/api/jira/issues/:key/status-options`      | List transition statuses available for a specific issue                              |
+| `GET`    | `/api/jira/priorities`                      | List available Jira priorities                                                       |
+| `GET`    | `/api/jira/issues/:key/type-options`        | List editable issue type options for the selected issue                              |
+| `PATCH`  | `/api/jira/issues/:key/status`              | Transition issue to status (`{ statusName }`)                                        |
+| `PATCH`  | `/api/jira/issues/:key/priority`            | Update issue priority (`{ priorityName }`)                                           |
+| `PATCH`  | `/api/jira/issues/:key/type`                | Update issue type (`{ typeName }`)                                                   |
+| `PATCH`  | `/api/jira/issues/:key/description`         | Update issue description (`{ description }`)                                         |
+| `PATCH`  | `/api/jira/issues/:key/summary`             | Update issue summary/title (`{ summary }`)                                           |
+| `POST`   | `/api/jira/issues/:key/comments`            | Add issue comment (`{ comment }`)                                                    |
+| `PATCH`  | `/api/jira/issues/:key/comments/:commentId` | Update issue comment (`{ comment }`)                                                 |
+| `DELETE` | `/api/jira/issues/:key/comments/:commentId` | Delete issue comment                                                                 |
+| `GET`    | `/api/jira/attachment`                      | Proxy an attachment URL with auth (`?url=`)                                          |
+| `POST`   | `/api/jira/task`                            | Create worktree from issue (`{ issueKey, branch? }`)                                 |
 
 ### Linear Endpoints
 
-| Method   | Path                             | Description                                                                       |
-| -------- | -------------------------------- | --------------------------------------------------------------------------------- |
-| `GET`    | `/api/linear/status`             | Connection status, config, and data lifecycle settings                            |
-| `POST`   | `/api/linear/setup`              | Connect with API key (`{ apiKey }`)                                               |
-| `PATCH`  | `/api/linear/config`             | Update team key, refresh interval, lifecycle config, and auto-start agent options |
-| `DELETE` | `/api/linear/credentials`        | Disconnect (removes linear key from integrations.json)                            |
-| `GET`    | `/api/linear/issues`             | List assigned active issues (optional `?query=` for search)                       |
-| `GET`    | `/api/linear/issues/:identifier` | Fetch full issue detail                                                           |
-| `POST`   | `/api/linear/task`               | Create worktree from issue (`{ identifier, branch? }`)                            |
+| Method   | Path                                                 | Description                                                                       |
+| -------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GET`    | `/api/linear/status`                                 | Connection status, config, and data lifecycle settings                            |
+| `POST`   | `/api/linear/setup`                                  | Connect with API key (`{ apiKey }`)                                               |
+| `PATCH`  | `/api/linear/config`                                 | Update team key, refresh interval, lifecycle config, and auto-start agent options |
+| `DELETE` | `/api/linear/credentials`                            | Disconnect (removes linear key from integrations.json)                            |
+| `GET`    | `/api/linear/issues`                                 | List assigned active issues (optional `?query=` for search)                       |
+| `GET`    | `/api/linear/issues/:identifier`                     | Fetch full issue detail                                                           |
+| `GET`    | `/api/linear/status-options`                         | List available workflow status options                                            |
+| `GET`    | `/api/linear/issues/:identifier/status-options`      | List available status options for the issue's team/project                        |
+| `GET`    | `/api/linear/priority-options`                       | List available priority options from Linear API                                   |
+| `PATCH`  | `/api/linear/issues/:identifier/status`              | Transition issue to status (`{ statusName }`)                                     |
+| `PATCH`  | `/api/linear/issues/:identifier/priority`            | Update issue priority (`{ priority }`)                                            |
+| `PATCH`  | `/api/linear/issues/:identifier/description`         | Update issue description (`{ description }`)                                      |
+| `PATCH`  | `/api/linear/issues/:identifier/title`               | Update issue title (`{ title }`)                                                  |
+| `POST`   | `/api/linear/issues/:identifier/comments`            | Add issue comment (`{ comment }`)                                                 |
+| `PATCH`  | `/api/linear/issues/:identifier/comments/:commentId` | Update issue comment (`{ comment }`)                                              |
+| `DELETE` | `/api/linear/issues/:identifier/comments/:commentId` | Delete issue comment                                                              |
+| `POST`   | `/api/linear/task`                                   | Create worktree from issue (`{ identifier, branch? }`)                            |
 
 ### GitHub Endpoints
 

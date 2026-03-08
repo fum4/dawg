@@ -22,6 +22,8 @@ export interface LinearProjectConfig {
   autoStartClaudeOnNewIssue?: boolean;
   autoStartClaudeSkipPermissions?: boolean;
   autoStartClaudeFocusTerminal?: boolean;
+  autoUpdateIssueStatusOnAgentStart?: boolean;
+  autoUpdateIssueStatusName?: string;
 }
 
 export interface LinearCredentials {
@@ -43,9 +45,11 @@ export interface LinearLabel {
 }
 
 export interface LinearComment {
+  id: string;
   author: string;
   body: string;
   createdAt: string;
+  canEdit?: boolean;
 }
 
 export interface LinearAttachment {
@@ -60,6 +64,7 @@ export interface LinearIssueSummary {
   title: string;
   state: LinearState;
   priority: number;
+  priorityLabel: string;
   assignee: string | null;
   updatedAt: string;
   labels: LinearLabel[];
@@ -80,6 +85,7 @@ export interface LinearTaskData {
   description: string | null;
   status: string;
   priority: number;
+  priorityLabel?: string;
   assignee: string | null;
   labels: LinearLabel[];
   createdAt: string;

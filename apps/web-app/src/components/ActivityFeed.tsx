@@ -78,7 +78,9 @@ function actionContextKey(event: ActivityEvent): string {
     typeof event.metadata?.sourceServerUrl === "string"
       ? (event.metadata.sourceServerUrl as string)
       : "__local__";
-  return `${sourceServerUrl}::${event.projectName ?? "unknown-project"}::${event.worktreeId ?? "global"}`;
+  return `${sourceServerUrl}::${event.projectName ?? "unknown-project"}::${
+    event.worktreeId ?? "global"
+  }`;
 }
 
 function getActiveActionRequiredEvents(events: ActivityEvent[]): ActivityEvent[] {
@@ -102,12 +104,13 @@ function hookItems(event: ActivityEvent): HookFeedItem[] {
   return Array.isArray(items) ? items : [];
 }
 
-export type ActivityFilterGroup = "worktree" | "hooks" | "agents" | "system";
+export type ActivityFilterGroup = "worktree" | "issues" | "hooks" | "agents" | "system";
 export const ACTIVITY_FILTER_GROUP_OPTIONS: Array<{
   id: ActivityFilterGroup;
   label: string;
 }> = [
   { id: "worktree", label: "Worktree" },
+  { id: "issues", label: "Issues" },
   { id: "hooks", label: "Hooks" },
   { id: "agents", label: "Agents" },
   { id: "system", label: "System" },
@@ -147,6 +150,16 @@ function getAgentIconVariant(
 
 function isInFilterGroup(event: ActivityEvent, group: ActivityFilterGroup): boolean {
   if (group === "worktree") return event.category === "worktree";
+  if (group === "issues") {
+    const source = event.metadata?.source;
+    if (source === "jira" || source === "linear" || source === "local") return true;
+    if (typeof event.metadata?.issueId === "string" && event.metadata.issueId.length > 0) {
+      return true;
+    }
+    return (
+      event.type === ACTIVITY_TYPES.TASK_DETECTED || event.type === ACTIVITY_TYPES.AUTO_TASK_CLAIMED
+    );
+  }
   if (group === "hooks") return isHookEvent(event);
   if (group === "agents") return event.category === "agent" && !isHookEvent(event);
   return event.category === "system";
@@ -244,7 +257,9 @@ export function ActivityFeedPanel({
     <div className={containerClassName ?? "flex flex-col min-h-0 h-full"}>
       {!hideTopBar && (
         <div
-          className={`flex items-center px-4 py-3 border-b ${dividerColorClass} ${showTitle ? "justify-between" : "justify-end"}`}
+          className={`flex items-center px-4 py-3 border-b ${dividerColorClass} ${
+            showTitle ? "justify-between" : "justify-end"
+          }`}
         >
           {showTitle && (
             <div className="flex items-center gap-2 min-w-0">
@@ -322,16 +337,16 @@ export function ActivityFeedPanel({
 
       <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading && events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
+          <div className="h-full flex flex-col items-center justify-center py-12">
             <Loader2 className={`w-6 h-6 ${text.dimmed} animate-spin`} />
           </div>
         ) : events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
+          <div className="h-full flex flex-col items-center justify-center py-12">
             <MoonStar className={`w-7 h-7 ${text.dimmed} mb-2`} />
             <p className={`text-xs ${text.dimmed}`}>No recent activity</p>
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
+          <div className="h-full flex flex-col items-center justify-center py-12">
             <MoonStar className={`w-7 h-7 ${text.dimmed} mb-2`} />
             <p className={`text-xs ${text.dimmed}`}>No activity matches selected types</p>
           </div>

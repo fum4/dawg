@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GitBranch, Paperclip, Trash2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useCustomTaskDetail } from "../../hooks/useCustomTaskDetail";
 import { useApi } from "../../hooks/useApi";
 import { border, button, customTask, getLabelColor, text } from "../../theme";
+import { reportPersistentErrorToast } from "../../errorToasts";
 import { MarkdownContent } from "../MarkdownContent";
 import { PersonalNotesSection, AgentSection } from "./NotesSection";
 import { Spinner } from "../Spinner";
@@ -92,7 +93,6 @@ export function CustomTaskDetailPanel({
   const [labelInputFocused, setLabelInputFocused] = useState(false);
   const [isCreatingWorktree, setIsCreatingWorktree] = useState(false);
   const [isCodingWithAgent, setIsCodingWithAgent] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,7 +121,6 @@ export function CustomTaskDetailPanel({
 
   const handleCreateWorktree = async () => {
     setIsCreatingWorktree(true);
-    setCreateError(null);
     const result = await api.createWorktreeFromCustomTask(taskId);
     setIsCreatingWorktree(false);
     if (result.success) {
@@ -129,7 +128,9 @@ export function CustomTaskDetailPanel({
       queryClient.invalidateQueries({ queryKey: ["customTasks"] });
       onCreateWorktree();
     } else {
-      setCreateError(result.error ?? "Failed to create worktree");
+      reportPersistentErrorToast(result.error, "Failed to create worktree", {
+        scope: "custom-task:create-worktree",
+      });
     }
   };
 
@@ -160,7 +161,6 @@ export function CustomTaskDetailPanel({
   const handleCodeWithAgent = async (agent: CodingAgent) => {
     onSelectCodingAgent(agent);
     setIsCodingWithAgent(true);
-    setCreateError(null);
     const result = await api.createWorktreeFromCustomTask(taskId);
     setIsCodingWithAgent(false);
     if (result.success) {
@@ -174,7 +174,9 @@ export function CustomTaskDetailPanel({
     } else if (result.code === "WORKTREE_EXISTS" && result.worktreeId) {
       launchCodingAgent(agent, { worktreeId: result.worktreeId, mode: "resume" });
     } else {
-      setCreateError(result.error ?? "Failed to create worktree");
+      reportPersistentErrorToast(result.error, "Failed to create worktree", {
+        scope: "custom-task:code-worktree",
+      });
     }
   };
 
@@ -220,6 +222,14 @@ export function CustomTaskDetailPanel({
     await update({ labels: task.labels.filter((l: string) => l !== label) });
   };
 
+  useEffect(() => {
+    if (error) {
+      reportPersistentErrorToast(error, "Failed to load task", {
+        scope: "custom-task:detail-load",
+      });
+    }
+  }, [error]);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center gap-2">
@@ -232,7 +242,7 @@ export function CustomTaskDetailPanel({
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className={`${text.error} text-sm`}>{error}</p>
+        <p className={`${text.muted} text-sm`}>Unable to load task details.</p>
       </div>
     );
   }
@@ -379,7 +389,6 @@ export function CustomTaskDetailPanel({
             )}
           </div>
         </div>
-        {createError && <p className={`${text.error} text-[10px] mt-2`}>{createError}</p>}
       </div>
 
       {/* Metadata bar */}

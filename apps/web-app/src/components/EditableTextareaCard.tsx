@@ -32,6 +32,9 @@ interface EditableTextareaCardProps {
   contentPaddingClassName?: string;
   previewClassName?: string;
   emptyPlaceholder?: ReactNode;
+  showSaveState?: boolean;
+  savedLabel?: string;
+  showInlineSaveError?: boolean;
 }
 
 export function EditableTextareaCard({
@@ -54,10 +57,14 @@ export function EditableTextareaCard({
   contentPaddingClassName = "p-3",
   previewClassName,
   emptyPlaceholder,
+  showSaveState = false,
+  savedLabel = "Saved",
+  showInlineSaveError = true,
 }: EditableTextareaCardProps) {
   const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState(startEditing ? value : "");
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -98,6 +105,7 @@ export function EditableTextareaCard({
           throw new Error("Failed to save");
         }
         lastSavedRef.current = nextValue;
+        setSaved(true);
         setSaveError(null);
         return true;
       } catch (err) {
@@ -157,7 +165,15 @@ export function EditableTextareaCard({
       ) : null}
 
       {editing ? (
-        <div className={contentPaddingClassName}>
+        <div className={`${contentPaddingClassName} relative`}>
+          {showSaveState && (saving || saved) ? (
+            <div className="absolute top-2 right-3 flex items-center gap-1.5">
+              {saving ? <Spinner size="xs" className={text.muted} /> : null}
+              {!saving && saved ? (
+                <span className={`text-[10px] ${text.muted} font-medium`}>{savedLabel}</span>
+              ) : null}
+            </div>
+          ) : null}
           <textarea
             ref={textareaRef}
             value={draft}
@@ -165,6 +181,7 @@ export function EditableTextareaCard({
             onChange={(e) => {
               const nextValue = e.target.value;
               setDraft(nextValue);
+              if (saved) setSaved(false);
               schedulePersist(nextValue);
             }}
             onBlur={() => {
@@ -178,9 +195,8 @@ export function EditableTextareaCard({
             rows={rows}
             className={`block w-full p-0 text-xs bg-transparent border-0 rounded-none focus:outline-none resize-y ${monospace ? `font-mono ${text.secondary}` : text.primary}${textareaClassName ? ` ${textareaClassName}` : ""}`}
           />
-          {(saving || saveError) && (
+          {showInlineSaveError && saveError && (
             <div className="flex items-center gap-2 mt-1">
-              {saving ? <Spinner size="xs" className={text.muted} /> : null}
               {saveError ? <span className={`text-[10px] ${text.error}`}>{saveError}</span> : null}
             </div>
           )}
@@ -194,6 +210,7 @@ export function EditableTextareaCard({
                   if (onStartEditing && onStartEditing() === false) return;
                   setDraft(value);
                   lastSavedRef.current = value;
+                  setSaved(false);
                   setSaveError(null);
                   setEditing(true);
                 }

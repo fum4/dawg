@@ -22,6 +22,8 @@ export interface JiraProjectConfig {
   autoStartClaudeOnNewIssue?: boolean;
   autoStartClaudeSkipPermissions?: boolean;
   autoStartClaudeFocusTerminal?: boolean;
+  autoUpdateIssueStatusOnAgentStart?: boolean;
+  autoUpdateIssueStatusName?: string;
 }
 
 export interface JiraOAuthCredentials {
@@ -51,9 +53,11 @@ export type JiraCredentials = JiraOAuthCredentials | JiraApiTokenCredentials;
 // -- Data types --
 
 export interface JiraComment {
+  id: string;
   author: string;
   body: string;
   created: string;
+  canEdit?: boolean;
 }
 
 export interface JiraAttachment {

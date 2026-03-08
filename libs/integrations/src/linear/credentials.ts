@@ -44,6 +44,10 @@ export function loadLinearProjectConfig(configDir: string): LinearProjectConfig 
     autoStartClaudeOnNewIssue: linear.autoStartClaudeOnNewIssue as boolean | undefined,
     autoStartClaudeSkipPermissions: linear.autoStartClaudeSkipPermissions as boolean | undefined,
     autoStartClaudeFocusTerminal: linear.autoStartClaudeFocusTerminal as boolean | undefined,
+    autoUpdateIssueStatusOnAgentStart: linear.autoUpdateIssueStatusOnAgentStart as
+      | boolean
+      | undefined,
+    autoUpdateIssueStatusName: linear.autoUpdateIssueStatusName as string | undefined,
   };
 }
 

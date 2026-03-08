@@ -10,10 +10,20 @@ import {
   saveLinearProjectConfig,
 } from "@openkit/integrations/linear/credentials";
 import {
+  addIssueComment,
+  deleteIssueComment,
   testConnection,
+  fetchIssueStatusOptions,
+  fetchPriorityOptions,
+  fetchStatusOptions,
   fetchIssues,
   fetchIssue,
   saveTaskData,
+  updateIssueComment,
+  updateIssueDescription,
+  updateIssuePriority,
+  updateIssueStatus,
+  updateIssueTitle,
 } from "@openkit/integrations/linear/api";
 import type { DataLifecycleConfig } from "@openkit/integrations/linear/types";
 import { log } from "@openkit/shared/logger";
@@ -39,6 +49,8 @@ export function registerLinearRoutes(app: Hono, manager: WorktreeManager) {
       autoStartClaudeOnNewIssue: projectConfig.autoStartClaudeOnNewIssue ?? false,
       autoStartClaudeSkipPermissions: projectConfig.autoStartClaudeSkipPermissions ?? true,
       autoStartClaudeFocusTerminal: projectConfig.autoStartClaudeFocusTerminal ?? true,
+      autoUpdateIssueStatusOnAgentStart: projectConfig.autoUpdateIssueStatusOnAgentStart ?? false,
+      autoUpdateIssueStatusName: projectConfig.autoUpdateIssueStatusName ?? null,
     });
   });
 
@@ -93,6 +105,8 @@ export function registerLinearRoutes(app: Hono, manager: WorktreeManager) {
         autoStartClaudeOnNewIssue?: boolean;
         autoStartClaudeSkipPermissions?: boolean;
         autoStartClaudeFocusTerminal?: boolean;
+        autoUpdateIssueStatusOnAgentStart?: boolean;
+        autoUpdateIssueStatusName?: string;
       }>();
       const configDir = manager.getConfigDir();
       const current = loadLinearProjectConfig(configDir);
@@ -116,6 +130,12 @@ export function registerLinearRoutes(app: Hono, manager: WorktreeManager) {
       }
       if (body.autoStartClaudeFocusTerminal !== undefined) {
         current.autoStartClaudeFocusTerminal = body.autoStartClaudeFocusTerminal;
+      }
+      if (body.autoUpdateIssueStatusOnAgentStart !== undefined) {
+        current.autoUpdateIssueStatusOnAgentStart = body.autoUpdateIssueStatusOnAgentStart;
+      }
+      if (body.autoUpdateIssueStatusName !== undefined) {
+        current.autoUpdateIssueStatusName = body.autoUpdateIssueStatusName || undefined;
       }
       saveLinearProjectConfig(configDir, current);
       return c.json({ success: true });
@@ -229,6 +249,7 @@ export function registerLinearRoutes(app: Hono, manager: WorktreeManager) {
             description: issue.description,
             status: issue.state.name,
             priority: issue.priority,
+            priorityLabel: issue.priorityLabel,
             assignee: issue.assignee,
             labels: issue.labels,
             createdAt: issue.createdAt,
@@ -248,6 +269,226 @@ export function registerLinearRoutes(app: Hono, manager: WorktreeManager) {
       return c.json(
         { error: error instanceof Error ? error.message : "Failed to fetch issue" },
         error instanceof Error && error.message.includes("not found") ? 404 : 500,
+      );
+    }
+  });
+
+  app.get("/api/linear/status-options", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ options: [], error: "Linear not configured" }, 400);
+      const config = loadLinearProjectConfig(configDir);
+      const options = await fetchStatusOptions(creds, config.defaultTeamKey);
+      return c.json({
+        options: options.map((option) => ({
+          name: option.name,
+          type: option.type,
+          color: option.color,
+        })),
+      });
+    } catch (error) {
+      return c.json(
+        { options: [], error: error instanceof Error ? error.message : "Failed to fetch statuses" },
+        500,
+      );
+    }
+  });
+
+  app.get("/api/linear/issues/:identifier/status-options", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ options: [], error: "Linear not configured" }, 400);
+      const identifier = c.req.param("identifier");
+      const options = await fetchIssueStatusOptions(creds, identifier);
+      return c.json({
+        options: options.map((option) => ({
+          name: option.name,
+          type: option.type,
+          color: option.color,
+        })),
+      });
+    } catch (error) {
+      return c.json(
+        { options: [], error: error instanceof Error ? error.message : "Failed to fetch statuses" },
+        500,
+      );
+    }
+  });
+
+  app.get("/api/linear/priority-options", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ options: [], error: "Linear not configured" }, 400);
+      const options = await fetchPriorityOptions(creds);
+      return c.json({ options });
+    } catch (error) {
+      return c.json(
+        {
+          options: [],
+          error: error instanceof Error ? error.message : "Failed to fetch Linear priority options",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/linear/issues/:identifier/status", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Linear not configured" }, 400);
+      const identifier = c.req.param("identifier");
+      const body = await c.req.json<{ statusName?: string }>();
+      const statusName = body.statusName?.trim();
+      if (!statusName) {
+        return c.json({ success: false, error: "statusName is required" }, 400);
+      }
+      await updateIssueStatus(creds, identifier, statusName);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update status",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/linear/issues/:identifier/priority", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Linear not configured" }, 400);
+      const identifier = c.req.param("identifier");
+      const body = await c.req.json<{ priority?: number }>();
+      if (typeof body.priority !== "number") {
+        return c.json({ success: false, error: "priority is required" }, 400);
+      }
+      await updateIssuePriority(creds, identifier, body.priority);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update priority",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/linear/issues/:identifier/description", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Linear not configured" }, 400);
+      const identifier = c.req.param("identifier");
+      const body = await c.req.json<{ description?: string }>();
+      if (typeof body.description !== "string") {
+        return c.json({ success: false, error: "description is required" }, 400);
+      }
+      await updateIssueDescription(creds, identifier, body.description);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update description",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/linear/issues/:identifier/title", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Linear not configured" }, 400);
+      const identifier = c.req.param("identifier");
+      const body = await c.req.json<{ title?: string }>();
+      const title = body.title?.trim();
+      if (!title) {
+        return c.json({ success: false, error: "title is required" }, 400);
+      }
+      await updateIssueTitle(creds, identifier, title);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update title",
+        },
+        500,
+      );
+    }
+  });
+
+  app.post("/api/linear/issues/:identifier/comments", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Linear not configured" }, 400);
+      const identifier = c.req.param("identifier");
+      const body = await c.req.json<{ comment?: string }>();
+      const comment = body.comment?.trim();
+      if (!comment) {
+        return c.json({ success: false, error: "comment is required" }, 400);
+      }
+      await addIssueComment(creds, identifier, comment);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        { success: false, error: error instanceof Error ? error.message : "Failed to add comment" },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/linear/issues/:identifier/comments/:commentId", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Linear not configured" }, 400);
+      const commentId = c.req.param("commentId");
+      const body = await c.req.json<{ comment?: string }>();
+      const comment = body.comment?.trim();
+      if (!comment) {
+        return c.json({ success: false, error: "comment is required" }, 400);
+      }
+      await updateIssueComment(creds, commentId, comment);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update comment",
+        },
+        500,
+      );
+    }
+  });
+
+  app.delete("/api/linear/issues/:identifier/comments/:commentId", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadLinearCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Linear not configured" }, 400);
+      const commentId = c.req.param("commentId");
+      await deleteIssueComment(creds, commentId);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to delete comment",
+        },
+        500,
       );
     }
   });

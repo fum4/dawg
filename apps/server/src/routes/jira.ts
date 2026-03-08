@@ -10,7 +10,22 @@ import {
   saveJiraProjectConfig,
 } from "@openkit/integrations/jira/credentials";
 import { getApiBase, getAuthHeaders, testConnection } from "@openkit/integrations/jira/auth";
-import { downloadAttachments, fetchIssue, saveTaskData } from "@openkit/integrations/jira/api";
+import {
+  addIssueComment,
+  deleteIssueComment,
+  downloadAttachments,
+  fetchIssue,
+  fetchIssueTypeOptions,
+  fetchPriorityOptions,
+  fetchIssueStatusOptions,
+  saveTaskData,
+  transitionIssueStatus,
+  updateIssueComment,
+  updateIssueDescription,
+  updateIssueType,
+  updateIssuePriority,
+  updateIssueSummary,
+} from "@openkit/integrations/jira/api";
 import type { DataLifecycleConfig, JiraCredentials } from "@openkit/integrations/jira/types";
 import { log } from "@openkit/shared/logger";
 import type { WorktreeManager } from "../manager";
@@ -56,6 +71,8 @@ export function registerJiraRoutes(app: Hono, manager: WorktreeManager) {
       autoStartClaudeOnNewIssue: projectConfig.autoStartClaudeOnNewIssue ?? false,
       autoStartClaudeSkipPermissions: projectConfig.autoStartClaudeSkipPermissions ?? true,
       autoStartClaudeFocusTerminal: projectConfig.autoStartClaudeFocusTerminal ?? true,
+      autoUpdateIssueStatusOnAgentStart: projectConfig.autoUpdateIssueStatusOnAgentStart ?? false,
+      autoUpdateIssueStatusName: projectConfig.autoUpdateIssueStatusName ?? null,
     });
   });
 
@@ -116,6 +133,8 @@ export function registerJiraRoutes(app: Hono, manager: WorktreeManager) {
         autoStartClaudeOnNewIssue?: boolean;
         autoStartClaudeSkipPermissions?: boolean;
         autoStartClaudeFocusTerminal?: boolean;
+        autoUpdateIssueStatusOnAgentStart?: boolean;
+        autoUpdateIssueStatusName?: string;
       }>();
       const configDir = manager.getConfigDir();
       const current = loadJiraProjectConfig(configDir);
@@ -139,6 +158,12 @@ export function registerJiraRoutes(app: Hono, manager: WorktreeManager) {
       }
       if (body.autoStartClaudeFocusTerminal !== undefined) {
         current.autoStartClaudeFocusTerminal = body.autoStartClaudeFocusTerminal;
+      }
+      if (body.autoUpdateIssueStatusOnAgentStart !== undefined) {
+        current.autoUpdateIssueStatusOnAgentStart = body.autoUpdateIssueStatusOnAgentStart;
+      }
+      if (body.autoUpdateIssueStatusName !== undefined) {
+        current.autoUpdateIssueStatusName = body.autoUpdateIssueStatusName || undefined;
       }
       saveJiraProjectConfig(configDir, current);
       return c.json({ success: true });
@@ -340,6 +365,301 @@ export function registerJiraRoutes(app: Hono, manager: WorktreeManager) {
       return c.json(
         { error: error instanceof Error ? error.message : "Failed to fetch issue" },
         error instanceof Error && error.message.includes("not found") ? 404 : 500,
+      );
+    }
+  });
+
+  app.get("/api/jira/status-options", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ options: [], error: "Jira not configured" }, 400);
+
+      const config = loadJiraProjectConfig(configDir);
+      const projectKey = config.defaultProjectKey?.trim();
+      const apiBase = getApiBase(creds);
+      const headers = await getAuthHeaders(creds, configDir);
+      const resp = projectKey
+        ? await fetch(`${apiBase}/project/${encodeURIComponent(projectKey)}/statuses`, {
+            headers,
+          })
+        : await fetch(`${apiBase}/status`, { headers });
+      if (!resp.ok) {
+        const body = await resp.text();
+        return c.json({ options: [], error: `Jira API error: ${resp.status} ${body}` }, 502);
+      }
+
+      const seen = new Set<string>();
+      const options: Array<{ name: string }> = [];
+      if (projectKey) {
+        const data = (await resp.json()) as Array<{
+          statuses?: Array<{ name?: string }>;
+        }>;
+        for (const group of data) {
+          for (const status of group.statuses ?? []) {
+            const name = status.name?.trim();
+            if (!name) continue;
+            const key = name.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            options.push({ name });
+          }
+        }
+      } else {
+        const data = (await resp.json()) as Array<{ name?: string }>;
+        for (const status of data) {
+          const name = status.name?.trim();
+          if (!name) continue;
+          const key = name.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          options.push({ name });
+        }
+      }
+      options.sort((a, b) => a.name.localeCompare(b.name));
+      return c.json({ options });
+    } catch (error) {
+      return c.json(
+        { options: [], error: error instanceof Error ? error.message : "Failed to fetch statuses" },
+        500,
+      );
+    }
+  });
+
+  app.get("/api/jira/issues/:key/status-options", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ options: [], error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const options = await fetchIssueStatusOptions(key, creds, configDir);
+      return c.json({ options });
+    } catch (error) {
+      return c.json(
+        { options: [], error: error instanceof Error ? error.message : "Failed to fetch statuses" },
+        500,
+      );
+    }
+  });
+
+  app.get("/api/jira/priorities", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ options: [], error: "Jira not configured" }, 400);
+      const options = await fetchPriorityOptions(creds, configDir);
+      return c.json({ options });
+    } catch (error) {
+      return c.json(
+        {
+          options: [],
+          error: error instanceof Error ? error.message : "Failed to fetch priorities",
+        },
+        500,
+      );
+    }
+  });
+
+  app.get("/api/jira/issues/:key/type-options", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ options: [], error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const options = await fetchIssueTypeOptions(key, creds, configDir);
+      return c.json({ options });
+    } catch (error) {
+      return c.json(
+        {
+          options: [],
+          error: error instanceof Error ? error.message : "Failed to fetch issue types",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/jira/issues/:key/status", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const body = await c.req.json<{ statusName?: string }>();
+      const statusName = body.statusName?.trim();
+      if (!statusName) {
+        return c.json({ success: false, error: "statusName is required" }, 400);
+      }
+      await transitionIssueStatus(key, statusName, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update status",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/jira/issues/:key/description", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const body = await c.req.json<{ description?: string }>();
+      if (typeof body.description !== "string") {
+        return c.json({ success: false, error: "description is required" }, 400);
+      }
+      await updateIssueDescription(key, body.description, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update description",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/jira/issues/:key/priority", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const body = await c.req.json<{ priorityName?: string }>();
+      const priorityName = body.priorityName?.trim();
+      if (!priorityName) {
+        return c.json({ success: false, error: "priorityName is required" }, 400);
+      }
+      await updateIssuePriority(key, priorityName, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update priority",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/jira/issues/:key/type", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const body = await c.req.json<{ typeName?: string }>();
+      const typeName = body.typeName?.trim();
+      if (!typeName) {
+        return c.json({ success: false, error: "typeName is required" }, 400);
+      }
+      await updateIssueType(key, typeName, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update issue type",
+        },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/jira/issues/:key/summary", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const body = await c.req.json<{ summary?: string }>();
+      const summary = body.summary?.trim();
+      if (!summary) {
+        return c.json({ success: false, error: "summary is required" }, 400);
+      }
+      await updateIssueSummary(key, summary, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update summary",
+        },
+        500,
+      );
+    }
+  });
+
+  app.post("/api/jira/issues/:key/comments", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const body = await c.req.json<{ comment?: string }>();
+      const comment = body.comment?.trim();
+      if (!comment) {
+        return c.json({ success: false, error: "comment is required" }, 400);
+      }
+      await addIssueComment(key, comment, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        { success: false, error: error instanceof Error ? error.message : "Failed to add comment" },
+        500,
+      );
+    }
+  });
+
+  app.patch("/api/jira/issues/:key/comments/:commentId", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const commentId = c.req.param("commentId");
+      const body = await c.req.json<{ comment?: string }>();
+      const comment = body.comment?.trim();
+      if (!comment) {
+        return c.json({ success: false, error: "comment is required" }, 400);
+      }
+      await updateIssueComment(key, commentId, comment, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to update comment",
+        },
+        500,
+      );
+    }
+  });
+
+  app.delete("/api/jira/issues/:key/comments/:commentId", async (c) => {
+    try {
+      const configDir = manager.getConfigDir();
+      const creds = loadJiraCredentials(configDir);
+      if (!creds) return c.json({ success: false, error: "Jira not configured" }, 400);
+      const key = c.req.param("key");
+      const commentId = c.req.param("commentId");
+      await deleteIssueComment(key, commentId, creds, configDir);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to delete comment",
+        },
+        500,
       );
     }
   });

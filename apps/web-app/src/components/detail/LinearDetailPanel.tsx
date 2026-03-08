@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GitBranch } from "lucide-react";
 
 import { useLinearIssueDetail } from "../../hooks/useLinearIssueDetail";
 import { useApi } from "../../hooks/useApi";
 import { getLinearAttachmentUrl } from "../../hooks/api";
 import { useServerUrlOptional } from "../../contexts/ServerContext";
-import { badge, border, button, linearPriority, linearStateType, text } from "../../theme";
+import { badge, border, button, linearStateType, text } from "../../theme";
+import { reportPersistentErrorToast } from "../../errorToasts";
 import { Tooltip } from "../Tooltip";
 import { TruncatedTooltip } from "../TruncatedTooltip";
 import { MarkdownContent } from "../MarkdownContent";
@@ -15,6 +16,8 @@ import { PersonalNotesSection, AgentSection } from "./NotesSection";
 import { Spinner } from "../Spinner";
 import { WorktreeExistsModal } from "../WorktreeExistsModal";
 import { CodeAgentSplitButton, type CodingAgent } from "./CodeAgentSplitButton";
+import { EditableTextareaCard } from "../EditableTextareaCard";
+import { ConfirmDialog } from "../ConfirmDialog";
 
 interface LinearDetailPanelProps {
   identifier: string;
@@ -127,17 +130,102 @@ export function LinearDetailPanel({
   );
   const [isCreating, setIsCreating] = useState(false);
   const [isCodingWithAgent, setIsCodingWithAgent] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
   const [existingWorktree, setExistingWorktree] = useState<{ id: string; branch: string } | null>(
     null,
   );
+  const [statusOptions, setStatusOptions] = useState<
+    Array<{ name: string; type: string; color: string }>
+  >([]);
+  const [priorityOptions, setPriorityOptions] = useState<Array<{ value: number; label: string }>>(
+    [],
+  );
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingPriority, setIsUpdatingPriority] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const [titleSaved, setTitleSaved] = useState(false);
+  const titleSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [isAddingComment, setIsAddingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentDraft, setEditingCommentDraft] = useState("");
+  const [isUpdatingComment, setIsUpdatingComment] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<{ id: string; author: string } | null>(
+    null,
+  );
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
+  const priorityMenuRef = useRef<HTMLDivElement | null>(null);
+  const newCommentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const activeLinkedWorktreeId =
     linkedWorktreeId && activeWorktreeIds.has(linkedWorktreeId) ? linkedWorktreeId : null;
   const activeLinkedWorktreePrUrl = activeLinkedWorktreeId ? linkedWorktreePrUrl : null;
 
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setTitleDraft(issue?.title ?? "");
+    }
+  }, [isEditingTitle, issue?.title]);
+
+  useEffect(() => {
+    return () => {
+      if (titleSaveTimerRef.current) clearTimeout(titleSaveTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isStatusMenuOpen && !isPriorityMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedStatusMenu = statusMenuRef.current?.contains(target);
+      const clickedPriorityMenu = priorityMenuRef.current?.contains(target);
+      if (!clickedStatusMenu) {
+        setIsStatusMenuOpen(false);
+      }
+      if (!clickedPriorityMenu) {
+        setIsPriorityMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [isPriorityMenuOpen, isStatusMenuOpen]);
+
+  useEffect(() => {
+    if (!issue?.identifier) return;
+    let active = true;
+    void api.fetchLinearIssueStatusOptions(issue.identifier).then((result) => {
+      if (!active) return;
+      setStatusOptions(result.options ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, issue?.identifier, issue?.state.name]);
+
+  useEffect(() => {
+    let active = true;
+    void api.fetchLinearPriorityOptions().then((result) => {
+      if (!active) return;
+      setPriorityOptions(result.options ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api]);
+
+  useEffect(() => {
+    if (error) {
+      reportPersistentErrorToast(error, "Failed to load Linear issue", {
+        scope: "linear:detail-load",
+      });
+    }
+  }, [error]);
+
   const handleCreate = async () => {
     setIsCreating(true);
-    setCreateError(null);
     const result = await api.createFromLinear(identifier);
     setIsCreating(false);
     if (result.success) {
@@ -150,10 +238,14 @@ export function LinearDetailPanel({
         if (onSetupNeeded) {
           onSetupNeeded();
         } else {
-          setCreateError(errorMsg);
+          reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+            scope: "linear:create-worktree",
+          });
         }
       } else {
-        setCreateError(errorMsg);
+        reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+          scope: "linear:create-worktree",
+        });
       }
     }
   };
@@ -185,7 +277,6 @@ export function LinearDetailPanel({
   const handleCodeWithAgent = async (agent: CodingAgent) => {
     onSelectCodingAgent(agent);
     setIsCodingWithAgent(true);
-    setCreateError(null);
     const result = await api.createFromLinear(identifier);
     setIsCodingWithAgent(false);
     if (result.success) {
@@ -204,12 +295,156 @@ export function LinearDetailPanel({
         if (onSetupNeeded) {
           onSetupNeeded();
         } else {
-          setCreateError(errorMsg);
+          reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+            scope: "linear:code-worktree",
+          });
         }
       } else {
-        setCreateError(errorMsg);
+        reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+          scope: "linear:code-worktree",
+        });
       }
     }
+  };
+
+  const handleUpdateStatus = async (statusName: string) => {
+    if (!statusName) return;
+    const currentIssueIdentifier = issue?.identifier;
+    if (!currentIssueIdentifier) return;
+    if (statusName === issue?.state.name) return;
+    setIsUpdatingStatus(true);
+    const result = await api.updateLinearIssueStatus(currentIssueIdentifier, statusName);
+    setIsUpdatingStatus(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update status", {
+        scope: "linear:update-status",
+      });
+      return;
+    }
+    await refetch();
+  };
+
+  const handleUpdatePriority = async (priority: number) => {
+    const currentIssueIdentifier = issue?.identifier;
+    if (!currentIssueIdentifier) return;
+    if (priority === issue?.priority) return;
+    setIsUpdatingPriority(true);
+    const result = await api.updateLinearIssuePriority(currentIssueIdentifier, priority);
+    setIsUpdatingPriority(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update priority", {
+        scope: "linear:update-priority",
+      });
+      return;
+    }
+    await refetch();
+  };
+
+  const persistTitle = async (rawTitle: string, closeEditor = false) => {
+    const currentIssueIdentifier = issue?.identifier;
+    const nextTitle = rawTitle.trim();
+    if (!currentIssueIdentifier || !nextTitle) {
+      if (closeEditor) {
+        setTitleDraft(issue?.title ?? "");
+        setIsEditingTitle(false);
+        setTitleSaved(false);
+      }
+      return;
+    }
+    if (nextTitle === issue?.title) {
+      if (closeEditor) {
+        setIsEditingTitle(false);
+        setTitleSaved(false);
+      }
+      return;
+    }
+    setIsSavingTitle(true);
+    const result = await api.updateLinearIssueTitle(currentIssueIdentifier, nextTitle);
+    setIsSavingTitle(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update title", {
+        scope: "linear:update-title",
+      });
+      if (closeEditor) {
+        setIsEditingTitle(false);
+        setTitleSaved(false);
+      }
+      return;
+    }
+    setTitleSaved(true);
+    await refetch();
+    if (closeEditor) {
+      setIsEditingTitle(false);
+      setTitleSaved(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    const comment = newComment.trim();
+    if (!comment) return;
+    const currentIssueIdentifier = issue?.identifier;
+    if (!currentIssueIdentifier) return;
+    setIsAddingComment(true);
+    const result = await api.addLinearIssueComment(currentIssueIdentifier, comment);
+    setIsAddingComment(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to add comment", {
+        scope: "linear:add-comment",
+      });
+      return;
+    }
+    setNewComment("");
+    if (newCommentTextareaRef.current) {
+      newCommentTextareaRef.current.style.height = "auto";
+    }
+    await refetch();
+  };
+
+  useEffect(() => {
+    const textarea = newCommentTextareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [newComment]);
+
+  const handleUpdateComment = async () => {
+    const currentIssueIdentifier = issue?.identifier;
+    const commentId = editingCommentId;
+    const comment = editingCommentDraft.trim();
+    if (!currentIssueIdentifier || !commentId || !comment) return;
+    setIsUpdatingComment(true);
+    const result = await api.updateLinearIssueComment(currentIssueIdentifier, commentId, comment);
+    setIsUpdatingComment(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update comment", {
+        scope: "linear:update-comment",
+      });
+      return;
+    }
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
+    await refetch();
+  };
+
+  const handleDeleteComment = async () => {
+    const currentIssueIdentifier = issue?.identifier;
+    const commentId = commentToDelete?.id;
+    if (!currentIssueIdentifier || !commentId) return;
+    setIsDeletingComment(true);
+    const result = await api.deleteLinearIssueComment(currentIssueIdentifier, commentId);
+    setIsDeletingComment(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to delete comment", {
+        scope: "linear:delete-comment",
+      });
+      return;
+    }
+    setCommentToDelete(null);
+    if (editingCommentId === commentId) {
+      setEditingCommentId(null);
+      setEditingCommentDraft("");
+    }
+    await refetch();
   };
 
   if (isLoading) {
@@ -224,7 +459,7 @@ export function LinearDetailPanel({
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className={`${text.error} text-sm`}>{error}</p>
+        <p className={`${text.muted} text-sm`}>Unable to load issue details.</p>
       </div>
     );
   }
@@ -237,7 +472,9 @@ export function LinearDetailPanel({
     );
   }
 
-  const priorityInfo = linearPriority[issue.priority] ?? linearPriority[0];
+  const priorityLabel = issue.priorityLabel || String(issue.priority);
+  const headerChipClass =
+    "inline-flex h-5 min-h-5 shrink-0 items-center justify-center whitespace-nowrap rounded px-2 text-[11px] font-medium leading-5 align-middle box-border";
   const attachmentProxyUrl = (url: string) => getLinearAttachmentUrl(url, serverUrl);
 
   return (
@@ -257,16 +494,51 @@ export function LinearDetailPanel({
                   {issue.identifier}
                 </a>
               </Tooltip>
-              <span
-                className={`ml-2 text-[11px] font-medium px-2 py-0.5 rounded ${linearStateType[issue.state.type.toLowerCase()] ?? ""}`}
-                style={
-                  !linearStateType[issue.state.type.toLowerCase()]
-                    ? { backgroundColor: `${issue.state.color}20`, color: issue.state.color }
-                    : undefined
-                }
-              >
-                {issue.state.name}
-              </span>
+              {statusOptions.length > 0 ? (
+                <div ref={statusMenuRef} className="relative ml-2 flex h-5 items-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+                    disabled={isUpdatingStatus}
+                    className={`${headerChipClass} ${linearStateType[issue.state.type.toLowerCase()] ?? ""} disabled:opacity-70`}
+                    style={
+                      !linearStateType[issue.state.type.toLowerCase()]
+                        ? { backgroundColor: `${issue.state.color}20`, color: issue.state.color }
+                        : undefined
+                    }
+                  >
+                    {issue.state.name}
+                  </button>
+                  {isStatusMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-10 min-w-[140px] rounded-md border border-white/[0.08] bg-[#101318] shadow-lg overflow-hidden">
+                      {statusOptions.map((option) => (
+                        <button
+                          key={option.name}
+                          type="button"
+                          onClick={() => {
+                            setIsStatusMenuOpen(false);
+                            void handleUpdateStatus(option.name);
+                          }}
+                          className={`block w-full text-left px-2.5 py-1.5 text-[11px] ${text.secondary} hover:bg-white/[0.06] transition-colors`}
+                        >
+                          {option.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span
+                  className={`ml-2 ${headerChipClass} ${linearStateType[issue.state.type.toLowerCase()] ?? ""}`}
+                  style={
+                    !linearStateType[issue.state.type.toLowerCase()]
+                      ? { backgroundColor: `${issue.state.color}20`, color: issue.state.color }
+                      : undefined
+                  }
+                >
+                  {issue.state.name}
+                </span>
+              )}
               {issue.labels.length > 0 && <span className={`text-[5px] ${text.dimmed}`}>●</span>}
               {issue.labels.map((label) => (
                 <span
@@ -278,13 +550,94 @@ export function LinearDetailPanel({
                 </span>
               ))}
               <span className={`text-[5px] ${text.dimmed}`}>●</span>
-              <span className={`text-[11px] ${priorityInfo.color}`}>{priorityInfo.label}</span>
+              {priorityOptions.length > 0 ? (
+                <div ref={priorityMenuRef} className="relative flex h-5 items-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsPriorityMenuOpen((prev) => !prev)}
+                    disabled={isUpdatingPriority}
+                    className={`${headerChipClass} ${text.secondary} disabled:opacity-70`}
+                  >
+                    {priorityLabel}
+                  </button>
+                  {isPriorityMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-10 min-w-[120px] rounded-md border border-white/[0.08] bg-[#101318] shadow-lg overflow-hidden">
+                      {priorityOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setIsPriorityMenuOpen(false);
+                            void handleUpdatePriority(option.value);
+                          }}
+                          className={`block w-full text-left px-2.5 py-1.5 text-[11px] ${text.secondary} hover:bg-white/[0.06] transition-colors`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className={`${headerChipClass} ${text.secondary}`}>{priorityLabel}</span>
+              )}
             </div>
-            <h2 className={`text-[15px] font-semibold ${text.primary} leading-snug`}>
-              {issue.title}
-            </h2>
+            {isEditingTitle ? (
+              <input
+                type="text"
+                value={titleDraft}
+                onChange={(event) => {
+                  const nextTitle = event.target.value;
+                  setTitleDraft(nextTitle);
+                  if (titleSaved) setTitleSaved(false);
+                  if (titleSaveTimerRef.current) clearTimeout(titleSaveTimerRef.current);
+                  titleSaveTimerRef.current = setTimeout(() => {
+                    void persistTitle(nextTitle, false);
+                  }, 3000);
+                }}
+                onBlur={() => {
+                  if (titleSaveTimerRef.current) clearTimeout(titleSaveTimerRef.current);
+                  void persistTitle(titleDraft, true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (titleSaveTimerRef.current) clearTimeout(titleSaveTimerRef.current);
+                    void persistTitle(titleDraft, true);
+                  }
+                  if (event.key === "Escape") {
+                    if (titleSaveTimerRef.current) clearTimeout(titleSaveTimerRef.current);
+                    setTitleDraft(issue.title);
+                    setTitleSaved(false);
+                    setIsEditingTitle(false);
+                  }
+                }}
+                className={`w-full text-[15px] font-semibold ${text.primary} leading-snug bg-transparent border border-white/[0.12] rounded-md px-2 py-1 focus:outline-none focus:border-white/[0.3]`}
+                autoFocus
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setTitleDraft(issue.title);
+                  setIsEditingTitle(true);
+                }}
+                className={`text-left text-[15px] font-semibold ${text.primary} leading-snug hover:bg-white/[0.03] rounded px-1 -mx-1 transition-colors`}
+              >
+                {issue.title}
+              </button>
+            )}
           </div>
           <div className="flex-shrink-0 pt-1 flex items-center gap-2">
+            {(isSavingTitle || titleSaved) && (
+              <div className="min-w-[46px] flex justify-end">
+                {isSavingTitle ? (
+                  <Spinner size="xs" className={text.muted} />
+                ) : (
+                  <span className={`text-[10px] ${text.muted} font-medium`}>Saved</span>
+                )}
+              </div>
+            )}
             <Tooltip
               position="left"
               text={dataUpdatedAt ? `Last refreshed: ${formatTimeAgo(dataUpdatedAt)}` : "Refresh"}
@@ -370,19 +723,42 @@ export function LinearDetailPanel({
             )}
           </div>
         </div>
-        {createError && <p className={`${text.error} text-[10px] mt-2`}>{createError}</p>}
       </div>
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto p-5 space-y-12">
-        {issue.description && (
-          <section>
-            <SectionLabel>Description</SectionLabel>
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-4 py-3">
-              <MarkdownContent content={issue.description} />
-            </div>
-          </section>
-        )}
+        <section>
+          <SectionLabel>Description</SectionLabel>
+          <EditableTextareaCard
+            value={issue.description ?? ""}
+            debounceMs={3000}
+            rows={10}
+            showSaveState={true}
+            showInlineSaveError={false}
+            onSave={async (nextValue) => {
+              const result = await api.updateLinearIssueDescription(issue.identifier, nextValue);
+              if (!result.success) {
+                reportPersistentErrorToast(
+                  `Failed to save Linear issue description: ${result.error ?? "Unknown error"}`,
+                  "Failed to save Linear issue description",
+                  {
+                    scope: "linear:update-description",
+                  },
+                );
+                return false;
+              }
+              await refetch();
+              return true;
+            }}
+            renderPreview={(value) =>
+              value ? (
+                <MarkdownContent content={value} />
+              ) : (
+                <p className={`text-xs ${text.dimmed}`}>No description.</p>
+              )
+            }
+          />
+        </section>
 
         {issue.attachments.length > 0 && (
           <section>
@@ -430,29 +806,110 @@ export function LinearDetailPanel({
           </section>
         )}
 
-        {issue.comments.length > 0 && (
-          <section>
-            <SectionLabel>Comments ({issue.comments.length})</SectionLabel>
-            <div className="space-y-3">
-              {issue.comments.map((comment, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-4 py-3"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-[11px] font-medium ${text.primary}`}>
-                      {comment.author}
-                    </span>
-                    <span className={`text-[10px] ${text.dimmed}`}>
-                      {formatDate(comment.createdAt)}
-                    </span>
+        <section>
+          <SectionLabel>Comments ({issue.comments.length})</SectionLabel>
+          <div className="space-y-3">
+            <div>
+              <div className="relative">
+                {isAddingComment ? (
+                  <div className="absolute top-2 right-2">
+                    <Spinner size="xs" className={text.muted} />
                   </div>
-                  <MarkdownContent content={comment.body} />
-                </div>
-              ))}
+                ) : null}
+                <textarea
+                  ref={newCommentTextareaRef}
+                  value={newComment}
+                  onChange={(event) => setNewComment(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleAddComment();
+                    }
+                  }}
+                  rows={3}
+                  placeholder="Add a comment..."
+                  className={`w-full min-h-[72px] overflow-hidden rounded-md bg-white/[0.03] border border-white/[0.08] px-3 py-2 text-xs ${text.secondary} focus:outline-none focus:border-white/[0.2] resize-none`}
+                />
+              </div>
+              <div className="-mt-1 mb-5">
+                <span className={`pl-1 text-[10px] ${text.dimmed}`}>
+                  Enter to post, Shift + Enter for newline
+                </span>
+              </div>
             </div>
-          </section>
-        )}
+            {issue.comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-4 py-3"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-[11px] font-medium ${text.primary}`}>
+                    {comment.author}
+                  </span>
+                  <span className={`text-[10px] ${text.dimmed}`}>
+                    {formatDate(comment.createdAt)}
+                  </span>
+                  {comment.canEdit && (
+                    <span className={`ml-2 text-[10px] ${text.dimmed}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCommentId(comment.id);
+                          setEditingCommentDraft(comment.body);
+                        }}
+                        className="hover:text-white transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <span className="mx-1.5">|</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCommentToDelete({ id: comment.id, author: comment.author })
+                        }
+                        className="hover:text-white transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </span>
+                  )}
+                </div>
+                {editingCommentId === comment.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editingCommentDraft}
+                      onChange={(event) => setEditingCommentDraft(event.target.value)}
+                      rows={4}
+                      className={`w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 py-2 text-xs ${text.secondary} focus:outline-none focus:border-white/[0.2]`}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCommentId(null);
+                          setEditingCommentDraft("");
+                        }}
+                        className={`px-2.5 py-1 text-[11px] rounded ${button.secondary}`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleUpdateComment()}
+                        disabled={isUpdatingComment || editingCommentDraft.trim().length === 0}
+                        className={`px-2.5 py-1 text-[11px] rounded ${button.secondary} disabled:opacity-50`}
+                      >
+                        {isUpdatingComment ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <MarkdownContent content={comment.body} />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <PersonalNotesSection source="linear" issueId={issue.identifier} />
         <AgentSection source="linear" issueId={issue.identifier} />
@@ -475,6 +932,20 @@ export function LinearDetailPanel({
           }}
           onCancel={() => setExistingWorktree(null)}
         />
+      )}
+      {commentToDelete && (
+        <ConfirmDialog
+          title="Delete Comment?"
+          confirmLabel={isDeletingComment ? "Deleting..." : "Delete"}
+          onConfirm={() => void handleDeleteComment()}
+          onCancel={() => {
+            if (!isDeletingComment) setCommentToDelete(null);
+          }}
+        >
+          <p className={`text-xs ${text.secondary}`}>
+            Delete this comment by {commentToDelete.author}?
+          </p>
+        </ConfirmDialog>
       )}
     </div>
   );
