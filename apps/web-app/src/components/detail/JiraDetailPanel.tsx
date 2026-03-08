@@ -65,6 +65,13 @@ function formatTimeAgo(timestamp: number): string {
   return `${hours}h ago`;
 }
 
+function resolveCreatedWorktreeId(result: {
+  worktreeId?: string;
+  worktree?: { id: string };
+}): string | null {
+  return result.worktreeId ?? result.worktree?.id ?? null;
+}
+
 function formatDate(iso: string) {
   if (!iso) return "";
   return new Date(iso).toLocaleString(undefined, {
@@ -243,8 +250,11 @@ export function JiraDetailPanel({
     const result = await api.createFromJira(issueKey);
     console.log("createFromJira result:", result);
     setIsCreating(false);
-    if (result.success) {
-      onCreateWorktree(issueKey);
+    const createdWorktreeId = resolveCreatedWorktreeId(result);
+    if (result.success && createdWorktreeId) {
+      onCreateWorktree(createdWorktreeId);
+    } else if (result.success) {
+      setCreateError("Worktree was created, but the response did not include a worktree id.");
     } else if (result.code === "WORKTREE_EXISTS" && result.worktreeId) {
       console.log("Showing WorktreeExistsModal for:", result.worktreeId);
       setExistingWorktree({ id: result.worktreeId, branch: issueKey });
@@ -549,7 +559,7 @@ export function JiraDetailPanel({
           branch={existingWorktree.branch}
           onResolved={() => {
             setExistingWorktree(null);
-            onCreateWorktree(issueKey);
+            onCreateWorktree(existingWorktree.id);
           }}
           onCancel={() => setExistingWorktree(null)}
         />

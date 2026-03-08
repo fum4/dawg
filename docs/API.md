@@ -1815,6 +1815,30 @@ Look up the currently active scoped terminal session for a worktree (used to rea
 - **Error** (400): `{ success: false, error: "scope is required (\"terminal\", \"claude\", \"codex\", \"gemini\", or \"opencode\")" }`
 - **Error** (404/409): canonical worktree resolution failure (not found or ambiguous)
 
+#### `GET /api/worktrees/:id/agents/:agent/restore`
+
+Resolve the best restore target for worktree-detail agent quick actions. This is currently supported for `claude` and `codex` only.
+
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "activeSessionId": "term-12",
+    "historyMatches": [
+      {
+        "sessionId": "019cc1dd-3614-7431-974f-bc92b5953da8",
+        "title": "continue task with latest description",
+        "updatedAt": "2026-03-05T14:52:50.000Z",
+        "preview": "continue task with latest description"
+      }
+    ]
+  }
+  ```
+- `activeSessionId` is the current live scoped OpenKit PTY session when present.
+- `historyMatches` are native Claude/Codex sessions matched by exact worktree path.
+- **Error** (400): `{ success: false, error: "agent must be \"claude\" or \"codex\"" }`
+- **Error** (404/409): canonical worktree resolution failure (not found or ambiguous)
+
 #### `GET /api/terminals/:sessionId/ws` (WebSocket)
 
 WebSocket endpoint for bidirectional terminal communication. Upgrades the HTTP connection to a WebSocket.
@@ -1823,6 +1847,9 @@ WebSocket endpoint for bidirectional terminal communication. Upgrades the HTTP c
 
 - **Client to Server**: Send raw terminal input as text/binary frames
 - **Server to Client**: Receive PTY output as text/binary frames
+- **Server to Client control frames**:
+  - `{ "type": "restore", "payload": "..." }` may be sent immediately after connect so the client can restore the current terminal screen plus bounded scrollback before live PTY output resumes
+  - `{ "type": "exit", "exitCode": 0 }` indicates the PTY process exited and the session was torn down
 - **Connection**: Automatically attaches to the PTY session on open; closes with code `1008` if session not found
 
 ---

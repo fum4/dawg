@@ -69,22 +69,7 @@ type Selection =
 
 type WorkspaceStorageSuffix = "wsSel" | "wsTab" | "view";
 
-type ClaudeLaunchMode = "resume" | "start";
-
-interface ClaudeLaunchIntent {
-  worktreeId: string;
-  mode: ClaudeLaunchMode;
-  prompt?: string;
-  tabLabel?: string;
-  skipPermissions?: boolean;
-  startInBackground?: boolean;
-}
-
-interface ClaudeLaunchRequest extends ClaudeLaunchIntent {
-  requestId: number;
-}
-
-type AgentLaunchMode = "resume" | "start";
+type AgentLaunchMode = "resume" | "resume-active" | "resume-history" | "start" | "start-new";
 
 interface AgentLaunchIntentBase {
   worktreeId: string;
@@ -92,15 +77,24 @@ interface AgentLaunchIntentBase {
   prompt?: string;
   tabLabel?: string;
   skipPermissions?: boolean;
+  sessionId?: string;
 }
+
+interface ClaudeLaunchIntent extends AgentLaunchIntentBase {
+  startInBackground?: boolean;
+}
+
+type ClaudeLaunchRequest = ClaudeLaunchIntent & {
+  requestId: number;
+};
 
 type CodexLaunchIntent = AgentLaunchIntentBase;
 type GeminiLaunchIntent = AgentLaunchIntentBase;
 type OpenCodeLaunchIntent = AgentLaunchIntentBase;
 
-interface AgentLaunchRequestBase extends AgentLaunchIntentBase {
+type AgentLaunchRequestBase = AgentLaunchIntentBase & {
   requestId: number;
-}
+};
 
 type CodexLaunchRequest = AgentLaunchRequestBase;
 type GeminiLaunchRequest = AgentLaunchRequestBase;
@@ -254,6 +248,10 @@ function buildAgentStartupCommand(
   }
   const invocation = args.length > 0 ? `${agent} ${args.join(" ")}` : agent;
   return `exec ${invocation}`;
+}
+
+function isStartLaunchMode(mode: AgentLaunchMode): boolean {
+  return mode === "start" || mode === "start-new";
 }
 
 function buildClaudeStartupCommand(
@@ -1253,7 +1251,7 @@ export default function App() {
     setPendingClaudeLaunches((prev) => prev.slice(1));
 
     void (async () => {
-      if (intent.mode === "start") {
+      if (isStartLaunchMode(intent.mode)) {
         logAutoClaude("Running pre-implementation hooks before Claude launch", {
           worktreeId: intent.worktreeId,
         });
@@ -1267,7 +1265,7 @@ export default function App() {
         });
       }
 
-      let mode: ClaudeLaunchMode = intent.mode;
+      let mode: ClaudeLaunchIntent["mode"] = intent.mode;
       if (intent.startInBackground && intent.prompt) {
         const started = await startAgentSessionInBackground(
           "claude",
@@ -1352,7 +1350,7 @@ export default function App() {
     setPendingCodexLaunches((prev) => prev.slice(1));
 
     void (async () => {
-      if (intent.mode === "start") {
+      if (isStartLaunchMode(intent.mode)) {
         logAutoClaude("Running pre-implementation hooks before Codex launch", {
           worktreeId: intent.worktreeId,
         });
@@ -1435,7 +1433,7 @@ export default function App() {
     setPendingGeminiLaunches((prev) => prev.slice(1));
 
     void (async () => {
-      if (intent.mode === "start") {
+      if (isStartLaunchMode(intent.mode)) {
         logAutoClaude("Running pre-implementation hooks before Gemini launch", {
           worktreeId: intent.worktreeId,
         });
@@ -1518,7 +1516,7 @@ export default function App() {
     setPendingOpenCodeLaunches((prev) => prev.slice(1));
 
     void (async () => {
-      if (intent.mode === "start") {
+      if (isStartLaunchMode(intent.mode)) {
         logAutoClaude("Running pre-implementation hooks before OpenCode launch", {
           worktreeId: intent.worktreeId,
         });
@@ -1558,10 +1556,14 @@ export default function App() {
     setSelection(null);
   };
 
-  const handleCreateWorktreeFromJira = () => {
-    // Switch to worktree tab so user sees the newly created worktree
+  const focusWorktree = useCallback((worktreeId: string) => {
     setActiveCreateTab("branch");
-    setSelection(null);
+    setSelection({ type: "worktree", id: worktreeId });
+  }, []);
+
+  const handleCreateWorktreeFromJira = (worktreeId: string) => {
+    // Switch to worktree tab so user sees the newly created worktree
+    focusWorktree(worktreeId);
     refetch();
   };
 
@@ -1576,9 +1578,8 @@ export default function App() {
     return wt ?? null;
   };
 
-  const handleCreateWorktreeFromLinear = () => {
-    setActiveCreateTab("branch");
-    setSelection(null);
+  const handleCreateWorktreeFromLinear = (worktreeId: string) => {
+    focusWorktree(worktreeId);
     refetch();
   };
 
@@ -1598,9 +1599,8 @@ export default function App() {
   const selectedLinearWorktree =
     selection?.type === "linear-issue" ? findLinkedLinearWorktree(selection.identifier) : null;
 
-  const handleCreateWorktreeFromCustomTask = () => {
-    setActiveCreateTab("branch");
-    setSelection(null);
+  const handleCreateWorktreeFromCustomTask = (worktreeId: string) => {
+    focusWorktree(worktreeId);
     refetch();
     refetchCustomTasks();
   };
@@ -3003,6 +3003,10 @@ export default function App() {
                       setShowCreateModal(true);
                     }}
                     onLinkIssue={(worktreeId) => setLinkIssueForWorktreeId(worktreeId)}
+                    onCodeWithClaude={handleCodeWithClaude}
+                    onCodeWithCodex={handleCodeWithCodex}
+                    onCodeWithGemini={handleCodeWithGemini}
+                    onCodeWithOpenCode={handleCodeWithOpenCode}
                     claudeLaunchRequest={claudeLaunchRequest}
                     codexLaunchRequest={codexLaunchRequest}
                     geminiLaunchRequest={geminiLaunchRequest}
@@ -3083,7 +3087,11 @@ export default function App() {
         <CreateWorktreeModal
           mode={createModalMode as "branch" | "jira" | "linear"}
           hasBranchNameRule={hasBranchNameRule}
-          onCreated={refetch}
+          onCreated={(worktreeId) => {
+            setWorktreeFilter("");
+            focusWorktree(worktreeId);
+            refetch();
+          }}
           onClose={() => setShowCreateModal(false)}
           onSetupNeeded={handleSetupNeeded}
         />

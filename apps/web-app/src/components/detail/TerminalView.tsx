@@ -10,9 +10,10 @@ import { ClaudeIcon, CodexIcon, GeminiIcon, OpenCodeIcon } from "../../icons";
 import { Spinner } from "../Spinner";
 
 interface TerminalLaunchRequest {
-  mode: "resume" | "start";
+  mode: "resume" | "resume-active" | "resume-history" | "start" | "start-new";
   prompt?: string;
   skipPermissions?: boolean;
+  sessionId?: string;
   requestId: number;
 }
 
@@ -54,6 +55,18 @@ function buildClaudeCommand(
   return `exec ${invocation}`;
 }
 
+function buildClaudeResumeCommand(
+  sessionId: string,
+  options?: { skipPermissions?: boolean },
+): string {
+  const args: string[] = [];
+  if (options?.skipPermissions) {
+    args.push("--dangerously-skip-permissions");
+  }
+  args.push("-r", shellQuoteSingle(sessionId));
+  return `exec claude ${args.join(" ")}`;
+}
+
 function buildCodexCommandWithOptions(
   prompt: string | undefined,
   options?: { skipPermissions?: boolean },
@@ -67,6 +80,18 @@ function buildCodexCommandWithOptions(
   }
   const invocation = args.length > 0 ? `codex ${args.join(" ")}` : "codex";
   return `exec ${invocation}`;
+}
+
+function buildCodexResumeCommand(
+  sessionId: string,
+  options?: { skipPermissions?: boolean },
+): string {
+  const args: string[] = [];
+  if (options?.skipPermissions) {
+    args.push("--dangerously-bypass-approvals-and-sandbox");
+  }
+  args.push("resume", shellQuoteSingle(sessionId));
+  return `exec codex ${args.join(" ")}`;
 }
 
 function buildGeminiCommand(
@@ -150,7 +175,10 @@ export function TerminalView({
 
     if (variant === "claude") {
       const commandOptions = { skipPermissions: pendingLaunchRequest.skipPermissions };
-      if (pendingLaunchRequest.mode === "start") {
+      if (pendingLaunchRequest.mode === "resume-history" && pendingLaunchRequest.sessionId) {
+        return buildClaudeResumeCommand(pendingLaunchRequest.sessionId, commandOptions);
+      }
+      if (pendingLaunchRequest.mode === "start" || pendingLaunchRequest.mode === "start-new") {
         const prompt = pendingLaunchRequest.prompt?.trim() || DEFAULT_AGENT_START_PROMPT;
         return buildClaudeCommand(prompt, commandOptions);
       }
@@ -159,7 +187,10 @@ export function TerminalView({
 
     if (variant === "codex") {
       const commandOptions = { skipPermissions: pendingLaunchRequest.skipPermissions };
-      if (pendingLaunchRequest.mode === "start") {
+      if (pendingLaunchRequest.mode === "resume-history" && pendingLaunchRequest.sessionId) {
+        return buildCodexResumeCommand(pendingLaunchRequest.sessionId, commandOptions);
+      }
+      if (pendingLaunchRequest.mode === "start" || pendingLaunchRequest.mode === "start-new") {
         const prompt = pendingLaunchRequest.prompt?.trim() || DEFAULT_AGENT_START_PROMPT;
         return buildCodexCommandWithOptions(prompt, commandOptions);
       }
@@ -168,7 +199,7 @@ export function TerminalView({
 
     if (variant === "gemini") {
       const commandOptions = { skipPermissions: pendingLaunchRequest.skipPermissions };
-      if (pendingLaunchRequest.mode === "start") {
+      if (pendingLaunchRequest.mode === "start" || pendingLaunchRequest.mode === "start-new") {
         const prompt = pendingLaunchRequest.prompt?.trim() || DEFAULT_AGENT_START_PROMPT;
         return buildGeminiCommand(prompt, commandOptions);
       }
@@ -176,7 +207,7 @@ export function TerminalView({
     }
 
     const commandOptions = { skipPermissions: pendingLaunchRequest.skipPermissions };
-    if (pendingLaunchRequest.mode === "start") {
+    if (pendingLaunchRequest.mode === "start" || pendingLaunchRequest.mode === "start-new") {
       const prompt = pendingLaunchRequest.prompt?.trim() || DEFAULT_AGENT_START_PROMPT;
       return buildOpenCodeCommand(prompt, commandOptions);
     }
@@ -245,6 +276,30 @@ export function TerminalView({
     [isAgentBooting, isAgentVariant, pendingLaunchRequest],
   );
 
+  const handleRestore = useCallback(
+    (payload: string) => {
+      const terminal = terminalRef.current;
+      if (!terminal) return;
+
+      terminal.reset();
+      if (payload) {
+        terminal.write(payload);
+      }
+
+      if (isAgentVariant && pendingLaunchRequest) {
+        if (activeRequestIdRef.current !== pendingLaunchRequest.requestId) {
+          activeRequestIdRef.current = pendingLaunchRequest.requestId;
+        }
+        hasOutputForRequestRef.current = payload.length > 0;
+        if (payload.length > 0 && (awaitingOutputRef.current || isAgentBooting)) {
+          awaitingOutputRef.current = false;
+          setIsAgentBooting(false);
+        }
+      }
+    },
+    [isAgentBooting, isAgentVariant, pendingLaunchRequest],
+  );
+
   const handleExit = useCallback(
     (exitCode: number) => {
       awaitingOutputRef.current = false;
@@ -270,6 +325,7 @@ export function TerminalView({
     createSessionStartupCommand,
     visible,
     onData: handleData,
+    onRestore: handleRestore,
     onExit: handleExit,
     getSize,
   });
@@ -467,7 +523,10 @@ export function TerminalView({
       return;
     }
 
-    if (pendingLaunchRequest.mode === "resume" && isConnected) {
+    if (
+      (pendingLaunchRequest.mode === "resume" || pendingLaunchRequest.mode === "resume-active") &&
+      isConnected
+    ) {
       awaitingOutputRef.current = false;
       setIsAgentBooting(false);
       return;

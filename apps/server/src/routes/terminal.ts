@@ -4,6 +4,7 @@ import type { WebSocket } from "ws";
 
 import type { TerminalManager } from "../terminal-manager";
 import type { WorktreeManager } from "../manager";
+import { findHistoricalAgentSessions, type RestorableAgent } from "./agent-history";
 
 function isTerminalScope(
   value: unknown,
@@ -15,6 +16,10 @@ function isTerminalScope(
     value === "gemini" ||
     value === "opencode"
   );
+}
+
+function isRestorableAgent(value: unknown): value is RestorableAgent {
+  return value === "claude" || value === "codex";
 }
 
 export function registerTerminalRoutes(
@@ -95,6 +100,40 @@ export function registerTerminalRoutes(
 
     const sessionId = terminalManager.getSessionIdForScope(resolved.worktreeId, scope);
     return c.json({ success: true, sessionId });
+  });
+
+  app.get("/api/worktrees/:id/agents/:agent/restore", (c) => {
+    const worktreeId = c.req.param("id");
+    const agent = c.req.param("agent");
+    if (!isRestorableAgent(agent)) {
+      return c.json(
+        {
+          success: false,
+          error: 'agent must be "claude" or "codex"',
+        },
+        400,
+      );
+    }
+
+    const resolved = worktreeManager.resolveWorktree(worktreeId);
+    if (!resolved.success) {
+      return c.json({ success: false, error: resolved.error }, toResolutionStatus(resolved.code));
+    }
+
+    try {
+      const activeSessionId = terminalManager.getSessionIdForScope(resolved.worktreeId, agent);
+      const historyMatches = findHistoricalAgentSessions(agent, resolved.worktree.path);
+      return c.json({
+        success: true,
+        activeSessionId,
+        historyMatches,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to resolve historical agent sessions";
+      console.error("[terminal] Failed to resolve historical agent sessions:", message);
+      return c.json({ success: false, error: message }, 500);
+    }
   });
 
   app.delete("/api/terminals/:sessionId", (c) => {

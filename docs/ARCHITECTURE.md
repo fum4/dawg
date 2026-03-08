@@ -102,7 +102,9 @@ Key responsibilities:
 Key responsibilities:
 
 - **Session lifecycle**: `createSession()` registers a session; `attachWebSocket()` spawns the PTY process (using `node-pty`) and wires bidirectional data flow between the WebSocket and the PTY
+- **Restore snapshots**: Each session mirrors PTY output into a headless xterm instance with bounded scrollback, serializes that state on reattach, and sends a restore frame before live output resumes
 - **Scoped reconcile + health checks**: For scoped agent sessions (`claude`/`codex`/`gemini`/`opencode`), startup-command launches prefer reusing a healthy scoped agent session and replace shell-only or unhealthy scoped sessions. Create responses include additive metadata (`reusedScopedSession`, `replacedScopedShellSession`) used by the UI to classify `reattached` vs `started` launch outcomes.
+- **Historical agent restore**: Terminal routes also expose restore discovery for worktree-detail `claude` / `codex` quick actions by combining live scoped PTY lookup with native agent history matched by exact worktree path.
 - **Resize handling**: JSON messages with `{ type: "resize", cols, rows }` are intercepted and forwarded to `pty.resize()`
 - **Cleanup**: `destroySession()`, `destroyAllForWorktree()`, `destroyAll()` handle teardown of PTY processes and WebSocket connections
 

@@ -20,7 +20,7 @@ interface CustomTaskDetailPanelProps {
   taskId: string;
   activeWorktreeIds: Set<string>;
   onDeleted: () => void;
-  onCreateWorktree: () => void;
+  onCreateWorktree: (worktreeId: string) => void;
   onViewWorktree: (id: string) => void;
   onCodeWithClaude: (intent: {
     worktreeId: string;
@@ -70,6 +70,13 @@ const priorityOptions = [
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
 ] as const;
+
+function resolveCreatedWorktreeId(result: {
+  worktreeId?: string;
+  worktree?: { id: string };
+}): string | null {
+  return result.worktreeId ?? result.worktree?.id ?? null;
+}
 
 export function CustomTaskDetailPanel({
   taskId,
@@ -126,10 +133,13 @@ export function CustomTaskDetailPanel({
     setCreateError(null);
     const result = await api.createWorktreeFromCustomTask(taskId);
     setIsCreatingWorktree(false);
-    if (result.success) {
+    const createdWorktreeId = resolveCreatedWorktreeId(result);
+    if (result.success && createdWorktreeId) {
       refetch();
       queryClient.invalidateQueries({ queryKey: ["customTasks"] });
-      onCreateWorktree();
+      onCreateWorktree(createdWorktreeId);
+    } else if (result.success) {
+      setCreateError("Worktree was created, but the response did not include a worktree id.");
     } else {
       setCreateError(result.error ?? "Failed to create worktree");
     }

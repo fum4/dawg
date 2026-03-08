@@ -19,6 +19,7 @@ interface UseTerminalOptions {
   createSessionStartupCommand?: string | null;
   visible?: boolean;
   onData?: (data: string) => void;
+  onRestore?: (payload: string) => void;
   onExit?: (exitCode: number) => void;
   getSize?: () => { cols: number; rows: number } | null;
 }
@@ -95,6 +96,7 @@ export function useTerminal({
   createSessionStartupCommand = null,
   visible = false,
   onData,
+  onRestore,
   onExit,
   getSize,
 }: UseTerminalOptions): UseTerminalReturn {
@@ -117,10 +119,12 @@ export function useTerminal({
   const forceFreshSessionRef = useRef(false);
   const visibleReconnectWatchdogTriggeredRef = useRef(false);
   const onDataRef = useRef(onData);
+  const onRestoreRef = useRef(onRestore);
   const onExitRef = useRef(onExit);
   const getSizeRef = useRef(getSize);
 
   onDataRef.current = onData;
+  onRestoreRef.current = onRestore;
   onExitRef.current = onExit;
   getSizeRef.current = getSize;
 
@@ -219,6 +223,10 @@ export function useTerminal({
               forceFreshSessionRef.current = false;
               onExitRef.current?.(msg.exitCode);
               setIsConnected(false);
+              return;
+            }
+            if (msg.type === "restore" && typeof msg.payload === "string") {
+              onRestoreRef.current?.(msg.payload);
               return;
             }
           } catch {

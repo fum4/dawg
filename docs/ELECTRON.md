@@ -96,7 +96,7 @@ Each project gets:
 
 - A unique ID derived from a hash of its absolute directory path
 - An allocated port (incrementing from the base port)
-- A spawned OpenKit server process (`<runtime> <bundled-cli-path> --no-open`; in packaged builds this resolves to `Resources/cli/cli/index.js`)
+- A spawned OpenKit server process (`<runtime> <bundled-cli-path> --no-open`; in packaged builds this resolves to `Resources/cli/cli/index.js`, and in dev it resolves to `apps/cli/dist/cli/index.js`)
 - A status lifecycle: `starting` -> `running` | `error` -> `stopped`
 
 The project name is resolved from the project's `package.json` name field, falling back to the directory name.
@@ -106,6 +106,7 @@ The project name is resolved from the project's `package.json` name field, falli
 `ServerSpawner` (`apps/desktop-app/src/server-spawner.ts`) handles the process lifecycle:
 
 - **Spawn**: Runs `<runtime> <cliPath> --no-open` with `OPENKIT_SERVER_PORT` and `OPENKIT_NO_OPEN` environment variables set. In packaged builds, it uses the app's own Electron binary in Node mode (`ELECTRON_RUN_AS_NODE=1`) so the CLI can resolve dependencies from `app.asar`.
+- **Dev preflight**: Before spawning in dev mode, the server spawner checks that `apps/cli/dist/cli/index.js` exists and surfaces a targeted error if the CLI build output is missing.
 - **Readiness check**: Polls `GET http://localhost:<port>/api/config` every 500ms until it responds with HTTP 200, with a 30-second timeout.
 - **Shutdown**: Sends `SIGTERM` for graceful shutdown, then `SIGKILL` after 5 seconds if the process has not exited.
 
@@ -340,10 +341,10 @@ pnpm dev:desktop-app
 
 This executes the app-local `apps/desktop-app` dev script:
 
-| Process               | Command                                                                                                                                                                                  | Description                                                                                       |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `dev:desktop:compile` | `tsc -p tsconfig.json --watch`                                                                                                                                                           | Watches and compiles Electron TypeScript sources                                                  |
-| `dev:desktop:run`     | `wait-on http://localhost:${OPENKIT_WEB_APP_PORT:-5173} ./dist/main.js && UI_DEV_SERVER_URL=http://localhost:${OPENKIT_WEB_APP_PORT:-5173} VITE_DEV_SERVER=1 electronmon ./dist/main.js` | Runs Electron with auto-restart, waits for the configured web-app dev server and compiled main.js |
+| Process               | Command                                                                                                                                                                                                           | Description                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `dev:desktop:compile` | `tsc -p tsconfig.json --watch`                                                                                                                                                                                    | Watches and compiles Electron TypeScript sources                                                                     |
+| `dev:desktop:run`     | `wait-on http://localhost:${OPENKIT_WEB_APP_PORT:-5173} ./dist/main.js ../cli/dist/cli/index.js && UI_DEV_SERVER_URL=http://localhost:${OPENKIT_WEB_APP_PORT:-5173} VITE_DEV_SERVER=1 electronmon ./dist/main.js` | Runs Electron with auto-restart, waits for the configured web-app dev server, compiled main.js, and CLI build output |
 
 For the full first-class workspace dev flow (CLI/server/web app/desktop app/website/mobile app), use:
 
@@ -352,6 +353,7 @@ pnpm dev
 ```
 
 In dev mode, the renderer loads from the Vite dev server (`UI_DEV_SERVER_URL=http://localhost:$OPENKIT_WEB_APP_PORT`, default `http://localhost:5173`) instead of the built files, enabling hot module replacement. `electronmon` automatically restarts the Electron main process when `apps/desktop-app/dist/main.js` changes.
+The desktop shell also waits for `apps/cli/dist/cli/index.js` before launch so opening a project does not race the CLI build.
 
 ### Running Electron Standalone
 

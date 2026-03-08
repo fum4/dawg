@@ -549,6 +549,9 @@ export function useApi() {
         scope: "terminal" | "claude" | "codex" | "gemini" | "opencode",
       ) => api.fetchActiveTerminalSession(worktreeId, scope, serverUrl),
 
+      fetchRestorableAgentSessions: (worktreeId: string, agent: api.RestorableAgent) =>
+        api.fetchRestorableAgentSessions(worktreeId, agent, serverUrl),
+
       createActivityEvent: (event: Parameters<typeof api.createActivityEvent>[0]) =>
         api.createActivityEvent(event, serverUrl),
     }),
