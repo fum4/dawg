@@ -191,6 +191,35 @@ jobs:
           apple-team-id: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_TEAM_ID || '' }}
           apple-app-specific-password: ${{ needs.notify-package-start.outputs.sign_mac == 'true' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
 
+      - name: Append PR number to DMG version segment
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          dmg_dir="apps/desktop-app/release"
+          dmgs=("$dmg_dir"/*.dmg)
+          if [[ ${#dmgs[@]} -eq 0 ]]; then
+            echo "No DMG files found in $dmg_dir" >&2
+            exit 1
+          fi
+
+          for dmg in "${dmgs[@]}"; do
+            if [[ "$dmg" == *-arm64.dmg ]]; then
+              renamed="${dmg%-arm64.dmg}-pr${PR_NUMBER}-arm64.dmg"
+            elif [[ "$dmg" == *-x64.dmg ]]; then
+              renamed="${dmg%-x64.dmg}-pr${PR_NUMBER}-x64.dmg"
+            else
+              echo "Skipping unexpected DMG filename: $dmg" >&2
+              continue
+            fi
+
+            mv "$dmg" "$renamed"
+            echo "Renamed: $(basename "$dmg") -> $(basename "$renamed")"
+          done
+
       - name: Upload macOS artifacts (Apple Silicon)
         id: upload_arm
         uses: actions/upload-artifact@v4

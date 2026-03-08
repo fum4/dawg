@@ -8,7 +8,7 @@ OpenKit has a unified notification system that tracks events across worktrees, a
 2. **Toast notifications** — in-app popups using `react-hot-toast`; all UI-surfaced errors are persistent until dismissed
 3. **OS notifications** — native desktop notifications (Electron only) when the app is unfocused
 
-The Jira/Linear/local auto-start flow emits two activity events: one when a new task is detected and one when the selected coding agent starts working on it.
+The Jira/Linear/local auto-start flow emits two activity events: one when a new issue is detected and one when the selected coding agent starts working on it.
 
 Policy: workflow, agent, and live progress updates belong in the Activity feed (and optional OS notifications), not in toasts. Error toasts are now global for UI/API/query/runtime failures.
 
@@ -86,32 +86,32 @@ interface ActivityEvent {
 
 Primary event types surfaced in the feed are defined in `ACTIVITY_TYPES` (`libs/shared/src/activity-event.ts`):
 
-| Constant               | Type string            | Category | Description                                   |
-| ---------------------- | ---------------------- | -------- | --------------------------------------------- |
-| `NOTIFY`               | `notify`               | agent    | Agent sends a status update                   |
-| `COMMIT_COMPLETED`     | `commit_completed`     | agent    | Agent committed successfully                  |
-| `COMMIT_FAILED`        | `commit_failed`        | agent    | Agent commit failed                           |
-| `PUSH_COMPLETED`       | `push_completed`       | agent    | Agent pushed successfully                     |
-| `PUSH_FAILED`          | `push_failed`          | agent    | Agent push failed                             |
-| `PR_CREATED`           | `pr_created`           | agent    | Agent created a PR                            |
-| `SKILL_STARTED`        | `skill_started`        | agent    | Hook skill started                            |
-| `SKILL_COMPLETED`      | `skill_completed`      | agent    | Hook skill completed                          |
-| `SKILL_FAILED`         | `skill_failed`         | agent    | Hook skill failed                             |
-| `HOOKS_STARTED`        | `hooks_started`        | agent    | Hook command run started                      |
-| `HOOKS_RAN`            | `hooks_ran`            | agent    | Hook pipeline completed                       |
-| `AGENT_AWAITING_INPUT` | `agent_awaiting_input` | agent    | Agent is blocked waiting on user input        |
-| `TASK_DETECTED`        | `task_detected`        | agent    | Newly fetched Jira/Linear/local task detected |
-| `AUTO_TASK_CLAIMED`    | `auto_task_claimed`    | agent    | Selected agent auto-started for the task      |
-| `WORKFLOW_PHASE`       | `workflow_phase`       | agent    | Agent workflow phase transition               |
-| `CREATION_STARTED`     | `creation_started`     | worktree | Worktree creation started                     |
-| `CREATION_COMPLETED`   | `creation_completed`   | worktree | Worktree created successfully                 |
-| `CREATION_FAILED`      | `creation_failed`      | worktree | Worktree creation failed                      |
-| `WORKTREE_STARTED`     | `started`              | worktree | Dev server started                            |
-| `WORKTREE_STOPPED`     | `stopped`              | worktree | Dev server stopped                            |
-| `WORKTREE_CRASHED`     | `crashed`              | worktree | Dev server crashed (non-zero exit)            |
-| `CONNECTION_LOST`      | `connection_lost`      | system   | Lost connection                               |
-| `CONNECTION_RESTORED`  | `connection_restored`  | system   | Connection restored                           |
-| `CONFIG_NEEDS_PUSH`    | `config_needs_push`    | system   | Config changes need push                      |
+| Constant               | Type string            | Category | Description                                    |
+| ---------------------- | ---------------------- | -------- | ---------------------------------------------- |
+| `NOTIFY`               | `notify`               | agent    | Agent sends a status update                    |
+| `COMMIT_COMPLETED`     | `commit_completed`     | agent    | Agent committed successfully                   |
+| `COMMIT_FAILED`        | `commit_failed`        | agent    | Agent commit failed                            |
+| `PUSH_COMPLETED`       | `push_completed`       | agent    | Agent pushed successfully                      |
+| `PUSH_FAILED`          | `push_failed`          | agent    | Agent push failed                              |
+| `PR_CREATED`           | `pr_created`           | agent    | Agent created a PR                             |
+| `SKILL_STARTED`        | `skill_started`        | agent    | Hook skill started                             |
+| `SKILL_COMPLETED`      | `skill_completed`      | agent    | Hook skill completed                           |
+| `SKILL_FAILED`         | `skill_failed`         | agent    | Hook skill failed                              |
+| `HOOKS_STARTED`        | `hooks_started`        | agent    | Hook command run started                       |
+| `HOOKS_RAN`            | `hooks_ran`            | agent    | Hook pipeline completed                        |
+| `AGENT_AWAITING_INPUT` | `agent_awaiting_input` | agent    | Agent is blocked waiting on user input         |
+| `TASK_DETECTED`        | `task_detected`        | agent    | Newly fetched Jira/Linear/local issue detected |
+| `AUTO_TASK_CLAIMED`    | `auto_task_claimed`    | agent    | Selected agent auto-started for the task       |
+| `WORKFLOW_PHASE`       | `workflow_phase`       | agent    | Agent workflow phase transition                |
+| `CREATION_STARTED`     | `creation_started`     | worktree | Worktree creation started                      |
+| `CREATION_COMPLETED`   | `creation_completed`   | worktree | Worktree created successfully                  |
+| `CREATION_FAILED`      | `creation_failed`      | worktree | Worktree creation failed                       |
+| `WORKTREE_STARTED`     | `started`              | worktree | Dev server started                             |
+| `WORKTREE_STOPPED`     | `stopped`              | worktree | Dev server stopped                             |
+| `WORKTREE_CRASHED`     | `crashed`              | worktree | Dev server crashed (non-zero exit)             |
+| `CONNECTION_LOST`      | `connection_lost`      | system   | Lost connection                                |
+| `CONNECTION_RESTORED`  | `connection_restored`  | system   | Connection restored                            |
+| `CONFIG_NEEDS_PUSH`    | `config_needs_push`    | system   | Config changes need push                       |
 
 `agent_connected` and `agent_disconnected` remain in the constants map but are not currently emitted.
 
@@ -237,7 +237,7 @@ Returns: `{ events, unreadCount, markAllRead, clearAll }`
 Shared panel behavior:
 
 - **Header** titled "Recent activity", with "Clear" and a `Show all projects` toggle
-- **Filter chips** — multi-select chips directly below the header: `Worktree`, `Hooks`, `Agents`, and `System`. Multiple chips can be enabled simultaneously; when none are selected, all events are shown.
+- **Filter chips** — multi-select chips directly below the header: `Worktree`, `Issues`, `Hooks`, `Agents`, and `System`. Multiple chips can be enabled simultaneously; when none are selected, all events are shown.
 - **Per-project filter persistence** — selected filter chips are persisted per project scope in `localStorage` and reused across both surfaces (bell dropdown and Activity page cards) after refresh.
 - **Action-required prioritization** — active agent contexts that require user action are pinned above regular events (no separate section header), and each row shows a warning-triangle badge over the category icon.
   - `agent_awaiting_input` is treated as action-required by default, except explicit clearing events (`metadata.cleared === true` or `requiresUserAction/awaitingUserInput === false`).
@@ -293,7 +293,8 @@ Dropdown-specific behavior:
 10. Passes disabled event types from config into `useActivityFeed`
 11. Tracks selected activity feed filter groups and passes them to `ActivityFeed` (multi-select with clear-all behavior)
 12. Auto-marks events as read 500ms after opening the feed
-13. Tracks `seenEventIds` per visible event set and only renders row dots for unseen events
+13. Auto-marks events as read while the dedicated `Activity` tab is active, so the bell unread badge clears when visiting that page
+14. Tracks `seenEventIds` per visible event set and only renders row dots for unseen events
 
 ### Toast System
 

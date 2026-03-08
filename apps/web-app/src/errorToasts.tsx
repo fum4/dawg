@@ -80,7 +80,7 @@ export function showPersistentErrorToast(
         <button
           aria-label="Dismiss error toast"
           className="-ml-1 rounded p-1 text-red-200/45 transition hover:bg-red-900/20 hover:text-white"
-          onClick={() => toast.dismiss(toastInstance.id)}
+          onClick={() => toast.remove(toastInstance.id)}
           type="button"
         >
           <X className="h-4 w-4" />
@@ -102,6 +102,7 @@ export function showPersistentErrorToast(
     {
       duration: Infinity,
       position: "bottom-right",
+      removeDelay: 0,
     },
   );
 }

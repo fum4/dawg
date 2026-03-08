@@ -245,19 +245,29 @@ function AutoStartAgentSection({
   autoStartEnabled,
   skipPermissions,
   focusTerminal,
+  autoUpdateIssueStatusOnAgentStart,
+  autoUpdateIssueStatusName,
+  statusOptions,
   onSelectAutoStartAgent,
   onToggleAutoStart,
   onToggleSkipPermissions,
   onToggleFocusTerminal,
+  onToggleAutoUpdateIssueStatusOnAgentStart,
+  onSelectAutoUpdateIssueStatusName,
 }: {
   autoStartAgent: CodingAgent;
   autoStartEnabled: boolean;
   skipPermissions: boolean;
   focusTerminal: boolean;
+  autoUpdateIssueStatusOnAgentStart: boolean;
+  autoUpdateIssueStatusName: string | null;
+  statusOptions: string[];
   onSelectAutoStartAgent: (agent: CodingAgent) => void;
   onToggleAutoStart: () => void;
   onToggleSkipPermissions: () => void;
   onToggleFocusTerminal: () => void;
+  onToggleAutoUpdateIssueStatusOnAgentStart: () => void;
+  onSelectAutoUpdateIssueStatusName: (status: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -334,6 +344,49 @@ function AutoStartAgentSection({
                 Redirects you to the worktree agent terminal when auto-start begins.
               </span>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {renderToggle(
+              autoUpdateIssueStatusOnAgentStart,
+              onToggleAutoUpdateIssueStatusOnAgentStart,
+              {
+                disabled: !autoStartEnabled,
+              },
+            )}
+            <div className="flex flex-col gap-0.5">
+              <label className={`text-[10px] ${!autoStartEnabled ? text.dimmed : settings.label}`}>
+                Update issue status on agent start
+              </label>
+              <span className={`text-[10px] ${text.dimmed}`}>
+                Automatically transition the issue when auto-started agents begin work.
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 pl-8">
+            <label
+              className={`text-[10px] ${
+                !autoStartEnabled || !autoUpdateIssueStatusOnAgentStart
+                  ? text.dimmed
+                  : settings.label
+              }`}
+            >
+              Status to set
+            </label>
+            <select
+              value={autoUpdateIssueStatusName ?? ""}
+              onChange={(event) => onSelectAutoUpdateIssueStatusName(event.target.value)}
+              disabled={!autoStartEnabled || !autoUpdateIssueStatusOnAgentStart}
+              className={`${integrationInput} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <option value="">Select status...</option>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -676,6 +729,9 @@ function JiraCard({
   const [autoStartClaudeOnNewIssue, setAutoStartClaudeOnNewIssue] = useState(false);
   const [autoStartClaudeSkipPermissions, setAutoStartClaudeSkipPermissions] = useState(true);
   const [autoStartClaudeFocusTerminal, setAutoStartClaudeFocusTerminal] = useState(true);
+  const [autoUpdateIssueStatusOnAgentStart, setAutoUpdateIssueStatusOnAgentStart] = useState(false);
+  const [autoUpdateIssueStatusName, setAutoUpdateIssueStatusName] = useState<string | null>(null);
+  const [issueStatusOptions, setIssueStatusOptions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
@@ -705,6 +761,12 @@ function JiraCard({
     if (status?.autoStartClaudeFocusTerminal !== undefined) {
       setAutoStartClaudeFocusTerminal(status.autoStartClaudeFocusTerminal);
     }
+    if (status?.autoUpdateIssueStatusOnAgentStart !== undefined) {
+      setAutoUpdateIssueStatusOnAgentStart(status.autoUpdateIssueStatusOnAgentStart);
+    }
+    if (status?.autoUpdateIssueStatusName !== undefined) {
+      setAutoUpdateIssueStatusName(status.autoUpdateIssueStatusName);
+    }
     if (status?.configured) {
       const t = setTimeout(() => {
         configReadyRef.current = true;
@@ -719,8 +781,25 @@ function JiraCard({
     status?.autoStartClaudeOnNewIssue,
     status?.autoStartClaudeSkipPermissions,
     status?.autoStartClaudeFocusTerminal,
+    status?.autoUpdateIssueStatusOnAgentStart,
+    status?.autoUpdateIssueStatusName,
     status?.configured,
   ]);
+
+  useEffect(() => {
+    if (!status?.configured) {
+      setIssueStatusOptions([]);
+      return;
+    }
+    let active = true;
+    void api.fetchJiraStatusOptions().then((result) => {
+      if (!active) return;
+      setIssueStatusOptions((result.options ?? []).map((option) => option.name));
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, status?.configured]);
 
   // Auto-save config on change
   useEffect(() => {
@@ -735,6 +814,8 @@ function JiraCard({
         autoStartClaudeSkipPermissions,
         autoStartClaudeFocusTerminal,
         autoStartAgent,
+        autoUpdateIssueStatusOnAgentStart,
+        autoUpdateIssueStatusName,
       );
       if (result.success) onStatusChange();
     }, 300);
@@ -747,6 +828,8 @@ function JiraCard({
     autoStartClaudeOnNewIssue,
     autoStartClaudeSkipPermissions,
     autoStartClaudeFocusTerminal,
+    autoUpdateIssueStatusOnAgentStart,
+    autoUpdateIssueStatusName,
     api,
     onStatusChange,
   ]);
@@ -840,10 +923,19 @@ function JiraCard({
               autoStartEnabled={autoStartClaudeOnNewIssue}
               skipPermissions={autoStartClaudeSkipPermissions}
               focusTerminal={autoStartClaudeFocusTerminal}
+              autoUpdateIssueStatusOnAgentStart={autoUpdateIssueStatusOnAgentStart}
+              autoUpdateIssueStatusName={autoUpdateIssueStatusName}
+              statusOptions={issueStatusOptions}
               onSelectAutoStartAgent={setAutoStartAgent}
               onToggleAutoStart={() => setAutoStartClaudeOnNewIssue((prev) => !prev)}
               onToggleSkipPermissions={() => setAutoStartClaudeSkipPermissions((prev) => !prev)}
               onToggleFocusTerminal={() => setAutoStartClaudeFocusTerminal((prev) => !prev)}
+              onToggleAutoUpdateIssueStatusOnAgentStart={() =>
+                setAutoUpdateIssueStatusOnAgentStart((prev) => !prev)
+              }
+              onSelectAutoUpdateIssueStatusName={(nextStatus) =>
+                setAutoUpdateIssueStatusName(nextStatus || null)
+              }
             />
 
             <DataLifecycleSection dataLifecycle={lifecycle} onChange={setLifecycle} />
@@ -961,6 +1053,9 @@ function LinearCard({
   const [autoStartClaudeOnNewIssue, setAutoStartClaudeOnNewIssue] = useState(false);
   const [autoStartClaudeSkipPermissions, setAutoStartClaudeSkipPermissions] = useState(true);
   const [autoStartClaudeFocusTerminal, setAutoStartClaudeFocusTerminal] = useState(true);
+  const [autoUpdateIssueStatusOnAgentStart, setAutoUpdateIssueStatusOnAgentStart] = useState(false);
+  const [autoUpdateIssueStatusName, setAutoUpdateIssueStatusName] = useState<string | null>(null);
+  const [issueStatusOptions, setIssueStatusOptions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
@@ -990,6 +1085,12 @@ function LinearCard({
     if (status?.autoStartClaudeFocusTerminal !== undefined) {
       setAutoStartClaudeFocusTerminal(status.autoStartClaudeFocusTerminal);
     }
+    if (status?.autoUpdateIssueStatusOnAgentStart !== undefined) {
+      setAutoUpdateIssueStatusOnAgentStart(status.autoUpdateIssueStatusOnAgentStart);
+    }
+    if (status?.autoUpdateIssueStatusName !== undefined) {
+      setAutoUpdateIssueStatusName(status.autoUpdateIssueStatusName);
+    }
     if (status?.configured) {
       const t = setTimeout(() => {
         configReadyRef.current = true;
@@ -1004,8 +1105,25 @@ function LinearCard({
     status?.autoStartClaudeOnNewIssue,
     status?.autoStartClaudeSkipPermissions,
     status?.autoStartClaudeFocusTerminal,
+    status?.autoUpdateIssueStatusOnAgentStart,
+    status?.autoUpdateIssueStatusName,
     status?.configured,
   ]);
+
+  useEffect(() => {
+    if (!status?.configured) {
+      setIssueStatusOptions([]);
+      return;
+    }
+    let active = true;
+    void api.fetchLinearStatusOptions().then((result) => {
+      if (!active) return;
+      setIssueStatusOptions((result.options ?? []).map((option) => option.name));
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, status?.configured]);
 
   // Auto-save config on change
   useEffect(() => {
@@ -1020,6 +1138,8 @@ function LinearCard({
         autoStartClaudeSkipPermissions,
         autoStartClaudeFocusTerminal,
         autoStartAgent,
+        autoUpdateIssueStatusOnAgentStart,
+        autoUpdateIssueStatusName,
       );
       if (result.success) onStatusChange();
     }, 300);
@@ -1032,6 +1152,8 @@ function LinearCard({
     autoStartClaudeOnNewIssue,
     autoStartClaudeSkipPermissions,
     autoStartClaudeFocusTerminal,
+    autoUpdateIssueStatusOnAgentStart,
+    autoUpdateIssueStatusName,
     api,
     onStatusChange,
   ]);
@@ -1121,10 +1243,19 @@ function LinearCard({
               autoStartEnabled={autoStartClaudeOnNewIssue}
               skipPermissions={autoStartClaudeSkipPermissions}
               focusTerminal={autoStartClaudeFocusTerminal}
+              autoUpdateIssueStatusOnAgentStart={autoUpdateIssueStatusOnAgentStart}
+              autoUpdateIssueStatusName={autoUpdateIssueStatusName}
+              statusOptions={issueStatusOptions}
               onSelectAutoStartAgent={setAutoStartAgent}
               onToggleAutoStart={() => setAutoStartClaudeOnNewIssue((prev) => !prev)}
               onToggleSkipPermissions={() => setAutoStartClaudeSkipPermissions((prev) => !prev)}
               onToggleFocusTerminal={() => setAutoStartClaudeFocusTerminal((prev) => !prev)}
+              onToggleAutoUpdateIssueStatusOnAgentStart={() =>
+                setAutoUpdateIssueStatusOnAgentStart((prev) => !prev)
+              }
+              onSelectAutoUpdateIssueStatusName={(nextStatus) =>
+                setAutoUpdateIssueStatusName(nextStatus || null)
+              }
             />
 
             <DataLifecycleSection dataLifecycle={lifecycle} onChange={setLifecycle} />

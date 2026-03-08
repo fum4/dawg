@@ -7,7 +7,13 @@ function normalizeActivityFilterGroups(value: unknown): ActivityFilterGroup[] {
   if (!Array.isArray(value)) return [];
   const next: ActivityFilterGroup[] = [];
   for (const item of value) {
-    if (item === "worktree" || item === "hooks" || item === "agents" || item === "system") {
+    if (
+      item === "worktree" ||
+      item === "issues" ||
+      item === "hooks" ||
+      item === "agents" ||
+      item === "system"
+    ) {
       if (!next.includes(item)) next.push(item);
       continue;
     }

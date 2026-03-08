@@ -59,7 +59,9 @@ function eventContextKey(event: {
     typeof event.metadata?.sourceServerUrl === "string"
       ? (event.metadata.sourceServerUrl as string)
       : "__local__";
-  return `${sourceServerUrl}::${event.projectName ?? "unknown-project"}::${event.worktreeId ?? "global"}`;
+  return `${sourceServerUrl}::${event.projectName ?? "unknown-project"}::${
+    event.worktreeId ?? "global"
+  }`;
 }
 
 function eventIssueId(event: { metadata?: Record<string, unknown>; worktreeId?: string }): string {
@@ -157,6 +159,24 @@ export function Header({
       return changed ? next : prev;
     });
   }, [feedOpen, visibleEvents]);
+
+  useEffect(() => {
+    if (activeView !== "activity") return;
+    if (unreadCount > 0) {
+      markAllRead();
+    }
+    setSeenEventIds((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const event of visibleEvents) {
+        if (!next.has(event.id)) {
+          next.add(event.id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [activeView, markAllRead, unreadCount, visibleEvents]);
 
   useEffect(() => {
     if (events.length === 0) {
@@ -419,7 +439,9 @@ export function Header({
                 title={
                   inputRequiredEvents.length > 1
                     ? `${inputRequiredEvents.length} actions require your input`
-                    : `${singleInputRequired?.title ?? ""} (${singleInputProject} • ${singleInputWorktree})`
+                    : `${
+                        singleInputRequired?.title ?? ""
+                      } (${singleInputProject} • ${singleInputWorktree})`
                 }
               >
                 <span
@@ -485,7 +507,9 @@ export function Header({
               {appUpdate.status === "downloading" && (
                 <span
                   className="absolute bottom-0 left-0 h-[1.5px] bg-amber-300 transition-[width] duration-200"
-                  style={{ width: `${Math.max(0, Math.min(100, appUpdate.progress ?? 0))}%` }}
+                  style={{
+                    width: `${Math.max(0, Math.min(100, appUpdate.progress ?? 0))}%`,
+                  }}
                 />
               )}
             </button>

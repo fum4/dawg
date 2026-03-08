@@ -6,20 +6,7 @@ OpenKit is an AI engineering workflow platform.
 It gives agents a real execution loop: pick up tasks, work in isolated environments, run checks,
 and ship pull requests with clear visibility.
 
-🌐 [dawg-chi.vercel.app](https://dawg-chi.vercel.app/)
-
-<br /><br />
-
-## ✨ Features
-
-- **Task-driven development**: Create and execute work from Jira, Linear, and local tasks in one
-  consistent flow.
-- **Isolated environments**: Each task runs independently on Git worktrees with automatic port
-  conflict resolution.
-- **Agent tooling hub**: Manage custom markdown agents (deployed to Claude/Cursor/Gemini CLI/VS Code/Codex), plugin subagents, MCP servers, skills, plugins, and workflow hooks in one place, with cache-first agent loading, unified Scan & Import flows, and MCP server creation via either form fields or pasted JSON config.
-- **Real-time visibility**: Track execution across agents with live activity and high-signal
-  blocker/approval notifications via the header bell feed and the dedicated per-project Activity page.
-- **Desktop auto-updates**: Electron builds can check for new GitHub releases, show download/install state in-app, and install updates in one click.
+Check the official [docs](https://openkit.work/) for more info and usage patterns.
 
 <br /><br />
 
@@ -83,10 +70,6 @@ $ pnpm dev:web-app
 $ pnpm dev:website
 ```
 
-> [!IMPORTANT]
->
-> Make sure `.env.local` exists before running the app (`pnpm run setup`).
-
 <br /><br />
 
 ## ⚙️ Build
@@ -108,17 +91,6 @@ Environment variables:
 
 <br /><br />
 
-## 🚀 Deploy
-
-Everything is released from `master`.
-
-- On pull requests targeting `master`, CI runs code quality, type checks, smoke tests, and build jobs with affected-target guards (so non-impacted jobs are skipped).
-- On push/merge to `master`, the release workflow creates the release commit/tag and GitHub release automatically.
-- A dedicated package workflow runs on release tag pushes (`v*`) and attaches macOS/Linux artifacts to that tag.
-- The website Vercel project uses an `ignoreCommand` to skip deploys when commits do not change files under `apps/website/`.
-
-<br /><br />
-
 ## 📦 Package
 
 ```bash
@@ -126,6 +98,16 @@ $ pnpm package
 $ pnpm package:mac
 $ pnpm package:linux
 ```
+
+<br /><br />
+
+## 🚀 Deploy
+
+Everything is released from `master`.
+
+- On pull requests targeting `master`, CI runs code quality, type checks, smoke tests, and build jobs with affected-target guards.
+- On push/merge to `master`, the release workflow creates the release commit/tag and GitHub release automatically.
+- A dedicated package workflow runs on release tag pushes and attaches macOS/Linux artifacts to that tag.
 
 <br /><br />
 

@@ -42,6 +42,9 @@ There is no test runner configured.
 
 **Fix any lint or format errors you encounter — whether introduced by current changes or pre-existing in the codebase.** Don't leave broken windows.
 
+- Never use Prettier in this repository.
+- Use `oxlint` for linting and `oxfmt` for formatting.
+
 ## TypeScript Preference
 
 - Always prefer TypeScript (`.ts`/`.tsx`) whenever possible.

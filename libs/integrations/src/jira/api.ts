@@ -15,6 +15,42 @@ import type {
   JiraAttachment,
 } from "./types";
 
+export interface JiraStatusOption {
+  id: string;
+  name: string;
+}
+
+export interface JiraPriorityOption {
+  id: string;
+  name: string;
+}
+
+export interface JiraIssueTypeOption {
+  id: string;
+  name: string;
+}
+
+function toAdfDocument(text: string): Record<string, unknown> {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) {
+    return {
+      type: "doc",
+      version: 1,
+      content: [],
+    };
+  }
+  const lines = normalized.split("\n");
+  const content = lines.map((line) => ({
+    type: "paragraph",
+    content: line.length > 0 ? [{ type: "text", text: line }] : [],
+  }));
+  return {
+    type: "doc",
+    version: 1,
+    content,
+  };
+}
+
 export function resolveTaskKey(taskId: string, projectConfig: JiraProjectConfig): string {
   // If already contains a dash, assume it's a full key like PROJ-123
   if (taskId.includes("-")) return taskId.toUpperCase();
@@ -60,10 +96,23 @@ export async function fetchIssue(
     { headers },
   );
 
-  let rawComments: Array<{ author: { displayName: string }; body: unknown; created: string }> = [];
+  let currentUserAccountId: string | null = null;
+  const myselfResp = await fetch(`${base}/myself`, { headers });
+  if (myselfResp.ok) {
+    const myself = (await myselfResp.json()) as { accountId?: string };
+    currentUserAccountId = myself.accountId ?? null;
+  }
+
+  let rawComments: Array<{
+    id: string;
+    author: { displayName: string; accountId?: string };
+    body: unknown;
+    created: string;
+  }> = [];
   if (commentsResp.ok) {
     const commentsData = (await commentsResp.json()) as {
       comments: Array<{
+        id: string;
         author: { displayName: string };
         body: unknown;
         created: string;
@@ -101,9 +150,11 @@ export async function fetchIssue(
   }
 
   const comments: JiraComment[] = rawComments.map((c) => ({
+    id: c.id,
     author: c.author?.displayName ?? "Unknown",
     body: adfToMarkdown(c.body, attachmentMap),
     created: c.created,
+    canEdit: !!currentUserAccountId && c.author?.accountId === currentUserAccountId,
   }));
 
   return {
@@ -131,6 +182,314 @@ export async function fetchIssue(
     fetchedAt: new Date().toISOString(),
     url: issueUrl,
   };
+}
+
+export async function fetchIssueStatusOptions(
+  key: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<JiraStatusOption[]> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}/transitions`, { headers });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to fetch transitions for ${key}: ${resp.status} ${body}`);
+  }
+  const data = (await resp.json()) as {
+    transitions?: Array<{ id?: string; to?: { name?: string } }>;
+  };
+  const seen = new Set<string>();
+  const options: JiraStatusOption[] = [];
+  for (const transition of data.transitions ?? []) {
+    const id = transition.id?.trim();
+    const name = transition.to?.name?.trim();
+    if (!id || !name) continue;
+    const dedupeKey = `${id}:${name.toLowerCase()}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    options.push({ id, name });
+  }
+  return options;
+}
+
+export async function transitionIssueStatus(
+  key: string,
+  statusName: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const options = await fetchIssueStatusOptions(key, creds, configDir);
+  const next = options.find(
+    (option) => option.name.toLowerCase() === statusName.trim().toLowerCase(),
+  );
+  if (!next) {
+    throw new Error(`Status "${statusName}" is not available as a transition for ${key}`);
+  }
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}/transitions`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      transition: {
+        id: next.id,
+      },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to transition ${key} to ${statusName}: ${resp.status} ${body}`);
+  }
+}
+
+export async function fetchPriorityOptions(
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<JiraPriorityOption[]> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/priority`, { headers });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to fetch priorities: ${resp.status} ${body}`);
+  }
+  const data = (await resp.json()) as Array<{ id?: string; name?: string }>;
+  const options = data
+    .map((priority) => ({
+      id: priority.id?.trim() ?? "",
+      name: priority.name?.trim() ?? "",
+    }))
+    .filter((priority) => priority.id && priority.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return options;
+}
+
+export async function fetchIssueTypeOptions(
+  key: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<JiraIssueTypeOption[]> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}/editmeta`, { headers });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to fetch issue type options for ${key}: ${resp.status} ${body}`);
+  }
+  const data = (await resp.json()) as {
+    fields?: {
+      issuetype?: {
+        allowedValues?: Array<{ id?: string; name?: string }>;
+      };
+    };
+  };
+  const options = (data.fields?.issuetype?.allowedValues ?? [])
+    .map((issueType) => ({
+      id: issueType.id?.trim() ?? "",
+      name: issueType.name?.trim() ?? "",
+    }))
+    .filter((issueType) => issueType.id && issueType.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return options;
+}
+
+export async function updateIssuePriority(
+  key: string,
+  priorityName: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const options = await fetchPriorityOptions(creds, configDir);
+  const next = options.find(
+    (option) => option.name.toLowerCase() === priorityName.trim().toLowerCase(),
+  );
+  if (!next) {
+    throw new Error(`Priority "${priorityName}" is not available`);
+  }
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}`, {
+    method: "PUT",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fields: {
+        priority: {
+          id: next.id,
+        },
+      },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to update priority for ${key}: ${resp.status} ${body}`);
+  }
+}
+
+export async function updateIssueType(
+  key: string,
+  typeName: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const options = await fetchIssueTypeOptions(key, creds, configDir);
+  const next = options.find(
+    (option) => option.name.toLowerCase() === typeName.trim().toLowerCase(),
+  );
+  if (!next) {
+    throw new Error(`Issue type "${typeName}" is not available`);
+  }
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}`, {
+    method: "PUT",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fields: {
+        issuetype: {
+          id: next.id,
+        },
+      },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to update issue type for ${key}: ${resp.status} ${body}`);
+  }
+}
+
+export async function updateIssueDescription(
+  key: string,
+  description: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}`, {
+    method: "PUT",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fields: {
+        description: toAdfDocument(description),
+      },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to update description for ${key}: ${resp.status} ${body}`);
+  }
+}
+
+export async function updateIssueSummary(
+  key: string,
+  summary: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}`, {
+    method: "PUT",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fields: {
+        summary,
+      },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to update summary for ${key}: ${resp.status} ${body}`);
+  }
+}
+
+export async function addIssueComment(
+  key: string,
+  comment: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(`${base}/issue/${encodeURIComponent(key)}/comment`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      body: toAdfDocument(comment),
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to add comment to ${key}: ${resp.status} ${body}`);
+  }
+}
+
+export async function updateIssueComment(
+  key: string,
+  commentId: string,
+  comment: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(
+    `${base}/issue/${encodeURIComponent(key)}/comment/${encodeURIComponent(commentId)}`,
+    {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body: toAdfDocument(comment),
+      }),
+    },
+  );
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to update comment ${commentId}: ${resp.status} ${body}`);
+  }
+}
+
+export async function deleteIssueComment(
+  key: string,
+  commentId: string,
+  creds: JiraCredentials,
+  configDir: string,
+): Promise<void> {
+  const base = getApiBase(creds);
+  const headers = await getAuthHeaders(creds, configDir);
+  const resp = await fetch(
+    `${base}/issue/${encodeURIComponent(key)}/comment/${encodeURIComponent(commentId)}`,
+    {
+      method: "DELETE",
+      headers,
+    },
+  );
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Failed to delete comment ${commentId}: ${resp.status} ${body}`);
+  }
 }
 
 export async function downloadAttachments(

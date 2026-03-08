@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import type { ClaudeAgentDetail, ClaudeAgentSummary } from "../types";
+import type { ClaudeAgentDetail, ClaudeAgentSummary, PluginSummary } from "../types";
 import {
   fetchSkills,
   fetchSkill,
@@ -103,6 +103,11 @@ interface ClaudeAgentsCachePayload {
   cliAvailable?: boolean;
 }
 
+interface ClaudePluginsCachePayload {
+  plugins: PluginSummary[];
+  cliAvailable?: boolean;
+}
+
 export function useSkills() {
   const serverUrl = useServerUrlOptional();
 
@@ -168,13 +173,59 @@ export function useSkillDeploymentStatus() {
 
 export function useClaudePlugins() {
   const serverUrl = useServerUrlOptional();
+  const storageKey = serverUrl
+    ? `OpenKit:claudePluginsCache:${serverUrl}`
+    : "OpenKit:claudePluginsCache";
+  const fallbackStorageKey = "OpenKit:claudePluginsCache:lastKnown";
+
+  const normalizePluginList = (input: unknown): PluginSummary[] => {
+    if (!Array.isArray(input)) return [];
+    return input.filter(
+      (item): item is PluginSummary => isRecord(item) && typeof item.id === "string",
+    );
+  };
+
+  const readCache = (key: string): ClaudePluginsCachePayload | undefined => {
+    if (typeof window === "undefined") return undefined;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw) as ClaudePluginsCachePayload;
+      return {
+        plugins: normalizePluginList(parsed.plugins),
+        cliAvailable: parsed.cliAvailable === true,
+      };
+    } catch {
+      return undefined;
+    }
+  };
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["claudePlugins", serverUrl],
     queryFn: () => fetchClaudePlugins(serverUrl),
+    initialData: () => {
+      return readCache(storageKey) ?? readCache(fallbackStorageKey);
+    },
     enabled: serverUrl !== null,
-    staleTime: 5_000,
+    staleTime: 60_000,
+    refetchOnMount: "always",
   });
+
+  useEffect(() => {
+    if (!data || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({ plugins: data.plugins ?? [], cliAvailable: !!data.cliAvailable }),
+      );
+      window.localStorage.setItem(
+        fallbackStorageKey,
+        JSON.stringify({ plugins: data.plugins ?? [], cliAvailable: !!data.cliAvailable }),
+      );
+    } catch {
+      // Ignore localStorage failures.
+    }
+  }, [data, fallbackStorageKey, storageKey]);
 
   return {
     plugins: data?.plugins ?? [],
