@@ -120,8 +120,8 @@ import DownloadSplitButton from "./DownloadSplitButton.astro";
   .hero {
     position: relative;
     padding: calc(var(--nav-height) + 96px) 0 112px;
-    overflow-x: hidden;
-    overflow-y: visible;
+    overflow: visible;
+    z-index: 10;
   }
 
   /* ─── Background layers ──────────────────────────────────── */
@@ -169,6 +169,7 @@ import DownloadSplitButton from "./DownloadSplitButton.astro";
     gap: 72px;
     align-items: center;
     position: relative;
+    z-index: 2;
   }
 
   .hero-text {
@@ -224,6 +225,11 @@ import DownloadSplitButton from "./DownloadSplitButton.astro";
     gap: 12px;
     flex-wrap: wrap;
     overflow: visible;
+  }
+
+  .hero-ctas.fade-in,
+  .hero-ctas.fade-in.visible {
+    transform: none;
   }
 
   .hero-download {

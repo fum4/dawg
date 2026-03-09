@@ -1,6 +1,6 @@
 import { GitBranch } from "lucide-react";
 import type { LinearIssueSummary } from "../types";
-import { linearPriority, linearStateType, surface, text } from "../theme";
+import { linearStateType, surface, text } from "../theme";
 import { Tooltip } from "./Tooltip";
 
 interface LinearIssueItemProps {
@@ -48,10 +48,8 @@ export function LinearIssueItem({
                 {issue.state.name}
               </span>
             )}
-            {showPriority && linearPriority[issue.priority] && (
-              <span className={`text-[10px] ${linearPriority[issue.priority].color}`}>
-                {linearPriority[issue.priority].label}
-              </span>
+            {showPriority && issue.priorityLabel && (
+              <span className={`text-[10px] ${text.secondary}`}>{issue.priorityLabel}</span>
             )}
           </div>
           <div className={`text-xs ${text.primary} truncate mt-0.5`}>{issue.title}</div>

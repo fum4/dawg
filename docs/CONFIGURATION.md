@@ -337,7 +337,9 @@ Stores credentials and per-project settings for issue tracker integrations. This
     "autoStartAgent": "claude",
     "autoStartClaudeOnNewIssue": false,
     "autoStartClaudeSkipPermissions": true,
-    "autoStartClaudeFocusTerminal": true
+    "autoStartClaudeFocusTerminal": true,
+    "autoUpdateIssueStatusOnAgentStart": false,
+    "autoUpdateIssueStatusName": "In Progress"
   },
   "linear": {
     "apiKey": "lin_api_...",
@@ -348,7 +350,9 @@ Stores credentials and per-project settings for issue tracker integrations. This
     "autoStartAgent": "claude",
     "autoStartClaudeOnNewIssue": false,
     "autoStartClaudeSkipPermissions": true,
-    "autoStartClaudeFocusTerminal": true
+    "autoStartClaudeFocusTerminal": true,
+    "autoUpdateIssueStatusOnAgentStart": false,
+    "autoUpdateIssueStatusName": "In Progress"
   }
 }
 ```
@@ -381,15 +385,17 @@ Jira supports two authentication methods:
 
 ### Jira Project Config
 
-| Field                            | Type                                            | Default     | Description                                                                 |
-| -------------------------------- | ----------------------------------------------- | ----------- | --------------------------------------------------------------------------- |
-| `defaultProjectKey`              | `string`                                        | `undefined` | Default Jira project key for issue fetching (e.g., `"PROJ"`)                |
-| `refreshIntervalMinutes`         | `number`                                        | `undefined` | How often to re-fetch issue lists (in minutes)                              |
-| `dataLifecycle`                  | `object`                                        | `undefined` | Controls when and how issue data is cached/cleaned                          |
-| `autoStartAgent`                 | `"claude" \| "codex" \| "gemini" \| "opencode"` | `"claude"`  | Which agent is launched for Jira auto-start                                 |
-| `autoStartClaudeOnNewIssue`      | `boolean`                                       | `undefined` | Whether newly fetched Jira issues should auto-start the selected agent      |
-| `autoStartClaudeSkipPermissions` | `boolean`                                       | `undefined` | Whether auto-started Jira sessions run with skip-permissions enabled        |
-| `autoStartClaudeFocusTerminal`   | `boolean`                                       | `true`      | Whether UI should auto-focus the Jira agent terminal when auto-start begins |
+| Field                               | Type                                            | Default     | Description                                                                 |
+| ----------------------------------- | ----------------------------------------------- | ----------- | --------------------------------------------------------------------------- |
+| `defaultProjectKey`                 | `string`                                        | `undefined` | Default Jira project key for issue fetching (e.g., `"PROJ"`)                |
+| `refreshIntervalMinutes`            | `number`                                        | `undefined` | How often to re-fetch issue lists (in minutes)                              |
+| `dataLifecycle`                     | `object`                                        | `undefined` | Controls when and how issue data is cached/cleaned                          |
+| `autoStartAgent`                    | `"claude" \| "codex" \| "gemini" \| "opencode"` | `"claude"`  | Which agent is launched for Jira auto-start                                 |
+| `autoStartClaudeOnNewIssue`         | `boolean`                                       | `undefined` | Whether newly fetched Jira issues should auto-start the selected agent      |
+| `autoStartClaudeSkipPermissions`    | `boolean`                                       | `undefined` | Whether auto-started Jira sessions run with skip-permissions enabled        |
+| `autoStartClaudeFocusTerminal`      | `boolean`                                       | `true`      | Whether UI should auto-focus the Jira agent terminal when auto-start begins |
+| `autoUpdateIssueStatusOnAgentStart` | `boolean`                                       | `undefined` | Whether to transition Jira issue status automatically when agent starts     |
+| `autoUpdateIssueStatusName`         | `string`                                        | `undefined` | Jira status name to set when auto-start begins                              |
 
 ### Linear Credentials
 
@@ -400,15 +406,17 @@ Jira supports two authentication methods:
 
 ### Linear Project Config
 
-| Field                            | Type                                            | Default     | Description                                                                   |
-| -------------------------------- | ----------------------------------------------- | ----------- | ----------------------------------------------------------------------------- |
-| `defaultTeamKey`                 | `string`                                        | `undefined` | Default Linear team key for issue fetching (e.g., `"ENG"`)                    |
-| `refreshIntervalMinutes`         | `number`                                        | `undefined` | How often to re-fetch issue lists (in minutes)                                |
-| `dataLifecycle`                  | `object`                                        | `undefined` | Controls when and how issue data is cached/cleaned                            |
-| `autoStartAgent`                 | `"claude" \| "codex" \| "gemini" \| "opencode"` | `"claude"`  | Which agent is launched for Linear auto-start                                 |
-| `autoStartClaudeOnNewIssue`      | `boolean`                                       | `undefined` | Whether newly fetched Linear issues should auto-start the selected agent      |
-| `autoStartClaudeSkipPermissions` | `boolean`                                       | `undefined` | Whether auto-started Linear sessions run with skip-permissions enabled        |
-| `autoStartClaudeFocusTerminal`   | `boolean`                                       | `true`      | Whether UI should auto-focus the Linear agent terminal when auto-start begins |
+| Field                               | Type                                            | Default     | Description                                                                   |
+| ----------------------------------- | ----------------------------------------------- | ----------- | ----------------------------------------------------------------------------- |
+| `defaultTeamKey`                    | `string`                                        | `undefined` | Default Linear team key for issue fetching (e.g., `"ENG"`)                    |
+| `refreshIntervalMinutes`            | `number`                                        | `undefined` | How often to re-fetch issue lists (in minutes)                                |
+| `dataLifecycle`                     | `object`                                        | `undefined` | Controls when and how issue data is cached/cleaned                            |
+| `autoStartAgent`                    | `"claude" \| "codex" \| "gemini" \| "opencode"` | `"claude"`  | Which agent is launched for Linear auto-start                                 |
+| `autoStartClaudeOnNewIssue`         | `boolean`                                       | `undefined` | Whether newly fetched Linear issues should auto-start the selected agent      |
+| `autoStartClaudeSkipPermissions`    | `boolean`                                       | `undefined` | Whether auto-started Linear sessions run with skip-permissions enabled        |
+| `autoStartClaudeFocusTerminal`      | `boolean`                                       | `true`      | Whether UI should auto-focus the Linear agent terminal when auto-start begins |
+| `autoUpdateIssueStatusOnAgentStart` | `boolean`                                       | `undefined` | Whether to transition Linear issue status automatically when agent starts     |
+| `autoUpdateIssueStatusName`         | `string`                                        | `undefined` | Linear status name to set when auto-start begins                              |
 
 ### Data Lifecycle Config
 

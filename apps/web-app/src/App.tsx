@@ -2053,7 +2053,7 @@ export default function App() {
         category: "agent",
         type: "task_detected",
         severity: "info",
-        title: "New task",
+        title: "New issue",
         detail: formatTaskNotificationDetail(task.issueId, task.title),
         groupKey: `task-detected:${task.source}:${task.issueId}`,
         metadata: {
@@ -2101,6 +2101,18 @@ export default function App() {
         return;
       }
       const worktreeId = result.worktreeId ?? issue.key;
+      if (jiraStatus?.autoUpdateIssueStatusOnAgentStart && jiraStatus.autoUpdateIssueStatusName) {
+        const statusResult = await api.updateJiraIssueStatus(
+          issue.key,
+          jiraStatus.autoUpdateIssueStatusName,
+        );
+        logAutoClaude("Jira auto status update attempted", {
+          issueKey: issue.key,
+          targetStatus: jiraStatus.autoUpdateIssueStatusName,
+          success: statusResult.success,
+          error: statusResult.error,
+        });
+      }
       const activityResult = await api.createActivityEvent({
         category: "agent",
         type: "auto_task_claimed",
@@ -2136,6 +2148,8 @@ export default function App() {
       jiraStatus?.autoStartAgent,
       jiraStatus?.autoStartClaudeFocusTerminal,
       jiraStatus?.autoStartClaudeSkipPermissions,
+      jiraStatus?.autoUpdateIssueStatusOnAgentStart,
+      jiraStatus?.autoUpdateIssueStatusName,
       launchAutoStartAgent,
       logAutoClaude,
     ],
@@ -2170,6 +2184,21 @@ export default function App() {
         return;
       }
       const worktreeId = result.worktreeId ?? issue.identifier;
+      if (
+        linearStatus?.autoUpdateIssueStatusOnAgentStart &&
+        linearStatus.autoUpdateIssueStatusName
+      ) {
+        const statusResult = await api.updateLinearIssueStatus(
+          issue.identifier,
+          linearStatus.autoUpdateIssueStatusName,
+        );
+        logAutoClaude("Linear auto status update attempted", {
+          identifier: issue.identifier,
+          targetStatus: linearStatus.autoUpdateIssueStatusName,
+          success: statusResult.success,
+          error: statusResult.error,
+        });
+      }
       const activityResult = await api.createActivityEvent({
         category: "agent",
         type: "auto_task_claimed",
@@ -2206,6 +2235,8 @@ export default function App() {
       linearStatus?.autoStartAgent,
       linearStatus?.autoStartClaudeFocusTerminal,
       linearStatus?.autoStartClaudeSkipPermissions,
+      linearStatus?.autoUpdateIssueStatusOnAgentStart,
+      linearStatus?.autoUpdateIssueStatusName,
       logAutoClaude,
     ],
   );

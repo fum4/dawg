@@ -143,6 +143,26 @@ export function useApi() {
       fetchLinearIssues: (query?: string) => api.fetchLinearIssues(query, serverUrl),
 
       fetchJiraIssueDetail: (key: string) => api.fetchJiraIssueDetail(key, serverUrl),
+      fetchJiraStatusOptions: () => api.fetchJiraStatusOptions(serverUrl),
+      fetchJiraIssueStatusOptions: (key: string) => api.fetchJiraIssueStatusOptions(key, serverUrl),
+      fetchJiraPriorityOptions: () => api.fetchJiraPriorityOptions(serverUrl),
+      fetchJiraIssueTypeOptions: (key: string) => api.fetchJiraIssueTypeOptions(key, serverUrl),
+      updateJiraIssueStatus: (key: string, statusName: string) =>
+        api.updateJiraIssueStatus(key, statusName, serverUrl),
+      updateJiraIssuePriority: (key: string, priorityName: string) =>
+        api.updateJiraIssuePriority(key, priorityName, serverUrl),
+      updateJiraIssueType: (key: string, typeName: string) =>
+        api.updateJiraIssueType(key, typeName, serverUrl),
+      updateJiraIssueDescription: (key: string, description: string) =>
+        api.updateJiraIssueDescription(key, description, serverUrl),
+      updateJiraIssueSummary: (key: string, summary: string) =>
+        api.updateJiraIssueSummary(key, summary, serverUrl),
+      addJiraIssueComment: (key: string, comment: string) =>
+        api.addJiraIssueComment(key, comment, serverUrl),
+      updateJiraIssueComment: (key: string, commentId: string, comment: string) =>
+        api.updateJiraIssueComment(key, commentId, comment, serverUrl),
+      deleteJiraIssueComment: (key: string, commentId: string) =>
+        api.deleteJiraIssueComment(key, commentId, serverUrl),
 
       discoverPorts: () => api.discoverPorts(serverUrl),
 
@@ -164,6 +184,8 @@ export function useApi() {
         autoStartClaudeSkipPermissions?: Parameters<typeof api.updateJiraConfig>[5],
         autoStartClaudeFocusTerminal?: Parameters<typeof api.updateJiraConfig>[6],
         autoStartAgent?: Parameters<typeof api.updateJiraConfig>[3],
+        autoUpdateIssueStatusOnAgentStart?: Parameters<typeof api.updateJiraConfig>[7],
+        autoUpdateIssueStatusName?: Parameters<typeof api.updateJiraConfig>[8],
       ) =>
         api.updateJiraConfig(
           defaultProjectKey,
@@ -173,6 +195,8 @@ export function useApi() {
           autoStartClaudeOnNewIssue,
           autoStartClaudeSkipPermissions,
           autoStartClaudeFocusTerminal,
+          autoUpdateIssueStatusOnAgentStart,
+          autoUpdateIssueStatusName,
           serverUrl,
         ),
 
@@ -180,6 +204,24 @@ export function useApi() {
 
       createFromLinear: (identifier: string, branch?: string) =>
         api.createFromLinear(identifier, branch, serverUrl),
+      fetchLinearStatusOptions: () => api.fetchLinearStatusOptions(serverUrl),
+      fetchLinearIssueStatusOptions: (identifier: string) =>
+        api.fetchLinearIssueStatusOptions(identifier, serverUrl),
+      fetchLinearPriorityOptions: () => api.fetchLinearPriorityOptions(serverUrl),
+      updateLinearIssueStatus: (identifier: string, statusName: string) =>
+        api.updateLinearIssueStatus(identifier, statusName, serverUrl),
+      updateLinearIssuePriority: (identifier: string, priority: number) =>
+        api.updateLinearIssuePriority(identifier, priority, serverUrl),
+      updateLinearIssueDescription: (identifier: string, description: string) =>
+        api.updateLinearIssueDescription(identifier, description, serverUrl),
+      updateLinearIssueTitle: (identifier: string, title: string) =>
+        api.updateLinearIssueTitle(identifier, title, serverUrl),
+      addLinearIssueComment: (identifier: string, comment: string) =>
+        api.addLinearIssueComment(identifier, comment, serverUrl),
+      updateLinearIssueComment: (identifier: string, commentId: string, comment: string) =>
+        api.updateLinearIssueComment(identifier, commentId, comment, serverUrl),
+      deleteLinearIssueComment: (identifier: string, commentId: string) =>
+        api.deleteLinearIssueComment(identifier, commentId, serverUrl),
 
       setupLinear: (apiKey: string) => api.setupLinear(apiKey, serverUrl),
 
@@ -191,6 +233,8 @@ export function useApi() {
         autoStartClaudeSkipPermissions?: Parameters<typeof api.updateLinearConfig>[5],
         autoStartClaudeFocusTerminal?: Parameters<typeof api.updateLinearConfig>[6],
         autoStartAgent?: Parameters<typeof api.updateLinearConfig>[3],
+        autoUpdateIssueStatusOnAgentStart?: Parameters<typeof api.updateLinearConfig>[7],
+        autoUpdateIssueStatusName?: Parameters<typeof api.updateLinearConfig>[8],
       ) =>
         api.updateLinearConfig(
           defaultTeamKey,
@@ -200,6 +244,8 @@ export function useApi() {
           autoStartClaudeOnNewIssue,
           autoStartClaudeSkipPermissions,
           autoStartClaudeFocusTerminal,
+          autoUpdateIssueStatusOnAgentStart,
+          autoUpdateIssueStatusName,
           serverUrl,
         ),
 

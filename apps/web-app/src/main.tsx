@@ -45,6 +45,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             toastOptions={{
               className: "rounded-xl border border-slate-700 bg-slate-900 text-slate-100",
               duration: 4500,
+              removeDelay: 0,
               style: {
                 background: "#0f1013",
                 color: "#f1f5f9",

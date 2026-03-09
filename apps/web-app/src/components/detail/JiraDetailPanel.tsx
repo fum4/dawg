@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GitBranch } from "lucide-react";
 
 import { useJiraIssueDetail } from "../../hooks/useJiraIssueDetail";
@@ -6,6 +6,7 @@ import { useApi } from "../../hooks/useApi";
 import { useServerUrlOptional } from "../../contexts/ServerContext";
 import type { JiraIssueDetail } from "../../types";
 import { badge, border, button, jiraPriority, jiraStatus, jiraType, text } from "../../theme";
+import { reportPersistentErrorToast } from "../../errorToasts";
 import { Tooltip } from "../Tooltip";
 import { TruncatedTooltip } from "../TruncatedTooltip";
 import { AttachmentImage } from "../AttachmentImage";
@@ -16,6 +17,8 @@ import { Spinner } from "../Spinner";
 import { WorktreeExistsModal } from "../WorktreeExistsModal";
 import { ImageModal } from "../ImageModal";
 import { CodeAgentSplitButton, type CodingAgent } from "./CodeAgentSplitButton";
+import { EditableTextareaCard } from "../EditableTextareaCard";
+import { ConfirmDialog } from "../ConfirmDialog";
 
 interface JiraDetailPanelProps {
   issueKey: string;
@@ -226,15 +229,41 @@ export function JiraDetailPanel({
   );
   const [isCreating, setIsCreating] = useState(false);
   const [isCodingWithAgent, setIsCodingWithAgent] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
   const [existingWorktree, setExistingWorktree] = useState<{ id: string; branch: string } | null>(
     null,
   );
+  const [statusOptions, setStatusOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [priorityOptions, setPriorityOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [typeOptions, setTypeOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingPriority, setIsUpdatingPriority] = useState(false);
+  const [isUpdatingType, setIsUpdatingType] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
+  const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [summaryDraft, setSummaryDraft] = useState("");
+  const [isSavingSummary, setIsSavingSummary] = useState(false);
+  const [summarySaved, setSummarySaved] = useState(false);
+  const summarySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [isAddingComment, setIsAddingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentDraft, setEditingCommentDraft] = useState("");
+  const [isUpdatingComment, setIsUpdatingComment] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<{ id: string; author: string } | null>(
+    null,
+  );
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
   const [contentPreview, setContentPreview] = useState<{
     src: string;
     filename: string;
     type: "image" | "pdf";
   } | null>(null);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
+  const priorityMenuRef = useRef<HTMLDivElement | null>(null);
+  const typeMenuRef = useRef<HTMLDivElement | null>(null);
+  const newCommentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const activeLinkedWorktreeId =
     linkedWorktreeId && activeWorktreeIds.has(linkedWorktreeId) ? linkedWorktreeId : null;
   const activeLinkedWorktreePrUrl = activeLinkedWorktreeId ? linkedWorktreePrUrl : null;
@@ -244,9 +273,82 @@ export function JiraDetailPanel({
     setContentPreview({ src, filename: alt, type: isPdf ? "pdf" : "image" });
   };
 
+  useEffect(() => {
+    if (!isEditingSummary) {
+      setSummaryDraft(issue?.summary ?? "");
+    }
+  }, [isEditingSummary, issue?.summary]);
+
+  useEffect(() => {
+    return () => {
+      if (summarySaveTimerRef.current) clearTimeout(summarySaveTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isStatusMenuOpen && !isPriorityMenuOpen && !isTypeMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedStatusMenu = statusMenuRef.current?.contains(target);
+      const clickedPriorityMenu = priorityMenuRef.current?.contains(target);
+      const clickedTypeMenu = typeMenuRef.current?.contains(target);
+      if (!clickedStatusMenu) {
+        setIsStatusMenuOpen(false);
+      }
+      if (!clickedPriorityMenu) {
+        setIsPriorityMenuOpen(false);
+      }
+      if (!clickedTypeMenu) {
+        setIsTypeMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [isPriorityMenuOpen, isStatusMenuOpen, isTypeMenuOpen]);
+
+  useEffect(() => {
+    let active = true;
+    void api.fetchJiraIssueStatusOptions(issueKey).then((result) => {
+      if (!active) return;
+      setStatusOptions(result.options ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, issue?.status, issueKey]);
+
+  useEffect(() => {
+    let active = true;
+    void api.fetchJiraPriorityOptions().then((result) => {
+      if (!active) return;
+      setPriorityOptions(result.options ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api]);
+
+  useEffect(() => {
+    let active = true;
+    void api.fetchJiraIssueTypeOptions(issueKey).then((result) => {
+      if (!active) return;
+      setTypeOptions(result.options ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, issue?.type, issueKey]);
+
+  useEffect(() => {
+    if (error) {
+      reportPersistentErrorToast(error, "Failed to load Jira issue", {
+        scope: "jira:detail-load",
+      });
+    }
+  }, [error]);
+
   const handleCreate = async () => {
     setIsCreating(true);
-    setCreateError(null);
     const result = await api.createFromJira(issueKey);
     console.log("createFromJira result:", result);
     setIsCreating(false);
@@ -265,10 +367,14 @@ export function JiraDetailPanel({
         if (onSetupNeeded) {
           onSetupNeeded();
         } else {
-          setCreateError(errorMsg);
+          reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+            scope: "jira:create-worktree",
+          });
         }
       } else {
-        setCreateError(errorMsg);
+        reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+          scope: "jira:create-worktree",
+        });
       }
     }
   };
@@ -300,7 +406,6 @@ export function JiraDetailPanel({
   const handleCodeWithAgent = async (agent: CodingAgent) => {
     onSelectCodingAgent(agent);
     setIsCodingWithAgent(true);
-    setCreateError(null);
     const result = await api.createFromJira(issueKey);
     setIsCodingWithAgent(false);
     const reusingExistingWorktree =
@@ -322,12 +427,174 @@ export function JiraDetailPanel({
         if (onSetupNeeded) {
           onSetupNeeded();
         } else {
-          setCreateError(errorMsg);
+          reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+            scope: "jira:code-worktree",
+          });
         }
       } else {
-        setCreateError(errorMsg);
+        reportPersistentErrorToast(errorMsg, "Failed to create worktree", {
+          scope: "jira:code-worktree",
+        });
       }
     }
+  };
+
+  const handleUpdateStatus = async (statusName: string) => {
+    if (!statusName) return;
+    const currentIssueKey = issue?.key;
+    if (!currentIssueKey) return;
+    if (statusName === issue?.status) return;
+    setIsUpdatingStatus(true);
+    const result = await api.updateJiraIssueStatus(currentIssueKey, statusName);
+    setIsUpdatingStatus(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update status", {
+        scope: "jira:update-status",
+      });
+      return;
+    }
+    await refetch();
+  };
+
+  const handleUpdatePriority = async (priorityName: string) => {
+    if (!priorityName) return;
+    const currentIssueKey = issue?.key;
+    if (!currentIssueKey) return;
+    if (priorityName === issue?.priority) return;
+    setIsUpdatingPriority(true);
+    const result = await api.updateJiraIssuePriority(currentIssueKey, priorityName);
+    setIsUpdatingPriority(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update priority", {
+        scope: "jira:update-priority",
+      });
+      return;
+    }
+    await refetch();
+  };
+
+  const handleUpdateType = async (typeName: string) => {
+    if (!typeName) return;
+    const currentIssueKey = issue?.key;
+    if (!currentIssueKey) return;
+    if (typeName === issue?.type) return;
+    setIsUpdatingType(true);
+    const result = await api.updateJiraIssueType(currentIssueKey, typeName);
+    setIsUpdatingType(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update issue type", {
+        scope: "jira:update-type",
+      });
+      return;
+    }
+    await refetch();
+  };
+
+  const persistSummary = async (rawSummary: string, closeEditor = false) => {
+    const currentIssueKey = issue?.key;
+    const nextSummary = rawSummary.trim();
+    if (!currentIssueKey || !nextSummary) {
+      if (closeEditor) {
+        setSummaryDraft(issue?.summary ?? "");
+        setIsEditingSummary(false);
+        setSummarySaved(false);
+      }
+      return;
+    }
+    if (nextSummary === issue?.summary) {
+      if (closeEditor) {
+        setIsEditingSummary(false);
+        setSummarySaved(false);
+      }
+      return;
+    }
+    setIsSavingSummary(true);
+    const result = await api.updateJiraIssueSummary(currentIssueKey, nextSummary);
+    setIsSavingSummary(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update title", {
+        scope: "jira:update-summary",
+      });
+      if (closeEditor) {
+        setIsEditingSummary(false);
+        setSummarySaved(false);
+      }
+      return;
+    }
+    setSummarySaved(true);
+    await refetch();
+    if (closeEditor) {
+      setIsEditingSummary(false);
+      setSummarySaved(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    const comment = newComment.trim();
+    if (!comment) return;
+    const currentIssueKey = issue?.key;
+    if (!currentIssueKey) return;
+    setIsAddingComment(true);
+    const result = await api.addJiraIssueComment(currentIssueKey, comment);
+    setIsAddingComment(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to add comment", {
+        scope: "jira:add-comment",
+      });
+      return;
+    }
+    setNewComment("");
+    if (newCommentTextareaRef.current) {
+      newCommentTextareaRef.current.style.height = "auto";
+    }
+    await refetch();
+  };
+
+  useEffect(() => {
+    const textarea = newCommentTextareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [newComment]);
+
+  const handleUpdateComment = async () => {
+    const currentIssueKey = issue?.key;
+    const commentId = editingCommentId;
+    const comment = editingCommentDraft.trim();
+    if (!currentIssueKey || !commentId || !comment) return;
+    setIsUpdatingComment(true);
+    const result = await api.updateJiraIssueComment(currentIssueKey, commentId, comment);
+    setIsUpdatingComment(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to update comment", {
+        scope: "jira:update-comment",
+      });
+      return;
+    }
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
+    await refetch();
+  };
+
+  const handleDeleteComment = async () => {
+    const currentIssueKey = issue?.key;
+    const commentId = commentToDelete?.id;
+    if (!currentIssueKey || !commentId) return;
+    setIsDeletingComment(true);
+    const result = await api.deleteJiraIssueComment(currentIssueKey, commentId);
+    setIsDeletingComment(false);
+    if (!result.success) {
+      reportPersistentErrorToast(result.error, "Failed to delete comment", {
+        scope: "jira:delete-comment",
+      });
+      return;
+    }
+    setCommentToDelete(null);
+    if (editingCommentId === commentId) {
+      setEditingCommentId(null);
+      setEditingCommentDraft("");
+    }
+    await refetch();
   };
 
   if (isLoading) {
@@ -342,7 +609,7 @@ export function JiraDetailPanel({
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className={`${text.error} text-sm`}>{error}</p>
+        <p className={`${text.muted} text-sm`}>Unable to load issue details.</p>
       </div>
     );
   }
@@ -361,6 +628,8 @@ export function JiraDetailPanel({
   const typeClasses = jiraType[typeLower] ?? `${text.secondary} bg-white/[0.06]`;
   const priorityLower = issue.priority.toLowerCase();
   const priorityClass = jiraPriority[priorityLower] ?? text.secondary;
+  const headerChipClass =
+    "inline-flex h-5 min-h-5 shrink-0 items-center justify-center whitespace-nowrap rounded px-2 text-[11px] font-medium leading-5 align-middle box-border";
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -380,13 +649,69 @@ export function JiraDetailPanel({
                   {issue.key}
                 </a>
               </Tooltip>
-              <span className={`ml-2 text-[11px] font-medium px-2 py-0.5 rounded ${statusClasses}`}>
-                {issue.status}
-              </span>
+              {statusOptions.length > 0 ? (
+                <div ref={statusMenuRef} className="relative ml-2 flex h-5 items-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+                    disabled={isUpdatingStatus}
+                    className={`${headerChipClass} ${statusClasses} disabled:opacity-70`}
+                  >
+                    {issue.status}
+                  </button>
+                  {isStatusMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-10 min-w-[140px] rounded-md border border-white/[0.08] bg-[#101318] shadow-lg overflow-hidden">
+                      {statusOptions.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => {
+                            setIsStatusMenuOpen(false);
+                            void handleUpdateStatus(option.name);
+                          }}
+                          className={`block w-full text-left px-2.5 py-1.5 text-[11px] ${text.secondary} hover:bg-white/[0.06] transition-colors`}
+                        >
+                          {option.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className={`ml-2 ${headerChipClass} ${statusClasses}`}>{issue.status}</span>
+              )}
               <span className={`text-[5px] ${text.dimmed}`}>●</span>
-              <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${typeClasses}`}>
-                {issue.type}
-              </span>
+              {typeOptions.length > 0 ? (
+                <div ref={typeMenuRef} className="relative flex h-5 items-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsTypeMenuOpen((prev) => !prev)}
+                    disabled={isUpdatingType}
+                    className={`${headerChipClass} ${typeClasses} disabled:opacity-70`}
+                  >
+                    {issue.type}
+                  </button>
+                  {isTypeMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-10 min-w-[120px] rounded-md border border-white/[0.08] bg-[#101318] shadow-lg overflow-hidden">
+                      {typeOptions.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => {
+                            setIsTypeMenuOpen(false);
+                            void handleUpdateType(option.name);
+                          }}
+                          className={`block w-full text-left px-2.5 py-1.5 text-[11px] ${text.secondary} hover:bg-white/[0.06] transition-colors`}
+                        >
+                          {option.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className={`${headerChipClass} ${typeClasses}`}>{issue.type}</span>
+              )}
               {issue.labels.map((label) => (
                 <span
                   key={label}
@@ -396,14 +721,95 @@ export function JiraDetailPanel({
                 </span>
               ))}
               <span className={`text-[5px] ${text.dimmed}`}>●</span>
-              <span className={`text-[11px] ${priorityClass}`}>{issue.priority}</span>
+              {priorityOptions.length > 0 ? (
+                <div ref={priorityMenuRef} className="relative flex h-5 items-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsPriorityMenuOpen((prev) => !prev)}
+                    disabled={isUpdatingPriority}
+                    className={`${headerChipClass} ${priorityClass} disabled:opacity-70`}
+                  >
+                    {issue.priority}
+                  </button>
+                  {isPriorityMenuOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-10 min-w-[120px] rounded-md border border-white/[0.08] bg-[#101318] shadow-lg overflow-hidden">
+                      {priorityOptions.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => {
+                            setIsPriorityMenuOpen(false);
+                            void handleUpdatePriority(option.name);
+                          }}
+                          className={`block w-full text-left px-2.5 py-1.5 text-[11px] ${text.secondary} hover:bg-white/[0.06] transition-colors`}
+                        >
+                          {option.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className={`${headerChipClass} ${priorityClass}`}>{issue.priority}</span>
+              )}
             </div>
             {/* Summary — largest text, clear anchor */}
-            <h2 className={`text-[15px] font-semibold ${text.primary} leading-snug`}>
-              {issue.summary}
-            </h2>
+            {isEditingSummary ? (
+              <input
+                type="text"
+                value={summaryDraft}
+                onChange={(event) => {
+                  const nextSummary = event.target.value;
+                  setSummaryDraft(nextSummary);
+                  if (summarySaved) setSummarySaved(false);
+                  if (summarySaveTimerRef.current) clearTimeout(summarySaveTimerRef.current);
+                  summarySaveTimerRef.current = setTimeout(() => {
+                    void persistSummary(nextSummary, false);
+                  }, 3000);
+                }}
+                onBlur={() => {
+                  if (summarySaveTimerRef.current) clearTimeout(summarySaveTimerRef.current);
+                  void persistSummary(summaryDraft, true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (summarySaveTimerRef.current) clearTimeout(summarySaveTimerRef.current);
+                    void persistSummary(summaryDraft, true);
+                  }
+                  if (event.key === "Escape") {
+                    if (summarySaveTimerRef.current) clearTimeout(summarySaveTimerRef.current);
+                    setSummaryDraft(issue.summary);
+                    setSummarySaved(false);
+                    setIsEditingSummary(false);
+                  }
+                }}
+                className={`w-full text-[15px] font-semibold ${text.primary} leading-snug bg-transparent border border-white/[0.12] rounded-md px-2 py-1 focus:outline-none focus:border-white/[0.3]`}
+                autoFocus
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setSummaryDraft(issue.summary);
+                  setIsEditingSummary(true);
+                }}
+                className={`text-left text-[15px] font-semibold ${text.primary} leading-snug hover:bg-white/[0.03] rounded px-1 -mx-1 transition-colors`}
+              >
+                {issue.summary}
+              </button>
+            )}
           </div>
           <div className="flex-shrink-0 pt-1 flex items-center gap-2">
+            {(isSavingSummary || summarySaved) && (
+              <div className="min-w-[46px] flex justify-end">
+                {isSavingSummary ? (
+                  <Spinner size="xs" className={text.muted} />
+                ) : (
+                  <span className={`text-[10px] ${text.muted} font-medium`}>Saved</span>
+                )}
+              </div>
+            )}
             <Tooltip
               position="left"
               text={dataUpdatedAt ? `Last refreshed: ${formatTimeAgo(dataUpdatedAt)}` : "Refresh"}
@@ -489,23 +895,46 @@ export function JiraDetailPanel({
             )}
           </div>
         </div>
-        {createError && <p className={`${text.error} text-[10px] mt-2`}>{createError}</p>}
       </div>
 
       {/* Scrollable body — each section gets its own visual container */}
       <div className="flex-1 overflow-y-auto p-5 space-y-12">
-        {issue.description && (
-          <section>
-            <SectionLabel>Description</SectionLabel>
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-4 py-3">
-              <MarkdownContent
-                content={issue.description}
-                baseUrl={serverUrl ?? undefined}
-                onImageClick={handleImageClick}
-              />
-            </div>
-          </section>
-        )}
+        <section>
+          <SectionLabel>Description</SectionLabel>
+          <EditableTextareaCard
+            value={issue.description ?? ""}
+            debounceMs={3000}
+            rows={10}
+            showSaveState={true}
+            showInlineSaveError={false}
+            onSave={async (nextValue) => {
+              const result = await api.updateJiraIssueDescription(issue.key, nextValue);
+              if (!result.success) {
+                reportPersistentErrorToast(
+                  `Failed to save Jira issue description: ${result.error ?? "Unknown error"}`,
+                  "Failed to save Jira issue description",
+                  {
+                    scope: "jira:update-description",
+                  },
+                );
+                return false;
+              }
+              await refetch();
+              return true;
+            }}
+            renderPreview={(value) =>
+              value ? (
+                <MarkdownContent
+                  content={value}
+                  baseUrl={serverUrl ?? undefined}
+                  onImageClick={handleImageClick}
+                />
+              ) : (
+                <p className={`text-xs ${text.dimmed}`}>No description.</p>
+              )
+            }
+          />
+        </section>
 
         {issue.attachments.length > 0 && (
           <section>
@@ -514,33 +943,114 @@ export function JiraDetailPanel({
           </section>
         )}
 
-        {issue.comments.length > 0 && (
-          <section>
-            <SectionLabel>Comments ({issue.comments.length})</SectionLabel>
-            <div className="space-y-3">
-              {issue.comments.map((comment, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-4 py-3"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-[11px] font-medium ${text.primary}`}>
-                      {comment.author}
-                    </span>
-                    <span className={`text-[10px] ${text.dimmed}`}>
-                      {formatDate(comment.created)}
-                    </span>
+        <section>
+          <SectionLabel>Comments ({issue.comments.length})</SectionLabel>
+          <div className="space-y-3">
+            <div>
+              <div className="relative">
+                {isAddingComment ? (
+                  <div className="absolute top-2 right-2">
+                    <Spinner size="xs" className={text.muted} />
                   </div>
+                ) : null}
+                <textarea
+                  ref={newCommentTextareaRef}
+                  value={newComment}
+                  onChange={(event) => setNewComment(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleAddComment();
+                    }
+                  }}
+                  rows={3}
+                  placeholder="Add a comment..."
+                  className={`w-full min-h-[72px] overflow-hidden rounded-md bg-white/[0.03] border border-white/[0.08] px-3 py-2 text-xs ${text.secondary} focus:outline-none focus:border-white/[0.2] resize-none`}
+                />
+              </div>
+              <div className="-mt-1 mb-5">
+                <span className={`pl-1 text-[10px] ${text.dimmed}`}>
+                  Enter to post, Shift + Enter for newline
+                </span>
+              </div>
+            </div>
+            {issue.comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="rounded-lg bg-white/[0.02] border border-white/[0.04] px-4 py-3"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-[11px] font-medium ${text.primary}`}>
+                    {comment.author}
+                  </span>
+                  <span className={`text-[10px] ${text.dimmed}`}>
+                    {formatDate(comment.created)}
+                  </span>
+                  {comment.canEdit && (
+                    <span className={`ml-2 text-[10px] ${text.dimmed}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCommentId(comment.id);
+                          setEditingCommentDraft(comment.body);
+                        }}
+                        className="hover:text-white transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <span className="mx-1.5">|</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCommentToDelete({ id: comment.id, author: comment.author })
+                        }
+                        className="hover:text-white transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </span>
+                  )}
+                </div>
+                {editingCommentId === comment.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editingCommentDraft}
+                      onChange={(event) => setEditingCommentDraft(event.target.value)}
+                      rows={4}
+                      className={`w-full rounded-md bg-white/[0.03] border border-white/[0.08] px-3 py-2 text-xs ${text.secondary} focus:outline-none focus:border-white/[0.2]`}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCommentId(null);
+                          setEditingCommentDraft("");
+                        }}
+                        className={`px-2.5 py-1 text-[11px] rounded ${button.secondary}`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleUpdateComment()}
+                        disabled={isUpdatingComment || editingCommentDraft.trim().length === 0}
+                        className={`px-2.5 py-1 text-[11px] rounded ${button.secondary} disabled:opacity-50`}
+                      >
+                        {isUpdatingComment ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                   <MarkdownContent
                     content={comment.body}
                     baseUrl={serverUrl ?? undefined}
                     onImageClick={handleImageClick}
                   />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <PersonalNotesSection source="jira" issueId={issue.key} />
         <AgentSection source="jira" issueId={issue.key} />
@@ -572,6 +1082,20 @@ export function JiraDetailPanel({
           type={contentPreview.type}
           onClose={() => setContentPreview(null)}
         />
+      )}
+      {commentToDelete && (
+        <ConfirmDialog
+          title="Delete Comment?"
+          confirmLabel={isDeletingComment ? "Deleting..." : "Delete"}
+          onConfirm={() => void handleDeleteComment()}
+          onCancel={() => {
+            if (!isDeletingComment) setCommentToDelete(null);
+          }}
+        >
+          <p className={`text-xs ${text.secondary}`}>
+            Delete this comment by {commentToDelete.author}?
+          </p>
+        </ConfirmDialog>
       )}
     </div>
   );

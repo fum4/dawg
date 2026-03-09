@@ -53,6 +53,8 @@ export interface JiraStatus {
   autoStartClaudeOnNewIssue: boolean;
   autoStartClaudeSkipPermissions: boolean;
   autoStartClaudeFocusTerminal: boolean;
+  autoUpdateIssueStatusOnAgentStart: boolean;
+  autoUpdateIssueStatusName: string | null;
 }
 
 export interface GitHubStatus {
@@ -86,6 +88,8 @@ export interface LinearStatus {
   autoStartClaudeOnNewIssue: boolean;
   autoStartClaudeSkipPermissions: boolean;
   autoStartClaudeFocusTerminal: boolean;
+  autoUpdateIssueStatusOnAgentStart: boolean;
+  autoUpdateIssueStatusName: string | null;
 }
 
 export interface LinearState {
@@ -104,6 +108,7 @@ export interface LinearIssueSummary {
   title: string;
   state: LinearState;
   priority: number;
+  priorityLabel: string;
   assignee: string | null;
   updatedAt: string;
   labels: LinearLabel[];
@@ -113,7 +118,13 @@ export interface LinearIssueSummary {
 export interface LinearIssueDetail extends LinearIssueSummary {
   description: string | null;
   createdAt: string;
-  comments: Array<{ author: string; body: string; createdAt: string }>;
+  comments: Array<{
+    id: string;
+    author: string;
+    body: string;
+    createdAt: string;
+    canEdit?: boolean;
+  }>;
   attachments: Array<{
     title: string;
     subtitle: string | null;
@@ -347,7 +358,7 @@ export interface JiraIssueDetail {
   labels: string[];
   created: string;
   updated: string;
-  comments: Array<{ author: string; body: string; created: string }>;
+  comments: Array<{ id: string; author: string; body: string; created: string; canEdit?: boolean }>;
   attachments: Array<{
     filename: string;
     mimeType: string;
