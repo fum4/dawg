@@ -106,7 +106,7 @@ $ pnpm package:linux
 Everything is released from `master`.
 
 - On pull requests targeting `master`, CI runs code quality, type checks, smoke tests, and build jobs with affected-target guards.
-- On push/merge to `master`, the release workflow creates the release commit/tag and GitHub release automatically.
+- On push/merge to `master`, the release workflow creates the release commit/tag and GitHub release only when `desktop-app` (or its packaging dependencies) is affected.
 - A dedicated package workflow runs on release tag pushes and attaches macOS/Linux artifacts to that tag.
 
 <br /><br />

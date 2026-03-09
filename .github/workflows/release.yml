@@ -12,10 +12,59 @@ permissions:
   contents: write
 
 jobs:
+  detect-desktop-release-impact:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.desktop-package-impact.outputs.affected }}
+      affected_projects: ${{ steps.desktop-package-impact.outputs.projects }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-pnpm-node
+
+      - name: Resolve comparison SHAs
+        id: comparison
+        shell: bash
+        env:
+          PUSH_BASE_SHA: ${{ github.event.before }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          base_sha="${PUSH_BASE_SHA}"
+          if [[ -z "${base_sha}" || "${base_sha}" == "0000000000000000000000000000000000000000" ]]; then
+            if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+              base_sha="$(git rev-parse HEAD^)"
+            else
+              base_sha="${PUSH_HEAD_SHA}"
+            fi
+          fi
+
+          echo "base_sha=${base_sha}" >> "${GITHUB_OUTPUT}"
+          echo "head_sha=${PUSH_HEAD_SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: Detect desktop packaging impact
+        id: desktop-package-impact
+        uses: ./.github/actions/check-affected-target
+        with:
+          base-sha: ${{ steps.comparison.outputs.base_sha }}
+          head-sha: ${{ steps.comparison.outputs.head_sha }}
+          targets: package
+          project-type: app
+          include-projects: desktop-app
+
   publish:
+    needs: detect-desktop-release-impact
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: "!startsWith(github.event.head_commit.message, '📦 release:')"
+    if: |
+      !startsWith(github.event.head_commit.message, '🔖 release:') &&
+      needs.detect-desktop-release-impact.outputs.should_release == 'true'
     outputs:
       tag: ${{ steps.release_tag.outputs.tag }}
 

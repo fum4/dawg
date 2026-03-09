@@ -1,6 +1,6 @@
 {
   "git": {
-    "commitMessage": "📦 release: v${version}",
+    "commitMessage": "🔖 release: v${version}",
     "tagName": "v${version}",
     "tagAnnotation": "Release v${version}",
     "push": true,
