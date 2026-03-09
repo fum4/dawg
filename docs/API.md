@@ -219,7 +219,7 @@ Initialize `.openkit/config.json` with provided or auto-detected values. Creates
   {
     "startCommand": "pnpm dev",
     "installCommand": "pnpm install",
-    "baseBranch": "origin/main",
+    "baseBranch": "main",
     "force": true
   }
   ```
@@ -2039,7 +2039,7 @@ WebSocket endpoint for bidirectional terminal communication. Upgrades the HTTP c
 
 ## Hooks
 
-Automated checks and agent skills organized by trigger type. Supports shell command steps and skill references from the registry. Lifecycle triggers (`worktree-created`, `worktree-removed`) are command-only.
+Automated checks and agent skills organized by trigger type. Supports shell command steps, prompt steps, and skill references from the registry across all trigger types.
 
 #### `GET /api/hooks/config`
 
@@ -2091,7 +2091,6 @@ Import a skill from the registry into hooks.
   }
   ```
   The same skill can be imported into multiple trigger types. Deduplication is by `skillName + trigger`.
-  `worktree-created` and `worktree-removed` reject skill imports (command-only triggers).
 - **Response**: `{ success: true, config: HooksConfig }`
 
 #### `GET /api/hooks/skills/available`
@@ -2156,7 +2155,6 @@ Report a skill hook result from an agent.
   }
   ```
 - **Response**: `{ success: true }`
-- **Error** (400): lifecycle triggers (`worktree-created`, `worktree-removed`) are command-only and reject skill reports.
 
 #### `GET /api/worktrees/:id/hooks/skill-results`
 

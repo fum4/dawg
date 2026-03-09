@@ -219,6 +219,7 @@ This decouples the activity feed from the SSE connection hook.
 - **Event list** — up to 200 events, strictly sorted newest-first.
 - **Group-key upserts** — events with the same `groupKey` replace prior events (e.g. creation started → creation completed).
 - **Hook group aggregation** — hook-related events (`hooks_started`, `hooks_ran`, `skill_*`) with `groupKey` `hooks:{worktreeId}:{trigger}` are merged into a single expandable feed entry with live child statuses for commands/skills.
+- **Consecutive task grouping** — back-to-back `task_detected` events in the same project stream are collapsed into a single pluralized entry (for example `New issues`) with per-item detail rows showing timestamp, project context, and issue/worktree links.
 - **Hook title format** — aggregated hook entries are titled as `Hooks started|running|completed (<trigger>)` (for example `Hooks started (worktree created)`).
 - **Worktree creation title format** — `creation_completed` uses the generic title `Worktree created` (worktree id stays in metadata/link context, not in the title).
 - **Unread count** — increments on each new event, resets on `markAllRead()`.
@@ -304,6 +305,7 @@ Error toast behavior:
 
 - **Persistent errors** — error toasts use infinite duration and remain visible until the user clicks the `X`
 - **Global coverage** — errors are surfaced from API wrappers (`useApi`), React Query global handlers (`QueryCache`/`MutationCache`), runtime handlers (`window.error`, `window.unhandledrejection`), and component-level error state hooks (`useErrorToast`)
+- **Recoverable worktree conflicts** — `useApi` suppresses auto-error toasts for recoverable worktree creation conflicts (`WORKTREE_EXISTS`, `WORKTREE_RECOVERY_REQUIRED`) when a canonical `worktreeId` is present, so the dedicated reuse/recreate dialog is the only prompt shown.
 - **Deduping** — near-duplicate errors are briefly deduped to prevent double toasts from overlapping handlers
 
 Activity events like auto-claims, agent progress, and hook lifecycle updates remain in the Activity feed.
