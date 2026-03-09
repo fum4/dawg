@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  check-release-impact:
+  check-affected:
     runs-on: ubuntu-latest
     outputs:
       should_release: ${{ steps.release-gate.outputs.should_release }}
@@ -93,10 +93,10 @@ jobs:
           echo "should_release=${should_release}" >> "${GITHUB_OUTPUT}"
 
   publish:
-    needs: check-release-impact
+    needs: check-affected
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: needs.check-release-impact.outputs.should_release == 'true'
+    if: needs.check-affected.outputs.should_release == 'true'
     outputs:
       tag: ${{ steps.release_tag.outputs.tag }}
 
