@@ -267,9 +267,7 @@ const chapters = [
             data-delay={String(140 + i * 90)}
             style={`--chapter-color: ${chapter.color};`}
           >
-            <div class="chapter-icon-wrap">
-              <Fragment set:html={chapter.icon} />
-            </div>
+            <div class="chapter-icon-wrap" set:html={chapter.icon} />
             <div class="chapter-content">
               <h3>{chapter.title}</h3>
               <p class="chapter-intro">{chapter.intro}</p>
@@ -291,7 +289,6 @@ const chapters = [
 
 <style>
   .highlight {
-    /* color: #acacad; */
     color: #b1b1b3;
   }
 
