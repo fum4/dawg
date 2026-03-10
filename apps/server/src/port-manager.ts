@@ -19,6 +19,14 @@ function resolveProjectRoot(startDir: string): string {
 
 const DISCOVERY_STABILIZE_MS = 15_000;
 
+type PortDebugLogger = (event: {
+  action: string;
+  message: string;
+  status?: "info" | "succeeded" | "failed";
+  level?: "debug" | "info" | "warning" | "error";
+  metadata?: Record<string, unknown>;
+}) => void;
+
 export class PortManager {
   private config: WorktreeConfig;
 
@@ -26,9 +34,30 @@ export class PortManager {
 
   private configFilePath: string | null;
 
+  private debugLogger: PortDebugLogger | null = null;
+
   constructor(config: WorktreeConfig, configFilePath: string | null = null) {
     this.config = config;
     this.configFilePath = configFilePath;
+  }
+
+  setDebugLogger(debugLogger: PortDebugLogger | null): void {
+    this.debugLogger = debugLogger;
+  }
+
+  private emitDebugEvent(event: {
+    action: string;
+    message: string;
+    status?: "info" | "succeeded" | "failed";
+    level?: "debug" | "info" | "warning" | "error";
+    metadata?: Record<string, unknown>;
+  }): void {
+    if (!this.debugLogger) return;
+    try {
+      this.debugLogger(event);
+    } catch {
+      // Ignore debug sink failures.
+    }
   }
 
   /**
@@ -193,10 +222,16 @@ export class PortManager {
       writeFileSync(this.configFilePath, JSON.stringify(config, null, 2) + "\n");
       console.log(`[port-discovery] Saved env mapping to ${this.configFilePath}`);
     } catch (err) {
-      console.error(
-        "[port-discovery] Failed to persist env mapping:",
-        err instanceof Error ? err.message : err,
-      );
+      this.emitDebugEvent({
+        action: "port.discovery.persist-env-mapping",
+        message: "Failed to persist env mapping",
+        status: "failed",
+        level: "error",
+        metadata: {
+          configFilePath: this.configFilePath,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
     }
   }
 
@@ -383,10 +418,17 @@ export class PortManager {
       writeFileSync(this.configFilePath, JSON.stringify(config, null, 2) + "\n");
       console.log(`[port-discovery] Saved discovered ports to ${this.configFilePath}`);
     } catch (err) {
-      console.error(
-        "[port-discovery] Failed to persist discovered ports:",
-        err instanceof Error ? err.message : err,
-      );
+      this.emitDebugEvent({
+        action: "port.discovery.persist-discovered-ports",
+        message: "Failed to persist discovered ports",
+        status: "failed",
+        level: "error",
+        metadata: {
+          configFilePath: this.configFilePath,
+          ports,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
     }
   }
 }

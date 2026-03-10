@@ -84,10 +84,10 @@ Key responsibilities:
 - **Canonical ID resolution**: worktree IDs are resolved exact-first, then case-insensitive; ambiguous case-insensitive matches return an explicit error
 - **SSE notification**: Maintains a set of event listeners and calls `notifyListeners()` on every state change
 - **Issue integration**: `createWorktreeFromJira()` and `createWorktreeFromLinear()` fetch issue data, generate a branch name, write `TASK.md`, and link the issue to the worktree (auto-reusing matching existing worktrees by default)
-- **Config management**: `reloadConfig()`, `updateConfig()`, `getConfig()`
+- **Config management**: `reloadConfig()`, `updateConfig()`, `getConfig()` (`.openkit/config.json` for shared project settings; `.openkit/local-config.json` for local agent git policy preferences)
 - **Log capture**: Stdout/stderr from spawned processes is captured (last 100 lines) and forwarded to listeners with debounced batching (250ms)
 - **Activity tracking**: Owns an `ActivityLog` instance, emitting lifecycle events (`creation_started`, `creation_completed`, `creation_failed`, `started`, `stopped`, `crashed`) during worktree operations
-- **Operational tracing**: Owns an `OpsLog` instance used for request traces, notification emissions, and structured command execution telemetry
+- **Operational tracing**: Owns an `OpsLog` instance used for inbound/outbound request traces, notification emissions, task/terminal/worktree lifecycle telemetry, and structured command execution telemetry
 
 ### PortManager
 
@@ -128,6 +128,8 @@ Stored data per issue:
 
 The `buildWorktreeLinkMap()` method scans all notes files to produce a reverse map from worktree IDs to their linked issues -- used by `WorktreeManager.getWorktrees()` to enrich worktree info with issue metadata.
 
+`apps/server/src/local-config.ts` -- Manages `.openkit/local-config.json` (local-only project preferences, currently agent git policy toggles).
+
 ### ActivityLog
 
 `apps/server/src/activity-log.ts` -- Persists and broadcasts activity events (agent actions, worktree lifecycle, git operations) to SSE listeners.
@@ -144,7 +146,7 @@ Shared activity types are defined in `libs/shared/src/activity-event.ts`: `Activ
 
 ### OpsLog
 
-`apps/server/src/ops-log.ts` -- Persists and broadcasts operational trace events (command execution telemetry, HTTP request traces, notification emissions, and client-reported UI errors).
+`apps/server/src/ops-log.ts` -- Persists and broadcasts operational trace events (command execution telemetry, inbound/outbound HTTP request traces, internal task/terminal/worktree lifecycle events, notification emissions, and client-reported UI errors).
 
 Key responsibilities:
 
@@ -165,6 +167,17 @@ Key responsibilities:
 - **Redaction**: Masks sensitive CLI args (token/password/auth-style flags)
 - **Output capture**: Records bounded stdout/stderr snippets for debugging context
 - **Safety**: Sink failures are non-fatal and cannot break command execution
+
+### Fetch Monitor
+
+`apps/server/src/runtime/fetch-monitor.ts` patches `globalThis.fetch` in the server runtime and emits structured outbound HTTP success/failure events to the configured sink.
+
+Key responsibilities:
+
+- **Outbound request tracing**: Captures method, URL/path, status code, duration, and callsite source for integration/API calls initiated by the server
+- **Payload metadata capture**: Records bounded text request/response payloads when readable and marks omitted/non-text payloads
+- **Transport hints**: Marks `SSE` / `WS` transport metadata when detectable
+- **Safety**: Sink failures are non-fatal and cannot break fetch execution
 
 ### HooksManager
 
@@ -408,6 +421,6 @@ The Electron app uses a similar pattern: `apps/desktop-app/src/server-spawner.ts
 
 ## Configuration Discovery
 
-Configuration is loaded from `.openkit/config.json`. The config loader walks up the directory tree from `process.cwd()` looking for a `.openkit/` directory containing `config.json`. This allows running `OpenKit` from any subdirectory within a project.
+Configuration is loaded from `.openkit/config.json`. The config loader walks up the directory tree from `process.cwd()` looking for a `.openkit/` directory containing `config.json`. This allows running `OpenKit` from any subdirectory within a project. Local user policy overrides for agent git operations are read from `.openkit/local-config.json`.
 
 For full details on configuration options and format, see [CONFIGURATION.md](./CONFIGURATION.md).

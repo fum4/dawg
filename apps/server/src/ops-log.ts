@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 
 import { CONFIG_DIR_NAME } from "@openkit/shared/constants";
 import type { CommandMonitorEvent } from "./runtime/command-monitor";
+import type { FetchMonitorEvent } from "./runtime/fetch-monitor";
 
 export type OpsLogLevel = "debug" | "info" | "warning" | "error";
 export type OpsLogStatus = "started" | "succeeded" | "failed" | "info";
@@ -53,6 +54,12 @@ function normalizeText(value: unknown, fallback = ""): string {
   if (typeof value !== "string") return fallback;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : fallback;
+}
+
+function normalizeHttpMethod(value: string | undefined): string {
+  if (!value) return "GET";
+  const normalized = value.trim().toUpperCase();
+  return normalized.length > 0 ? normalized : "GET";
 }
 
 export class OpsLog {
@@ -148,6 +155,56 @@ export class OpsLog {
       },
       metadata: {
         phase: event.phase,
+        ...(event.error ? { error: event.error } : {}),
+      },
+    });
+  }
+
+  addFetchEvent(event: FetchMonitorEvent, projectName?: string): OpsLogEvent {
+    const method = normalizeHttpMethod(event.method);
+    const path = normalizeText(event.path, normalizeText(event.url, "/"));
+    const statusCode = typeof event.statusCode === "number" ? event.statusCode : undefined;
+
+    const isFailure =
+      event.phase === "failure" || (typeof statusCode === "number" && statusCode >= 400);
+    const isServerFailure = typeof statusCode === "number" && statusCode >= 500;
+    const level: OpsLogLevel =
+      event.phase === "failure" || isServerFailure ? "error" : isFailure ? "warning" : "info";
+    const status: OpsLogStatus = isFailure ? "failed" : "succeeded";
+
+    const message =
+      event.phase === "failure"
+        ? `${method} ${path} -> ${event.error ?? "request failed"}`
+        : `${method} ${path} -> ${statusCode ?? 0}`;
+
+    return this.addEvent({
+      source: "http",
+      action: "http.client",
+      message,
+      level,
+      status,
+      runId: event.runId,
+      projectName,
+      metadata: {
+        direction: "outbound",
+        method,
+        url: event.url,
+        path,
+        ...(typeof statusCode === "number" ? { statusCode } : {}),
+        durationMs: event.durationMs,
+        source: event.source,
+        ...(event.requestContentType ? { requestContentType: event.requestContentType } : {}),
+        ...(event.requestPayload ? { requestPayload: event.requestPayload } : {}),
+        ...(event.requestPayloadTruncated ? { requestPayloadTruncated: true } : {}),
+        ...(event.requestPayloadOmitted ? { requestPayloadOmitted: true } : {}),
+        ...(event.requestPayloadError ? { requestPayloadError: event.requestPayloadError } : {}),
+        ...(event.requestTransport ? { requestTransport: event.requestTransport } : {}),
+        ...(event.responseContentType ? { responseContentType: event.responseContentType } : {}),
+        ...(event.responsePayload ? { responsePayload: event.responsePayload } : {}),
+        ...(event.responsePayloadTruncated ? { responsePayloadTruncated: true } : {}),
+        ...(event.responsePayloadOmitted ? { responsePayloadOmitted: true } : {}),
+        ...(event.responsePayloadError ? { responsePayloadError: event.responsePayloadError } : {}),
+        ...(event.responseTransport ? { responseTransport: event.responseTransport } : {}),
         ...(event.error ? { error: event.error } : {}),
       },
     });

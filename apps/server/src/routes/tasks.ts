@@ -187,6 +187,27 @@ export function registerTaskRoutes(
   notesManager: NotesManager,
 ) {
   const configDir = manager.getConfigDir();
+  const opsLog = manager.getOpsLog();
+  const getProjectName = () => manager.getProjectName() ?? undefined;
+  const logTaskEvent = (options: {
+    action: string;
+    message: string;
+    status?: "info" | "succeeded" | "failed";
+    level?: "debug" | "info" | "warning" | "error";
+    worktreeId?: string;
+    metadata?: Record<string, unknown>;
+  }) => {
+    opsLog.addEvent({
+      source: "task",
+      action: options.action,
+      message: options.message,
+      level: options.level ?? (options.status === "failed" ? "error" : "info"),
+      status: options.status ?? "info",
+      worktreeId: options.worktreeId,
+      projectName: getProjectName(),
+      metadata: options.metadata,
+    });
+  };
   const toResolutionStatus = (code: "WORKTREE_NOT_FOUND" | "WORKTREE_ID_AMBIGUOUS"): 404 | 409 =>
     code === "WORKTREE_ID_AMBIGUOUS" ? 409 : 404;
   const resolveActiveLinkedWorktreeId = (taskId: string): string | null => {
@@ -265,15 +286,6 @@ export function registerTaskRoutes(
 
     const linkedWorktreeId = body.linkedWorktreeId ?? null;
 
-    console.info("[tasks][TEMP] create task", {
-      configDir,
-      taskId: identifier,
-      counterBefore: nextIdentifier.counterBefore,
-      counterAfter: nextIdentifier.counterAfter,
-      collisionsSkipped: nextIdentifier.collisionsSkipped,
-      linkedWorktreeId,
-    });
-
     saveTask(configDir, task);
     // Create notes.json alongside (optionally linking to a worktree)
     notesManager.saveNotes("local", task.id, {
@@ -281,6 +293,19 @@ export function registerTaskRoutes(
       personal: null,
       aiContext: null,
       todos: [],
+    });
+
+    logTaskEvent({
+      action: "task.create",
+      message: `Created local task ${identifier}`,
+      status: "succeeded",
+      metadata: {
+        taskId: identifier,
+        counterBefore: nextIdentifier.counterBefore,
+        counterAfter: nextIdentifier.counterAfter,
+        collisionsSkipped: nextIdentifier.collisionsSkipped,
+        linkedWorktreeId,
+      },
     });
 
     return c.json({ success: true, task: { ...task, linkedWorktreeId } });
@@ -358,11 +383,16 @@ export function registerTaskRoutes(
     });
     ensureCounterAtLeast(configDir, numericPart);
 
-    console.info("[tasks][TEMP] recover-local created task metadata", {
-      configDir,
-      taskId: canonicalTaskId,
-      linkedWorktreeId: resolved.worktreeId,
-      counterAfter: readCounterValue(configDir),
+    logTaskEvent({
+      action: "task.recover",
+      message: `Recovered local task ${canonicalTaskId}`,
+      status: "succeeded",
+      worktreeId: resolved.worktreeId,
+      metadata: {
+        taskId: canonicalTaskId,
+        linkedWorktreeId: resolved.worktreeId,
+        counterAfter: readCounterValue(configDir),
+      },
     });
 
     return c.json({
@@ -402,6 +432,18 @@ export function registerTaskRoutes(
     task.updatedAt = new Date().toISOString();
     saveTask(configDir, task);
 
+    logTaskEvent({
+      action: "task.update",
+      message: `Updated local task ${task.id}`,
+      status: "succeeded",
+      metadata: {
+        taskId: task.id,
+        status: task.status,
+        priority: task.priority,
+        labelCount: task.labels.length,
+      },
+    });
+
     return c.json({
       success: true,
       task: { ...task, linkedWorktreeId: resolveActiveLinkedWorktreeId(task.id) },
@@ -415,6 +457,12 @@ export function registerTaskRoutes(
     if (!existsSync(taskDir)) return c.json({ success: false, error: "Task not found" }, 404);
 
     rmSync(taskDir, { recursive: true });
+    logTaskEvent({
+      action: "task.delete",
+      message: `Deleted local task ${id}`,
+      status: "succeeded",
+      metadata: { taskId: id },
+    });
     return c.json({ success: true });
   });
 
@@ -430,10 +478,15 @@ export function registerTaskRoutes(
       body.branch ||
       (await generateBranchName(configDir, { issueId: task.id, name: task.title, type: "local" }));
 
-    console.info("[tasks][TEMP] create-worktree requested", {
-      taskId: task.id,
-      branchName,
-      hasCustomBranchOverride: Boolean(body.branch),
+    logTaskEvent({
+      action: "task.create-worktree",
+      message: `Creating worktree from local task ${task.id}`,
+      status: "info",
+      metadata: {
+        taskId: task.id,
+        branchName,
+        hasCustomBranchOverride: Boolean(body.branch),
+      },
     });
 
     // Load AI context notes
@@ -481,11 +534,18 @@ export function registerTaskRoutes(
         manager.clearPendingWorktreeContext(taskId);
         if (result.code === "WORKTREE_EXISTS" && result.worktreeId) {
           const canonicalWorktreeId = result.worktreeId;
-          console.info("[tasks][TEMP] create-worktree reused existing", {
-            taskId,
-            branchName,
-            code: result.code,
+          logTaskEvent({
+            action: "task.create-worktree",
+            message: `Reused existing worktree for local task ${taskId}`,
+            status: "succeeded",
             worktreeId: canonicalWorktreeId,
+            metadata: {
+              taskId,
+              branchName,
+              code: result.code,
+              worktreeId: canonicalWorktreeId,
+              reusedExisting: true,
+            },
           });
           notesManager.setLinkedWorktreeId("local", taskId, canonicalWorktreeId);
           return c.json({
@@ -498,28 +558,45 @@ export function registerTaskRoutes(
       }
 
       if (result.success) {
-        console.info("[tasks][TEMP] create-worktree created", {
-          taskId,
-          branchName,
-          worktreeId: result.worktree?.id ?? null,
-          success: result.success,
+        logTaskEvent({
+          action: "task.create-worktree",
+          message: `Created worktree for local task ${taskId}`,
+          status: "succeeded",
+          worktreeId: result.worktree?.id,
+          metadata: {
+            taskId,
+            branchName,
+            worktreeId: result.worktree?.id ?? null,
+            reusedExisting: false,
+          },
         });
         return c.json({ ...result, reusedExisting: false });
       }
-      console.info("[tasks][TEMP] create-worktree failed", {
-        taskId,
-        branchName,
-        code: result.code,
-        error: result.error,
+      logTaskEvent({
+        action: "task.create-worktree",
+        message: `Failed to create worktree for local task ${taskId}`,
+        status: "failed",
         worktreeId: result.worktreeId,
+        metadata: {
+          taskId,
+          branchName,
+          code: result.code,
+          error: result.error,
+          worktreeId: result.worktreeId,
+        },
       });
       return c.json(result);
     } catch (err) {
       manager.clearPendingWorktreeContext(task.id);
-      console.info("[tasks][TEMP] create-worktree exception", {
-        taskId: task.id,
-        branchName,
-        error: err instanceof Error ? err.message : "Failed to create worktree",
+      logTaskEvent({
+        action: "task.create-worktree",
+        message: `Worktree creation threw for local task ${task.id}`,
+        status: "failed",
+        metadata: {
+          taskId: task.id,
+          branchName,
+          error: err instanceof Error ? err.message : "Failed to create worktree",
+        },
       });
       return c.json({
         success: false,
@@ -554,6 +631,18 @@ export function registerTaskRoutes(
 
     const buffer = Buffer.from(await file.arrayBuffer());
     writeFileSync(path.join(dir, filename), buffer);
+
+    logTaskEvent({
+      action: "task.attachment.upload",
+      message: `Uploaded attachment for local task ${task.id}`,
+      status: "succeeded",
+      metadata: {
+        taskId: task.id,
+        filename,
+        mimeType: mimeFromFilename(filename),
+        size: buffer.length,
+      },
+    });
 
     return c.json({
       success: true,
@@ -597,6 +686,15 @@ export function registerTaskRoutes(
     }
 
     rmSync(filePath);
+    logTaskEvent({
+      action: "task.attachment.delete",
+      message: `Deleted attachment from local task ${id}`,
+      status: "succeeded",
+      metadata: {
+        taskId: id,
+        filename,
+      },
+    });
     return c.json({ success: true });
   });
 }

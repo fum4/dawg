@@ -520,10 +520,19 @@ export function registerWorktreeRoutes(
     }
     const canonicalWorktreeId = resolved.worktreeId;
     const deleteOpId = randomUUID();
-    console.info("[delete][TEMP] delete request received", {
-      deleteOpId,
-      requestedWorktreeId: id,
-      canonicalWorktreeId,
+    manager.getOpsLog().addEvent({
+      source: "worktree",
+      action: "worktree.delete.request",
+      level: "info",
+      status: "info",
+      message: "Worktree delete requested",
+      projectName: manager.getProjectName() ?? undefined,
+      worktreeId: canonicalWorktreeId,
+      metadata: {
+        deleteOpId,
+        requestedWorktreeId: id,
+        canonicalWorktreeId,
+      },
     });
     const result = await manager.removeWorktree(canonicalWorktreeId, {
       deleteOpId,

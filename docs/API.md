@@ -200,6 +200,8 @@ Returns `null` for `config` and `projectName` if the config file has been delete
 
 Update project configuration fields.
 
+`allowAgentCommits`, `allowAgentPushes`, and `allowAgentPRs` are persisted to `.openkit/local-config.json` (local-only, non-committed). Other config fields are persisted to `.openkit/config.json`.
+
 - **Request**: Partial `WorktreeConfig` object (any fields to update)
 - **Response**: `{ success: true, ... }`
 - **Error** (400): `{ success: false, error: "..." }`
@@ -910,7 +912,7 @@ Create a new activity event (used by the UI for app-level notifications such as 
 
 ## Operational Logs
 
-Query and append structured operational log events (command executions, request traces, notification emissions, and UI error-toast reports).
+Query and append structured operational log events (command executions, inbound/outbound request traces, internal task/terminal/worktree lifecycle operations, notification emissions, and UI error-toast reports).
 
 #### `GET /api/logs`
 
@@ -933,6 +935,11 @@ Each `OpsLogEvent` includes:
 - `status` (`started` | `succeeded` | `failed` | `info`)
 - optional `runId`, `worktreeId`, `projectName`, `metadata`
 - optional `command` payload (`command`, `args`, `cwd`, `pid`, `exitCode`, `signal`, `durationMs`, `stdout`, `stderr`)
+
+For `source: "http"` events, metadata also includes request/response trace fields when available:
+
+- request: `method`, `path`, optional `url`, optional `direction` (`inbound`/`outbound`), `requestContentType`, `requestPayload`, `requestPayloadTruncated`, `requestPayloadOmitted`
+- response: `statusCode`, `durationMs`, `responseContentType`, `responsePayload`, `responsePayloadTruncated`, `responsePayloadOmitted`
 
 Events are persisted to `.openkit/ops-log.jsonl` (JSONL format) and pruned automatically (default retention: 7 days).
 
