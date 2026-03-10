@@ -290,6 +290,7 @@ export function ConfigurationPanel({
   linearConfigured,
   onNavigateToIntegrations,
   shortcuts,
+  arrowNavEnabled,
   onShortcutsSaved,
 }: {
   config: WorktreeConfig | null;
@@ -299,6 +300,7 @@ export function ConfigurationPanel({
   linearConfigured: boolean;
   onNavigateToIntegrations: () => void;
   shortcuts?: Record<string, string>;
+  arrowNavEnabled?: boolean;
   onShortcutsSaved: () => void;
 }) {
   const api = useApi();
@@ -1216,7 +1218,11 @@ export function ConfigurationPanel({
 
         {/* Keyboard Shortcuts */}
         <div className={`rounded-xl ${surface.panel} border border-white/[0.08] p-5`}>
-          <ShortcutsSection shortcuts={shortcuts} onSaved={onShortcutsSaved} />
+          <ShortcutsSection
+            shortcuts={shortcuts}
+            arrowNavEnabled={arrowNavEnabled !== false}
+            onSaved={onShortcutsSaved}
+          />
         </div>
 
         {/* Connection status */}

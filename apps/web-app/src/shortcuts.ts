@@ -18,7 +18,41 @@ export type ShortcutAction =
 /** Fired by useShortcuts — includes the tab number for project-tab. */
 export type ShortcutEvent =
   | { action: "project-tab"; tabIndex: number }
-  | { action: Exclude<ShortcutAction, "project-tab"> };
+  | { action: Exclude<ShortcutAction, "project-tab"> }
+  | { action: "arrow-nav"; direction: "left" | "right" }
+  | { action: "arrow-nav-vertical"; direction: "up" | "down" };
+
+/**
+ * Ordered navigation slots for Cmd+Left/Right arrow navigation.
+ * Workspace has two sub-slots (worktrees, issues) that are separate stops.
+ */
+export type NavSlot =
+  | { view: "workspace"; tab: "branch" }
+  | { view: "workspace"; tab: "issues" }
+  | { view: "agents" }
+  | { view: "hooks" }
+  | { view: "integrations" }
+  | { view: "activity" }
+  | { view: "configuration" };
+
+export const NAV_SLOTS: NavSlot[] = [
+  { view: "workspace", tab: "branch" },
+  { view: "workspace", tab: "issues" },
+  { view: "activity" },
+  { view: "agents" },
+  { view: "hooks" },
+  { view: "integrations" },
+  { view: "configuration" },
+];
+
+/** Find the current slot index based on active view and tab. */
+export function findCurrentSlotIndex(activeView: string, activeCreateTab: string): number {
+  return NAV_SLOTS.findIndex((slot) => {
+    if (slot.view !== activeView) return false;
+    if ("tab" in slot) return slot.tab === activeCreateTab;
+    return true;
+  });
+}
 
 export interface ShortcutBinding {
   key: string;

@@ -16,9 +16,11 @@ import { settings, shortcut, text } from "../theme";
 import { useServer } from "../contexts/ServerContext";
 import { useApi } from "../hooks/useApi";
 import { ConfirmModal } from "./ConfirmModal";
+import { ToggleSwitch } from "./ToggleSwitch";
 
 interface ShortcutsSectionProps {
   shortcuts: Record<string, string> | undefined;
+  arrowNavEnabled: boolean;
   onSaved: () => void;
 }
 
@@ -65,7 +67,11 @@ function isModified(
   return overrides[actionId] !== defaultSerialized;
 }
 
-export function ShortcutsSection({ shortcuts: overrides, onSaved }: ShortcutsSectionProps) {
+export function ShortcutsSection({
+  shortcuts: overrides,
+  arrowNavEnabled,
+  onSaved,
+}: ShortcutsSectionProps) {
   const api = useApi();
   const { projects, isElectron } = useServer();
   const [recording, setRecording] = useState<ShortcutAction | null>(null);
@@ -286,6 +292,22 @@ export function ShortcutsSection({ shortcuts: overrides, onSaved }: ShortcutsSec
             </div>
           );
         })}
+      </div>
+
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="flex flex-col gap-0.5">
+          <span className={`text-xs font-medium ${settings.label}`}>Arrow Key Navigation</span>
+          <span className={`text-[10px] ${settings.description}`}>
+            ⌘ ← / → navigates between pages, ⌘ ↓ / ↑ navigates the sidebar
+          </span>
+        </div>
+        <ToggleSwitch
+          checked={arrowNavEnabled}
+          onToggle={async () => {
+            await api.saveLocalConfig({ arrowNavEnabled: !arrowNavEnabled });
+            onSaved();
+          }}
+        />
       </div>
 
       {pendingApplyAll && (

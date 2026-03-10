@@ -12,6 +12,7 @@ export interface LocalConfig {
   allowAgentPushes?: boolean;
   allowAgentPRs?: boolean;
   shortcuts?: Record<string, string>;
+  arrowNavEnabled?: boolean;
 }
 
 function getLocalConfigPath(configDir: string): string {
@@ -31,6 +32,9 @@ function sanitizeLocalConfig(value: unknown): LocalConfig {
   }
   if (typeof raw.allowAgentPRs === "boolean") {
     next.allowAgentPRs = raw.allowAgentPRs;
+  }
+  if (typeof raw.arrowNavEnabled === "boolean") {
+    next.arrowNavEnabled = raw.arrowNavEnabled;
   }
   if (raw.shortcuts && typeof raw.shortcuts === "object") {
     const shortcuts: Record<string, string> = {};
@@ -66,6 +70,10 @@ export function ensureLocalConfigDefaults(configDir: string): void {
   }
   if (current.allowAgentPRs === undefined) {
     current.allowAgentPRs = false;
+    needsWrite = true;
+  }
+  if (current.arrowNavEnabled === undefined) {
+    current.arrowNavEnabled = true;
     needsWrite = true;
   }
   if (!current.shortcuts) {

@@ -55,7 +55,7 @@ import { useApi } from "./hooks/useApi";
 import { useConfig } from "./hooks/useConfig";
 import { useLocalConfig } from "./hooks/useLocalConfig";
 import { useShortcuts } from "./hooks/useShortcuts";
-import type { ShortcutEvent } from "./shortcuts";
+import { NAV_SLOTS, findCurrentSlotIndex, type ShortcutEvent } from "./shortcuts";
 import { useCustomTasks } from "./hooks/useCustomTasks";
 import { useJiraIssues } from "./hooks/useJiraIssues";
 import { useLinearIssues } from "./hooks/useLinearIssues";
@@ -852,6 +852,64 @@ export default function App() {
         if (project) switchProject(project.id);
         return;
       }
+
+      if (event.action === "arrow-nav") {
+        const currentIdx = findCurrentSlotIndex(activeView, activeCreateTab);
+        const nextIdx =
+          event.direction === "right"
+            ? Math.min(currentIdx + 1, NAV_SLOTS.length - 1)
+            : Math.max(currentIdx - 1, 0);
+        if (nextIdx === currentIdx) return;
+        const slot = NAV_SLOTS[nextIdx];
+        setActiveView(slot.view);
+        if ("tab" in slot) setActiveCreateTab(slot.tab);
+        return;
+      }
+
+      if (event.action === "arrow-nav-vertical") {
+        if (activeView !== "workspace") return;
+        const searchInput = document.querySelector<HTMLInputElement>("[data-sidebar-search]");
+        if (!searchInput) return;
+
+        const items = Array.from(document.querySelectorAll<HTMLElement>("[data-sidebar-item]"));
+        const focusedItem = document.activeElement?.closest(
+          "[data-sidebar-item]",
+        ) as HTMLElement | null;
+        const focusedIdx = focusedItem ? items.indexOf(focusedItem) : -1;
+
+        if (event.direction === "down") {
+          if (focusedIdx >= 0 && focusedIdx < items.length - 1) {
+            // Already on an item — move to next item
+            const next = items[focusedIdx + 1];
+            next.focus();
+            next.click();
+          } else if (document.activeElement === searchInput) {
+            // On search — move to first item
+            if (items[0]) {
+              items[0].focus();
+              items[0].click();
+            }
+          } else {
+            // Not focused on sidebar — focus search first
+            searchInput.focus();
+          }
+        } else {
+          if (focusedIdx > 0) {
+            // Move to previous item
+            const prev = items[focusedIdx - 1];
+            prev.focus();
+            prev.click();
+          } else if (focusedIdx === 0) {
+            // At first item — go back to search
+            searchInput.focus();
+          } else if (document.activeElement === searchInput) {
+            // On search — blur to exit sidebar nav
+            searchInput.blur();
+          }
+        }
+        return;
+      }
+
       switch (event.action) {
         case "nav-worktrees":
           setActiveView("workspace");
@@ -875,12 +933,13 @@ export default function App() {
           break;
       }
     },
-    [projects, switchProject, setActiveView, setActiveCreateTab],
+    [projects, switchProject, setActiveView, setActiveCreateTab, activeView, activeCreateTab],
   );
 
   useShortcuts({
     shortcuts: localConfig?.shortcuts,
     onAction: handleShortcutAction,
+    arrowNavEnabled: localConfig?.arrowNavEnabled !== false,
   });
 
   const [defaultCodingAgent, setDefaultCodingAgent] = useState<CodingAgent>(() => {
@@ -2915,6 +2974,7 @@ export default function App() {
                       className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${text.dimmed}`}
                     />
                     <input
+                      data-sidebar-search
                       type="text"
                       value={activeCreateTab === "branch" ? worktreeFilter : jiraSearchQuery}
                       onChange={(e) => {
@@ -3204,6 +3264,7 @@ export default function App() {
               linearConfigured={linearStatus?.configured ?? false}
               onNavigateToIntegrations={() => setActiveView("integrations")}
               shortcuts={localConfig?.shortcuts}
+              arrowNavEnabled={localConfig?.arrowNavEnabled}
               onShortcutsSaved={refetchLocalConfig}
             />
           )}

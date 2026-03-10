@@ -9,6 +9,7 @@ export interface LocalConfig {
   allowAgentPushes?: boolean;
   allowAgentPRs?: boolean;
   shortcuts?: Record<string, string>;
+  arrowNavEnabled?: boolean;
 }
 
 export function useLocalConfig() {

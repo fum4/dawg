@@ -377,6 +377,17 @@ Sessions are keyed by `runtimeScopeKey + worktreeId + scope` (`terminal`, `claud
 
 **`useShortcuts`** (`useShortcuts.ts`) registers global keyboard shortcut listeners. Reads the current shortcut bindings from `useLocalConfig` and attaches `keydown` handlers for project tab switching, view navigation, and other configurable actions. Shortcut definitions default to the values in `local-config.json` and update live when the user edits bindings in the `ShortcutsSection` UI.
 
+#### Arrow Key Navigation
+
+When `arrowNavEnabled` is `true` (the default), `useShortcuts` also registers arrow key handlers:
+
+- **Cmd+Left / Cmd+Right** -- Navigates between top-level pages in NavBar order. The `NAV_SLOTS` order is: workspace(branch), workspace(issues), activity, agents, hooks, integrations, configuration. Activity is positioned immediately after the two Workspace tabs. If the currently focused element has the `data-sidebar-search` attribute, Cmd+Left/Right still navigates pages (rather than moving the cursor in the search input).
+- **Cmd+Down / Cmd+Up** -- Navigates the workspace sidebar vertically. Cmd+Down first focuses the workspace search input, then traverses sidebar items on subsequent presses. Cmd+Up traverses in reverse.
+
+Sidebar traversal relies on DOM query selectors targeting elements with the `data-sidebar-item` attribute (present on `WorktreeItem`, `JiraIssueItem`, `LinearIssueItem`, and `CustomTaskItem` buttons) and the `data-sidebar-search` attribute (on the workspace search input).
+
+The `arrowNavEnabled` toggle is exposed in the Keyboard Shortcuts settings card (`ShortcutsSection.tsx`) and persisted to `local-config.json`.
+
 ### Ngrok Connect Controls
 
 Ngrok controls are handled in `App.tsx` and surfaced through `TabBar.tsx` in Electron mode:

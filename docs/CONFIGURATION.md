@@ -300,7 +300,8 @@ This file is intended for per-user preferences that should influence agent opera
 {
   "allowAgentCommits": false,
   "allowAgentPushes": false,
-  "allowAgentPRs": false
+  "allowAgentPRs": false,
+  "arrowNavEnabled": true
 }
 ```
 
@@ -335,6 +336,16 @@ Controls whether agents may push commits to remotes. Can be overridden per-workt
 | **Required** | No        |
 
 Controls whether agents may create pull requests. Can be overridden per-worktree via issue-notes git policy.
+
+#### `arrowNavEnabled`
+
+| Property     | Value     |
+| ------------ | --------- |
+| **Type**     | `boolean` |
+| **Default**  | `true`    |
+| **Required** | No        |
+
+Enables arrow key navigation shortcuts. When `true`, Cmd+Left/Right cycles through top-level pages in NavBar order and Cmd+Down/Up traverses the workspace sidebar (search input first, then sidebar items). Can be toggled in the Keyboard Shortcuts settings card.
 
 #### `shortcuts`
 

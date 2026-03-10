@@ -12,6 +12,7 @@ import {
 interface UseShortcutsOptions {
   shortcuts: Record<string, string> | undefined;
   onAction: (event: ShortcutEvent) => void;
+  arrowNavEnabled?: boolean;
   enabled?: boolean;
 }
 
@@ -28,15 +29,48 @@ function isModalOpen(): boolean {
   return document.querySelector("[data-modal-open]") !== null;
 }
 
-export function useShortcuts({ shortcuts, onAction, enabled = true }: UseShortcutsOptions) {
+export function useShortcuts({
+  shortcuts,
+  onAction,
+  arrowNavEnabled = true,
+  enabled = true,
+}: UseShortcutsOptions) {
   useEffect(() => {
     if (!enabled) return;
 
     const bindings = resolveBindings(shortcuts);
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (isEditableTarget(event.target)) return;
       if (isModalOpen()) return;
+
+      // Arrow navigation (Cmd+Arrow) — works even when focus is in search
+      if (arrowNavEnabled && event.metaKey && !event.shiftKey && !event.altKey) {
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          // Don't intercept if user is text-editing, unless it's the sidebar search
+          if (isEditableTarget(event.target)) {
+            const el = event.target as HTMLElement;
+            if (!el.hasAttribute("data-sidebar-search")) return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          onAction({
+            action: "arrow-nav",
+            direction: event.key === "ArrowLeft" ? "left" : "right",
+          });
+          return;
+        }
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          event.stopPropagation();
+          onAction({
+            action: "arrow-nav-vertical",
+            direction: event.key === "ArrowDown" ? "down" : "up",
+          });
+          return;
+        }
+      }
+
+      if (isEditableTarget(event.target)) return;
 
       // Check project-tab first (modifier + digit)
       const projectTabBinding = bindings["project-tab"];
@@ -65,5 +99,5 @@ export function useShortcuts({ shortcuts, onAction, enabled = true }: UseShortcu
 
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [shortcuts, onAction, enabled]);
+  }, [shortcuts, onAction, arrowNavEnabled, enabled]);
 }
