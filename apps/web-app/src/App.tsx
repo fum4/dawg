@@ -46,6 +46,7 @@ import type { View } from "./components/NavBar";
 import type { WorktreeInfo } from "./types";
 import { TabBar } from "./components/TabBar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { SidebarConfigBar } from "./components/SidebarConfigBar";
 import { WorktreeList } from "./components/WorktreeList";
 import { Modal } from "./components/Modal";
 import { useServer } from "./contexts/ServerContext";
@@ -854,6 +855,16 @@ export default function App() {
   );
   const [createTaskForWorktreeId, setCreateTaskForWorktreeId] = useState<string | null>(null);
   const [linkIssueForWorktreeId, setLinkIssueForWorktreeId] = useState<string | null>(null);
+
+  // Issue display settings (persisted in localStorage)
+  const [issueShowPriority, setIssueShowPriority] = useState(() => {
+    const saved = localStorage.getItem("OpenKit:issueShowPriority");
+    return saved !== null ? saved === "1" : false;
+  });
+  const [issueShowStatus, setIssueShowStatus] = useState(() => {
+    const saved = localStorage.getItem("OpenKit:issueShowStatus");
+    return saved !== null ? saved === "1" : false;
+  });
 
   // Sidebar width state with persistence
   const DEFAULT_SIDEBAR_WIDTH = 300;
@@ -2894,6 +2905,7 @@ export default function App() {
                         onSelect={(id) => setSelection({ type: "worktree", id })}
                         filter={worktreeFilter}
                         localIssueLinkedIds={localIssueLinkedIds}
+                        showDiffStats={config?.showDiffStats !== false}
                         onSelectJiraIssue={(key) => {
                           setActiveCreateTab("issues");
                           setSelection({ type: "issue", key });
@@ -2949,12 +2961,52 @@ export default function App() {
                           selection?.type === "custom-task" ? selection.id : null
                         }
                         onSelectCustomTask={(id) => setSelection({ type: "custom-task", id })}
+                        showPriority={issueShowPriority}
+                        showStatus={issueShowStatus}
                         worktrees={worktrees}
                         onViewWorktree={handleViewWorktreeFromJira}
                       />
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                <SidebarConfigBar
+                  items={
+                    activeCreateTab === "branch"
+                      ? [
+                          {
+                            label: "Show diff stats",
+                            checked: config?.showDiffStats !== false,
+                            onToggle: async () => {
+                              await api.saveConfig({
+                                showDiffStats: !(config?.showDiffStats !== false),
+                              });
+                              refetchConfig();
+                            },
+                          },
+                        ]
+                      : [
+                          {
+                            label: "Show priority",
+                            checked: issueShowPriority,
+                            onToggle: () => {
+                              const next = !issueShowPriority;
+                              setIssueShowPriority(next);
+                              localStorage.setItem("OpenKit:issueShowPriority", next ? "1" : "0");
+                            },
+                          },
+                          {
+                            label: "Show status",
+                            checked: issueShowStatus,
+                            onToggle: () => {
+                              const next = !issueShowStatus;
+                              setIssueShowStatus(next);
+                              localStorage.setItem("OpenKit:issueShowStatus", next ? "1" : "0");
+                            },
+                          },
+                        ]
+                  }
+                />
               </aside>
 
               {/* Resize handle */}
@@ -3047,6 +3099,7 @@ export default function App() {
                     worktree={selectedWorktree}
                     onUpdate={refetch}
                     onDeleted={handleDeleted}
+                    showDiffStats={config?.showDiffStats !== false}
                     hookUpdateKey={hookUpdateKey}
                     onNavigateToIntegrations={() => setActiveView("integrations")}
                     onNavigateToHooks={() => setActiveView("hooks")}

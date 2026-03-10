@@ -141,7 +141,7 @@ export const action = {
     hover: "hover:bg-red-900/20 hover:text-red-400",
   },
   commit: {
-    text: "text-[#9ca3af]",
+    text: "text-[#6b7280]",
     textActive: "text-accent",
     hover: "hover:bg-white/[0.06]",
     bgActive: "bg-white/[0.08]",
@@ -149,11 +149,11 @@ export const action = {
     bgSubmitHover: "hover:bg-accent/20",
   },
   push: {
-    text: "text-[#9ca3af]",
+    text: "text-[#6b7280]",
     hover: "hover:bg-white/[0.06]",
   },
   pr: {
-    text: "text-[#9ca3af]",
+    text: "text-[#6b7280]",
     textActive: "text-accent",
     hover: "hover:bg-white/[0.06]",
     bgActive: "bg-accent/10",

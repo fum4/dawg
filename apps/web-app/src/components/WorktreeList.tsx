@@ -10,6 +10,7 @@ interface WorktreeListProps {
   onSelect: (id: string) => void;
   filter?: string;
   localIssueLinkedIds?: Set<string>;
+  showDiffStats?: boolean;
   onSelectJiraIssue?: (key: string) => void;
   onSelectLinearIssue?: (identifier: string) => void;
   onSelectLocalIssue?: (identifier: string) => void;
@@ -21,6 +22,7 @@ export function WorktreeList({
   onSelect,
   filter = "",
   localIssueLinkedIds,
+  showDiffStats,
   onSelectJiraIssue,
   onSelectLinearIssue,
   onSelectLocalIssue,
@@ -67,6 +69,7 @@ export function WorktreeList({
                 itemRef={worktree.id === selectedId ? selectedItemRef : undefined}
                 onSelect={() => onSelect(worktree.id)}
                 hasLocalIssue={localIssueLinkedIds?.has(worktree.id)}
+                showDiffStats={showDiffStats}
                 onSelectJiraIssue={onSelectJiraIssue}
                 onSelectLinearIssue={onSelectLinearIssue}
                 onSelectLocalIssue={onSelectLocalIssue}

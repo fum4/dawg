@@ -7,6 +7,5 @@
     "discovered": [],
     "offsetStep": 1
   },
-  "allowAgentCommits": false,
-  "allowAgentPushes": false
+  "showDiffStats": true
 }

@@ -15,7 +15,7 @@ import {
   WebStormIcon,
   ZedIcon,
 } from "../../icons";
-import { action, badge, button, status, surface, text } from "../../theme";
+import { action, badge, button, palette, status, text } from "../../theme";
 import { Tooltip } from "../Tooltip";
 
 interface DetailHeaderProps {
@@ -23,6 +23,7 @@ interface DetailHeaderProps {
   isRunning: boolean;
   isCreating: boolean;
   isLoading: boolean;
+  showDiffStats?: boolean;
   onRename: (changes: { name?: string; branch?: string }) => Promise<boolean>;
   onStart: () => void;
   onStop: () => void;
@@ -97,9 +98,8 @@ function InlineEdit({
 
   return (
     <span
-      className={`${className} ${editable ? `cursor-text hover:${surface.editableHover} px-1 -mx-1 rounded transition-colors duration-150` : ""}`}
+      className={`${className} ${editable ? "cursor-pointer hover:bg-white/[0.04] px-2 -mx-2 py-0.5 -my-0.5 rounded transition-colors duration-150" : ""}`}
       onClick={editable ? () => setIsEditing(true) : undefined}
-      title={editable ? "Click to edit" : undefined}
     >
       {value}
     </span>
@@ -265,6 +265,7 @@ export function DetailHeader({
   selectedOpenTarget,
   onSelectOpenTarget,
   onOpenProjectIn,
+  showDiffStats,
   onSelectJiraIssue,
   onSelectLinearIssue,
   onSelectLocalIssue,
@@ -501,6 +502,17 @@ export function DetailHeader({
               </a>
             </Tooltip>
           )}
+        </div>
+      )}
+
+      {!!(worktree.linesAdded || worktree.linesRemoved) && (
+        <div className="flex items-center gap-2 mt-3">
+          <span className="text-[11px] font-medium text-accent/60">
+            +{worktree.linesAdded ?? 0}
+          </span>
+          <span className="text-[11px] font-medium opacity-60" style={{ color: palette.red }}>
+            -{worktree.linesRemoved ?? 0}
+          </span>
         </div>
       )}
     </div>
