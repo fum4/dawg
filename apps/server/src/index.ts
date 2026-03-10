@@ -55,6 +55,7 @@ import { TerminalManager } from "./terminal-manager";
 import { HooksManager } from "./verification-manager";
 import { ensureBundledSkills } from "./verification-skills";
 import { setCommandMonitorSink } from "./runtime/command-monitor";
+import { setFetchMonitorSink } from "./runtime/fetch-monitor";
 import type { WorktreeConfig } from "./types";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -206,7 +207,18 @@ async function captureHttpResponsePayload(response: Response): Promise<Record<st
 export function createWorktreeServer(manager: WorktreeManager) {
   const app = new Hono();
   const mcpSetupEnabled = isMcpSetupEnabled();
-  const terminalManager = new TerminalManager();
+  const terminalManager = new TerminalManager((event) => {
+    manager.getOpsLog().addEvent({
+      source: "terminal",
+      action: event.action,
+      level: event.level ?? (event.status === "failed" ? "error" : "info"),
+      status: event.status ?? "info",
+      message: event.message,
+      projectName: manager.getProjectName() ?? undefined,
+      worktreeId: event.worktreeId,
+      metadata: event.metadata,
+    });
+  });
   const notesManager = new NotesManager(manager.getConfigDir());
   const hooksManager = new HooksManager(manager);
 
@@ -480,6 +492,9 @@ export async function startWorktreeServer(
   setCommandMonitorSink((event) => {
     manager.getOpsLog().addCommandEvent(event, manager.getProjectName() ?? undefined);
   });
+  setFetchMonitorSink((event) => {
+    manager.getOpsLog().addFetchEvent(event, manager.getProjectName() ?? undefined);
+  });
   ensureCliInPath();
   const { app, injectWebSocket, terminalManager } = createWorktreeServer(manager);
 
@@ -530,6 +545,7 @@ export async function startWorktreeServer(
     terminalManager.destroyAll();
     await manager.stopAll();
     setCommandMonitorSink(null);
+    setFetchMonitorSink(null);
     server.close();
     if (exitOnClose) {
       process.exit(0);

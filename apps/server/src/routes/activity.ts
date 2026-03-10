@@ -64,17 +64,6 @@ export function registerActivityRoutes(
         projectName: getProjectName?.() ?? undefined,
       });
 
-      if (event.type === "auto_task_claimed") {
-        console.info("[AUTO-CLAUDE][TEMP] Activity event recorded", {
-          type: event.type,
-          title: event.title,
-          worktreeId: event.worktreeId,
-          projectName: event.projectName,
-          metadata: event.metadata,
-          groupKey: event.groupKey,
-        });
-      }
-
       return c.json({ success: true, event });
     } catch (error) {
       return c.json(

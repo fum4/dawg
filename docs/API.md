@@ -912,7 +912,7 @@ Create a new activity event (used by the UI for app-level notifications such as 
 
 ## Operational Logs
 
-Query and append structured operational log events (command executions, request traces, notification emissions, and UI error-toast reports).
+Query and append structured operational log events (command executions, inbound/outbound request traces, internal task/terminal/worktree lifecycle operations, notification emissions, and UI error-toast reports).
 
 #### `GET /api/logs`
 
@@ -938,7 +938,7 @@ Each `OpsLogEvent` includes:
 
 For `source: "http"` events, metadata also includes request/response trace fields when available:
 
-- request: `method`, `path`, `requestContentType`, `requestPayload`, `requestPayloadTruncated`, `requestPayloadOmitted`
+- request: `method`, `path`, optional `url`, optional `direction` (`inbound`/`outbound`), `requestContentType`, `requestPayload`, `requestPayloadTruncated`, `requestPayloadOmitted`
 - response: `statusCode`, `durationMs`, `responseContentType`, `responsePayload`, `responsePayloadTruncated`, `responsePayloadOmitted`
 
 Events are persisted to `.openkit/ops-log.jsonl` (JSONL format) and pruned automatically (default retention: 7 days).

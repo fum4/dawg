@@ -252,6 +252,17 @@ export class WorktreeManager {
     this.opsLog = new OpsLog(this.configDir, {
       retentionDays: this.config.activity?.retentionDays,
     });
+    this.portManager.setDebugLogger((event) => {
+      this.opsLog.addEvent({
+        source: "port",
+        action: event.action,
+        message: event.message,
+        level: event.level ?? (event.status === "failed" ? "error" : "info"),
+        status: event.status ?? "info",
+        projectName: this.getProjectName() ?? undefined,
+        metadata: event.metadata,
+      });
+    });
 
     const worktreesPath = this.getWorktreesAbsolutePath();
     if (!existsSync(worktreesPath)) {
@@ -1333,27 +1344,47 @@ export class WorktreeManager {
   ): Promise<RemoveWorktreeResult> {
     const deleteOpId = options.deleteOpId ?? randomUUID();
     const startedAt = Date.now();
+    const projectName = this.getProjectName() ?? undefined;
     const logDeletePhase = (
       phase: string,
       result: "start" | "success" | "failure",
       extra: Record<string, unknown> = {},
     ) => {
-      console.info("[delete][TEMP]", {
-        deleteOpId,
-        phase,
-        result,
-        targetId: id,
-        ...extra,
+      this.opsLog.addEvent({
+        source: "worktree",
+        action: "worktree.delete.phase",
+        level: result === "failure" ? "error" : "info",
+        status: result === "failure" ? "failed" : "info",
+        message: `Worktree delete ${result}: ${phase}`,
+        projectName,
+        metadata: {
+          deleteOpId,
+          phase,
+          result,
+          targetId: id,
+          ...extra,
+        },
       });
     };
     const finalize = (result: RemoveWorktreeResult): RemoveWorktreeResult => {
-      console.info("[delete][TEMP]", {
-        deleteOpId,
-        phase: "complete",
-        result: result.success ? "success" : "failure",
-        durationMs: Date.now() - startedAt,
-        worktreeId: result.worktreeId ?? null,
-        code: result.code ?? null,
+      this.opsLog.addEvent({
+        source: "worktree",
+        action: "worktree.delete.complete",
+        level: result.success ? "info" : "error",
+        status: result.success ? "succeeded" : "failed",
+        message: result.success ? "Worktree delete completed" : "Worktree delete failed",
+        projectName,
+        worktreeId: result.worktreeId,
+        metadata: {
+          deleteOpId,
+          durationMs: Date.now() - startedAt,
+          targetId: id,
+          code: result.code ?? null,
+          error: result.error ?? null,
+          removedTerminalSessions: result.removedTerminalSessions ?? 0,
+          removedRunningProcess: result.removedRunningProcess ?? false,
+          clearedLinks: result.clearedLinks ?? 0,
+        },
       });
       return { ...result, deleteOpId };
     };
@@ -2244,9 +2275,18 @@ export class WorktreeManager {
     error?: string;
     code?: string;
   }> {
-    log.info(
-      `[AUTO-CLAUDE][TEMP] createWorktreeFromLinear called (identifier=${identifier}, branch=${branch ?? "auto"})`,
-    );
+    this.opsLog.addEvent({
+      source: "linear",
+      action: "linear.worktree.create",
+      level: "info",
+      status: "info",
+      message: `Create worktree requested from Linear issue ${identifier}`,
+      projectName: this.getProjectName() ?? undefined,
+      metadata: {
+        identifier,
+        hasBranchOverride: Boolean(branch?.trim()),
+      },
+    });
     const creds = loadLinearCredentials(this.configDir);
     if (!creds) {
       return { success: false, error: "Linear credentials not configured" };
@@ -2347,9 +2387,24 @@ export class WorktreeManager {
         },
       },
     );
-    log.info(
-      `[AUTO-CLAUDE][TEMP] createWorktreeFromLinear -> createWorktree result (identifier=${resolvedId}, success=${result.success}, code=${result.code ?? "none"}, worktreeId=${result.worktreeId ?? resolvedId})`,
-    );
+    this.opsLog.addEvent({
+      source: "linear",
+      action: "linear.worktree.create",
+      level: result.success ? "info" : "error",
+      status: result.success ? "succeeded" : "failed",
+      message: result.success
+        ? `Created worktree from Linear issue ${resolvedId}`
+        : `Failed to create worktree from Linear issue ${resolvedId}`,
+      projectName: this.getProjectName() ?? undefined,
+      worktreeId: result.worktreeId,
+      metadata: {
+        identifier: resolvedId,
+        success: result.success,
+        code: result.code ?? null,
+        worktreeId: result.worktreeId ?? null,
+        error: result.error ?? null,
+      },
+    });
 
     if (!result.success) {
       this.clearPendingWorktreeContext(resolvedId);

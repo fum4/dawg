@@ -57,12 +57,39 @@ export interface TerminalSessionCreateResult {
   replacedScopedShellSession: boolean;
 }
 
+type TerminalDebugStatus = "info" | "succeeded" | "failed";
+
+interface TerminalDebugEvent {
+  action: string;
+  message: string;
+  status?: TerminalDebugStatus;
+  level?: "debug" | "info" | "warning" | "error";
+  worktreeId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+type TerminalDebugLogger = (event: TerminalDebugEvent) => void;
+
 export class TerminalManager {
   private static readonly MAX_FALLBACK_BUFFER_CHARS = 80_000;
   private static readonly RESTORE_SCROLLBACK_LINES = 10_000;
   private sessions = new Map<string, TerminalSession>();
   private sessionsByScope = new Map<string, string>();
   private idCounter = 0;
+  private readonly debugLogger: TerminalDebugLogger | null;
+
+  constructor(debugLogger: TerminalDebugLogger | null = null) {
+    this.debugLogger = debugLogger;
+  }
+
+  private emitDebugEvent(event: TerminalDebugEvent): void {
+    if (!this.debugLogger) return;
+    try {
+      this.debugLogger(event);
+    } catch {
+      // Ignore debug sink failures.
+    }
+  }
 
   private scopeKey(
     worktreeId: string,
@@ -135,11 +162,17 @@ export class TerminalManager {
         scrollback: TerminalManager.RESTORE_SCROLLBACK_LINES,
       });
     } catch (error) {
-      console.info("[terminal][TEMP] failed to serialize terminal state", {
+      this.emitDebugEvent({
+        action: "terminal.restore.serialize",
+        message: "Failed to serialize terminal state",
+        status: "failed",
+        level: "warning",
         worktreeId: session.worktreeId,
-        scope: session.scope,
-        sessionId: session.id,
-        error: error instanceof Error ? error.message : "unknown",
+        metadata: {
+          scope: session.scope,
+          sessionId: session.id,
+          error: error instanceof Error ? error.message : "unknown",
+        },
       });
       session.restoreSnapshot = "";
     }
@@ -187,7 +220,18 @@ export class TerminalManager {
         } as Record<string, string>,
       });
     } catch (err) {
-      console.error(`[terminal] Failed to spawn PTY: ${err}`);
+      this.emitDebugEvent({
+        action: "terminal.pty.spawn",
+        message: "Failed to spawn PTY process",
+        status: "failed",
+        level: "error",
+        worktreeId: session.worktreeId,
+        metadata: {
+          sessionId,
+          scope: session.scope,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
       this.clearScopeIndex(session);
       this.sessions.delete(sessionId);
       return false;
@@ -254,15 +298,20 @@ export class TerminalManager {
         } else {
           const existingSessionHealthy = this.isScopedSessionHealthy(existingSession);
           if (!existingSessionHealthy) {
-            console.info("[terminal][TEMP] createSession scope decision", {
+            this.emitDebugEvent({
+              action: "terminal.session.scope",
+              message: "Replaced unhealthy scoped terminal session",
+              status: "info",
               worktreeId,
-              scope,
-              sessionId: existingSessionId,
-              decision: "replaced-unhealthy-scope",
-              reason:
-                existingSession.startupCommand === null
-                  ? "existing-scoped-shell-session-unhealthy"
-                  : "existing-scoped-agent-session-unhealthy",
+              metadata: {
+                scope,
+                sessionId: existingSessionId,
+                decision: "replaced-unhealthy-scope",
+                reason:
+                  existingSession.startupCommand === null
+                    ? "existing-scoped-shell-session-unhealthy"
+                    : "existing-scoped-agent-session-unhealthy",
+              },
             });
             this.destroySession(existingSessionId);
             if (existingSession.startupCommand === null) {
@@ -272,12 +321,17 @@ export class TerminalManager {
             const hasStartupCommand = Boolean(startupCommand);
             const existingIsAgentSession = existingSession.startupCommand !== null;
             if (!hasStartupCommand) {
-              console.info("[terminal][TEMP] createSession scope decision", {
+              this.emitDebugEvent({
+                action: "terminal.session.scope",
+                message: "Reused scoped terminal session",
+                status: "succeeded",
                 worktreeId,
-                scope,
-                sessionId: existingSessionId,
-                decision: "reused-agent-scope",
-                reason: "no-startup-command",
+                metadata: {
+                  scope,
+                  sessionId: existingSessionId,
+                  decision: "reused-agent-scope",
+                  reason: "no-startup-command",
+                },
               });
               return {
                 sessionId: existingSessionId,
@@ -286,12 +340,17 @@ export class TerminalManager {
               };
             }
             if (existingIsAgentSession) {
-              console.info("[terminal][TEMP] createSession scope decision", {
+              this.emitDebugEvent({
+                action: "terminal.session.scope",
+                message: "Reused existing scoped agent terminal session",
+                status: "succeeded",
                 worktreeId,
-                scope,
-                sessionId: existingSessionId,
-                decision: "reused-agent-scope",
-                reason: "existing-scoped-agent-session",
+                metadata: {
+                  scope,
+                  sessionId: existingSessionId,
+                  decision: "reused-agent-scope",
+                  reason: "existing-scoped-agent-session",
+                },
               });
               return {
                 sessionId: existingSessionId,
@@ -300,12 +359,17 @@ export class TerminalManager {
               };
             }
 
-            console.info("[terminal][TEMP] createSession scope decision", {
+            this.emitDebugEvent({
+              action: "terminal.session.scope",
+              message: "Replaced scoped shell session for startup command",
+              status: "info",
               worktreeId,
-              scope,
-              sessionId: existingSessionId,
-              decision: "replaced-shell-scope",
-              reason: "startup-command-requested",
+              metadata: {
+                scope,
+                sessionId: existingSessionId,
+                decision: "replaced-shell-scope",
+                reason: "startup-command-requested",
+              },
             });
             this.destroySession(existingSessionId);
             replacedScopedShellSession = true;
@@ -346,13 +410,18 @@ export class TerminalManager {
       throw new Error("Failed to start terminal session");
     }
 
-    console.info("[terminal][TEMP] createSession scope decision", {
+    this.emitDebugEvent({
+      action: "terminal.session.create",
+      message: "Created terminal session",
+      status: "succeeded",
       worktreeId,
-      scope,
-      sessionId,
-      decision: "created-fresh",
-      hasStartupCommand: Boolean(startupCommand),
-      replacedScopedShellSession,
+      metadata: {
+        scope,
+        sessionId,
+        decision: "created-fresh",
+        hasStartupCommand: Boolean(startupCommand),
+        replacedScopedShellSession,
+      },
     });
     return {
       sessionId,
@@ -479,6 +548,10 @@ export class TerminalManager {
 
   hasSession(sessionId: string): boolean {
     return this.sessions.has(sessionId);
+  }
+
+  getSessionWorktreeId(sessionId: string): string | null {
+    return this.sessions.get(sessionId)?.worktreeId ?? null;
   }
 
   getSessionIdForScope(

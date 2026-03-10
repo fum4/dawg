@@ -87,7 +87,7 @@ Key responsibilities:
 - **Config management**: `reloadConfig()`, `updateConfig()`, `getConfig()` (`.openkit/config.json` for shared project settings; `.openkit/local-config.json` for local agent git policy preferences)
 - **Log capture**: Stdout/stderr from spawned processes is captured (last 100 lines) and forwarded to listeners with debounced batching (250ms)
 - **Activity tracking**: Owns an `ActivityLog` instance, emitting lifecycle events (`creation_started`, `creation_completed`, `creation_failed`, `started`, `stopped`, `crashed`) during worktree operations
-- **Operational tracing**: Owns an `OpsLog` instance used for request traces, notification emissions, and structured command execution telemetry
+- **Operational tracing**: Owns an `OpsLog` instance used for inbound/outbound request traces, notification emissions, task/terminal/worktree lifecycle telemetry, and structured command execution telemetry
 
 ### PortManager
 
@@ -146,7 +146,7 @@ Shared activity types are defined in `libs/shared/src/activity-event.ts`: `Activ
 
 ### OpsLog
 
-`apps/server/src/ops-log.ts` -- Persists and broadcasts operational trace events (command execution telemetry, HTTP request traces, notification emissions, and client-reported UI errors).
+`apps/server/src/ops-log.ts` -- Persists and broadcasts operational trace events (command execution telemetry, inbound/outbound HTTP request traces, internal task/terminal/worktree lifecycle events, notification emissions, and client-reported UI errors).
 
 Key responsibilities:
 
@@ -167,6 +167,17 @@ Key responsibilities:
 - **Redaction**: Masks sensitive CLI args (token/password/auth-style flags)
 - **Output capture**: Records bounded stdout/stderr snippets for debugging context
 - **Safety**: Sink failures are non-fatal and cannot break command execution
+
+### Fetch Monitor
+
+`apps/server/src/runtime/fetch-monitor.ts` patches `globalThis.fetch` in the server runtime and emits structured outbound HTTP success/failure events to the configured sink.
+
+Key responsibilities:
+
+- **Outbound request tracing**: Captures method, URL/path, status code, duration, and callsite source for integration/API calls initiated by the server
+- **Payload metadata capture**: Records bounded text request/response payloads when readable and marks omitted/non-text payloads
+- **Transport hints**: Marks `SSE` / `WS` transport metadata when detectable
+- **Safety**: Sink failures are non-fatal and cannot break fetch execution
 
 ### HooksManager
 

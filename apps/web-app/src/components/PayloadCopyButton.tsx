@@ -50,7 +50,9 @@ export function PayloadCopyButton({ copyText, ariaLabel, className }: PayloadCop
       aria-label={ariaLabel}
     >
       {copied ? (
-        <span className="inline-flex items-center text-[9px] leading-none">Copied</span>
+        <span className="inline-flex h-[13px] items-center text-[9px] leading-[13px] text-white/35">
+          Copied
+        </span>
       ) : (
         <Copy className="w-[13px] h-[13px]" />
       )}
