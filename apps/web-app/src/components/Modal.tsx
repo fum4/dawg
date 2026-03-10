@@ -71,7 +71,11 @@ export function Modal({
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-modal-open>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        data-modal-open
+        onClick={closeOnBackdrop ? onClose : undefined}
+      >
         {onSubmit ? (
           <form
             onSubmit={onSubmit}
