@@ -4,7 +4,9 @@
 
 - Clean up CLI & corresponding website docs
 
-- Rename .openkit to .ok
+- Add git added/removed in worktree sidebar/details view
+
+- Fix website footer app version
 
 - 🚧 After authenticating GitHub the UI does not automatically refresh
 

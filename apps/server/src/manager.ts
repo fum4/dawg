@@ -310,6 +310,7 @@ export class WorktreeManager {
         openProjectTarget: isConfiguredOpenProjectTarget(fileConfig.openProjectTarget)
           ? fileConfig.openProjectTarget
           : this.config.openProjectTarget,
+        showDiffStats: fileConfig.showDiffStats ?? this.config.showDiffStats,
         activity: sanitizeActivityConfig(fileConfig.activity ?? this.config.activity),
       });
 
@@ -662,6 +663,8 @@ export class WorktreeManager {
           info.commitsAhead = git.noUpstream ? 0 : git.ahead;
           // -1 means we couldn't determine, treat as having commits (safer)
           info.commitsAheadOfBase = git.aheadOfBase === -1 ? undefined : git.aheadOfBase;
+          info.linesAdded = git.linesAdded;
+          info.linesRemoved = git.linesRemoved;
         }
       }
 
@@ -1865,6 +1868,13 @@ export class WorktreeManager {
         hasConfigUpdates = true;
         existing.envMapping = partial.envMapping;
         this.config.envMapping = partial.envMapping;
+      }
+
+      // Handle showDiffStats
+      if (partial.showDiffStats !== undefined) {
+        hasConfigUpdates = true;
+        existing.showDiffStats = partial.showDiffStats;
+        this.config.showDiffStats = partial.showDiffStats;
       }
 
       // Handle activity settings

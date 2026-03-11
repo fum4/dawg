@@ -46,12 +46,16 @@ import type { View } from "./components/NavBar";
 import type { WorktreeInfo } from "./types";
 import { TabBar } from "./components/TabBar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { SidebarConfigBar } from "./components/SidebarConfigBar";
 import { WorktreeList } from "./components/WorktreeList";
 import { Modal } from "./components/Modal";
 import { useServer } from "./contexts/ServerContext";
 import { createOpsLogEvent as createOpsLogEventRaw } from "./hooks/api";
 import { useApi } from "./hooks/useApi";
 import { useConfig } from "./hooks/useConfig";
+import { useLocalConfig } from "./hooks/useLocalConfig";
+import { useShortcuts } from "./hooks/useShortcuts";
+import { NAV_SLOTS, findCurrentSlotIndex, type ShortcutEvent } from "./shortcuts";
 import { useCustomTasks } from "./hooks/useCustomTasks";
 import { useJiraIssues } from "./hooks/useJiraIssues";
 import { useLinearIssues } from "./hooks/useLinearIssues";
@@ -365,6 +369,7 @@ export default function App() {
     isLoading: configLoading,
     refetch: refetchConfig,
   } = useConfig();
+  const { localConfig, refetch: refetchLocalConfig } = useLocalConfig();
   const { jiraStatus, refetchJiraStatus } = useJiraStatus();
   const { linearStatus, refetchLinearStatus } = useLinearStatus();
   const githubStatus = useGitHubStatus();
@@ -838,6 +843,105 @@ export default function App() {
       setActiveCreateTabState("branch");
     }
   }, [readWorkspaceStorageValue, workspaceStorageScope]);
+
+  // Global keyboard shortcuts
+  const handleShortcutAction = useCallback(
+    (event: ShortcutEvent) => {
+      if (event.action === "project-tab") {
+        const project = projects[event.tabIndex];
+        if (project) switchProject(project.id);
+        return;
+      }
+
+      if (event.action === "arrow-nav") {
+        const currentIdx = findCurrentSlotIndex(activeView, activeCreateTab);
+        const nextIdx =
+          event.direction === "right"
+            ? Math.min(currentIdx + 1, NAV_SLOTS.length - 1)
+            : Math.max(currentIdx - 1, 0);
+        if (nextIdx === currentIdx) return;
+        const slot = NAV_SLOTS[nextIdx];
+        setActiveView(slot.view);
+        if ("tab" in slot) setActiveCreateTab(slot.tab);
+        return;
+      }
+
+      if (event.action === "arrow-nav-vertical") {
+        if (activeView !== "workspace") return;
+        const searchInput = document.querySelector<HTMLInputElement>("[data-sidebar-search]");
+        if (!searchInput) return;
+
+        const items = Array.from(document.querySelectorAll<HTMLElement>("[data-sidebar-item]"));
+        const focusedItem = document.activeElement?.closest(
+          "[data-sidebar-item]",
+        ) as HTMLElement | null;
+        const focusedIdx = focusedItem ? items.indexOf(focusedItem) : -1;
+
+        if (event.direction === "down") {
+          if (focusedIdx >= 0 && focusedIdx < items.length - 1) {
+            // Already on an item — move to next item
+            const next = items[focusedIdx + 1];
+            next.focus();
+            next.click();
+          } else if (document.activeElement === searchInput) {
+            // On search — move to first item
+            if (items[0]) {
+              items[0].focus();
+              items[0].click();
+            }
+          } else {
+            // Not focused on sidebar — focus search first
+            searchInput.focus();
+          }
+        } else {
+          if (focusedIdx > 0) {
+            // Move to previous item
+            const prev = items[focusedIdx - 1];
+            prev.focus();
+            prev.click();
+          } else if (focusedIdx === 0) {
+            // At first item — go back to search
+            searchInput.focus();
+          } else if (document.activeElement === searchInput) {
+            // On search — blur to exit sidebar nav
+            searchInput.blur();
+          }
+        }
+        return;
+      }
+
+      switch (event.action) {
+        case "nav-worktrees":
+          setActiveView("workspace");
+          setActiveCreateTab("branch");
+          break;
+        case "nav-issues":
+          setActiveView("workspace");
+          setActiveCreateTab("issues");
+          break;
+        case "nav-agents":
+          setActiveView("agents");
+          break;
+        case "nav-activity":
+          setActiveView("activity");
+          break;
+        case "nav-integrations":
+          setActiveView("integrations");
+          break;
+        case "nav-settings":
+          setActiveView("configuration");
+          break;
+      }
+    },
+    [projects, switchProject, setActiveView, setActiveCreateTab, activeView, activeCreateTab],
+  );
+
+  useShortcuts({
+    shortcuts: localConfig?.shortcuts,
+    onAction: handleShortcutAction,
+    arrowNavEnabled: localConfig?.arrowNavEnabled !== false,
+  });
+
   const [defaultCodingAgent, setDefaultCodingAgent] = useState<CodingAgent>(() => {
     const saved = localStorage.getItem(CODING_AGENT_PREF_KEY);
     return saved === "claude" || saved === "codex" || saved === "gemini" || saved === "opencode"
@@ -854,6 +958,16 @@ export default function App() {
   );
   const [createTaskForWorktreeId, setCreateTaskForWorktreeId] = useState<string | null>(null);
   const [linkIssueForWorktreeId, setLinkIssueForWorktreeId] = useState<string | null>(null);
+
+  // Issue display settings (persisted in localStorage)
+  const [issueShowPriority, setIssueShowPriority] = useState(() => {
+    const saved = localStorage.getItem("OpenKit:issueShowPriority");
+    return saved !== null ? saved === "1" : false;
+  });
+  const [issueShowStatus, setIssueShowStatus] = useState(() => {
+    const saved = localStorage.getItem("OpenKit:issueShowStatus");
+    return saved !== null ? saved === "1" : false;
+  });
 
   // Sidebar width state with persistence
   const DEFAULT_SIDEBAR_WIDTH = 300;
@@ -2860,6 +2974,7 @@ export default function App() {
                       className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${text.dimmed}`}
                     />
                     <input
+                      data-sidebar-search
                       type="text"
                       value={activeCreateTab === "branch" ? worktreeFilter : jiraSearchQuery}
                       onChange={(e) => {
@@ -2894,6 +3009,7 @@ export default function App() {
                         onSelect={(id) => setSelection({ type: "worktree", id })}
                         filter={worktreeFilter}
                         localIssueLinkedIds={localIssueLinkedIds}
+                        showDiffStats={config?.showDiffStats !== false}
                         onSelectJiraIssue={(key) => {
                           setActiveCreateTab("issues");
                           setSelection({ type: "issue", key });
@@ -2949,12 +3065,52 @@ export default function App() {
                           selection?.type === "custom-task" ? selection.id : null
                         }
                         onSelectCustomTask={(id) => setSelection({ type: "custom-task", id })}
+                        showPriority={issueShowPriority}
+                        showStatus={issueShowStatus}
                         worktrees={worktrees}
                         onViewWorktree={handleViewWorktreeFromJira}
                       />
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                <SidebarConfigBar
+                  items={
+                    activeCreateTab === "branch"
+                      ? [
+                          {
+                            label: "Show diff stats",
+                            checked: config?.showDiffStats !== false,
+                            onToggle: async () => {
+                              await api.saveConfig({
+                                showDiffStats: !(config?.showDiffStats !== false),
+                              });
+                              refetchConfig();
+                            },
+                          },
+                        ]
+                      : [
+                          {
+                            label: "Show priority",
+                            checked: issueShowPriority,
+                            onToggle: () => {
+                              const next = !issueShowPriority;
+                              setIssueShowPriority(next);
+                              localStorage.setItem("OpenKit:issueShowPriority", next ? "1" : "0");
+                            },
+                          },
+                          {
+                            label: "Show status",
+                            checked: issueShowStatus,
+                            onToggle: () => {
+                              const next = !issueShowStatus;
+                              setIssueShowStatus(next);
+                              localStorage.setItem("OpenKit:issueShowStatus", next ? "1" : "0");
+                            },
+                          },
+                        ]
+                  }
+                />
               </aside>
 
               {/* Resize handle */}
@@ -3047,6 +3203,7 @@ export default function App() {
                     worktree={selectedWorktree}
                     onUpdate={refetch}
                     onDeleted={handleDeleted}
+                    showDiffStats={config?.showDiffStats !== false}
                     hookUpdateKey={hookUpdateKey}
                     onNavigateToIntegrations={() => setActiveView("integrations")}
                     onNavigateToHooks={() => setActiveView("hooks")}
@@ -3106,6 +3263,9 @@ export default function App() {
               jiraConfigured={jiraStatus?.configured ?? false}
               linearConfigured={linearStatus?.configured ?? false}
               onNavigateToIntegrations={() => setActiveView("integrations")}
+              shortcuts={localConfig?.shortcuts}
+              arrowNavEnabled={localConfig?.arrowNavEnabled}
+              onShortcutsSaved={refetchLocalConfig}
             />
           )}
 

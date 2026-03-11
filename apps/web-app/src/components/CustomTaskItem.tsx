@@ -29,8 +29,9 @@ export function CustomTaskItem({
   return (
     <button
       type="button"
+      data-sidebar-item
       onClick={onSelect}
-      className={`w-full px-3 py-2.5 text-left transition-colors duration-150 border-l-2 ${
+      className={`w-full px-3 py-2.5 text-left transition-colors duration-150 border-l-2 focus:outline-none ${
         isSelected
           ? `${surface.panelSelected} border-amber-400/60`
           : `border-transparent hover:${surface.panelHover}`

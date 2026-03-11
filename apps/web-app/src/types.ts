@@ -21,6 +21,8 @@ export interface WorktreeInfo {
   hasUnpushed?: boolean;
   commitsAhead?: number;
   commitsAheadOfBase?: number;
+  linesAdded?: number;
+  linesRemoved?: number;
 }
 
 export interface PortsInfo {

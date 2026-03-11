@@ -288,6 +288,8 @@ export async function getGitStatus(
   let behind = 0;
   let noUpstream = false;
   let aheadOfBase = 0;
+  let linesAdded = 0;
+  let linesRemoved = 0;
 
   try {
     const { stdout } = await execFile("git", ["status", "--porcelain"], {
@@ -328,7 +330,24 @@ export async function getGitStatus(
     }
   }
 
-  return { hasUncommitted, ahead, behind, noUpstream, aheadOfBase };
+  // Diff stats for uncommitted changes (staged + unstaged vs HEAD)
+  try {
+    const { stdout } = await execFile("git", ["diff", "--numstat", "HEAD"], {
+      cwd: worktreePath,
+      encoding: "utf-8",
+    });
+    for (const line of stdout.trim().split("\n")) {
+      if (!line) continue;
+      const [added, removed] = line.split("\t");
+      // Binary files show "-" for both columns
+      if (added !== "-") linesAdded += parseInt(added, 10) || 0;
+      if (removed !== "-") linesRemoved += parseInt(removed, 10) || 0;
+    }
+  } catch {
+    // Ignore — e.g. no commits yet
+  }
+
+  return { hasUncommitted, ahead, behind, noUpstream, aheadOfBase, linesAdded, linesRemoved };
 }
 
 export async function commitAll(

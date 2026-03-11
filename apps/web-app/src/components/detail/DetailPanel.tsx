@@ -135,6 +135,7 @@ interface DetailPanelProps {
     prompt?: string;
     tabLabel?: string;
   }) => void;
+  showDiffStats?: boolean;
   hookUpdateKey?: number;
   claudeLaunchRequest?: AgentLaunchRequest | null;
   codexLaunchRequest?: AgentLaunchRequest | null;
@@ -166,6 +167,7 @@ export function DetailPanel({
   onCodeWithCodex,
   onCodeWithGemini,
   onCodeWithOpenCode,
+  showDiffStats,
   hookUpdateKey,
   claudeLaunchRequest,
   codexLaunchRequest,
@@ -1450,6 +1452,7 @@ export function DetailPanel({
         selectedOpenTarget={selectedOpenTarget}
         onSelectOpenTarget={setSelectedOpenTarget}
         onOpenProjectIn={handleOpenProjectIn}
+        showDiffStats={showDiffStats}
         onSelectJiraIssue={onSelectJiraIssue}
         onSelectLinearIssue={onSelectLinearIssue}
         onSelectLocalIssue={onSelectLocalIssue}
@@ -1682,7 +1685,7 @@ export function DetailPanel({
                   setShowCreatePrInput(false);
                 }}
                 disabled={isGitLoading}
-                className={`h-7 px-2.5 text-[11px] font-medium ${action.commit.text} ${action.commit.hover} hover:text-white rounded-md disabled:opacity-50 disabled:pointer-events-none disabled:cursor-default transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5`}
+                className={`h-7 px-2.5 text-[11px] font-medium ${action.commit.text} ${action.commit.hover} hover:${text.secondary} rounded-md disabled:opacity-50 disabled:pointer-events-none disabled:cursor-default transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5`}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1701,7 +1704,7 @@ export function DetailPanel({
                 type="button"
                 onClick={handlePush}
                 disabled={isGitLoading}
-                className={`h-7 px-2.5 text-[11px] font-medium ${action.push.text} ${action.push.hover} hover:text-white rounded-md disabled:opacity-50 disabled:pointer-events-none disabled:cursor-default transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5`}
+                className={`h-7 px-2.5 text-[11px] font-medium ${action.push.text} ${action.push.hover} hover:${text.secondary} rounded-md disabled:opacity-50 disabled:pointer-events-none disabled:cursor-default transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5`}
               >
                 {isGitLoading && gitAction === "push" ? (
                   <>
@@ -1760,7 +1763,7 @@ export function DetailPanel({
                   className={`h-7 px-2.5 text-[11px] font-medium rounded-md transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5 ${
                     showCreatePrInput
                       ? `${action.pr.textActive} ${action.pr.bgActive}`
-                      : `${action.pr.text} ${action.pr.hover} hover:text-white`
+                      : `${action.pr.text} ${action.pr.hover} hover:${text.secondary}`
                   } disabled:opacity-50 disabled:pointer-events-none disabled:cursor-default`}
                 >
                   <svg
@@ -1779,7 +1782,7 @@ export function DetailPanel({
                 href={worktree.githubPrUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`group h-7 px-2.5 text-[11px] font-medium ${action.pr.text} ${action.pr.hover} hover:text-white rounded-md transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5`}
+                className={`group h-7 px-2.5 text-[11px] font-medium ${action.pr.text} ${action.pr.hover} hover:${text.secondary} rounded-md transition-colors duration-150 active:scale-[0.98] inline-flex items-center gap-1.5`}
               >
                 <GitHubIcon className="w-3.5 h-3.5 text-[#6b7280] transition-colors group-hover:text-white" />
                 View PR
@@ -1871,7 +1874,7 @@ export function DetailPanel({
               if (e.key === "Escape") setShowCommitInput(false);
             }}
             placeholder="Commit message..."
-            className={`w-full px-3 py-2 ${input.bgDetail} border ${border.modal} rounded-lg ${input.text} text-xs placeholder-[#4b5563] focus:outline-none focus:${border.focusPrimary} focus-visible:ring-1 ${input.ring} transition-colors duration-150`}
+            className={`w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg ${input.text} text-xs placeholder-[#4b5563] outline-none focus:border-white/[0.15] transition-colors duration-150`}
             autoFocus
           />
         </Modal>
@@ -1923,7 +1926,7 @@ export function DetailPanel({
               if (e.key === "Escape") setShowCreatePrInput(false);
             }}
             placeholder="PR title..."
-            className={`w-full px-3 py-2 ${input.bgDetail} border ${border.modal} rounded-lg ${input.text} text-xs placeholder-[#4b5563] focus:outline-none focus:${border.focusPrimary} focus-visible:ring-1 ${input.ring} transition-colors duration-150`}
+            className={`w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg ${input.text} text-xs placeholder-[#4b5563] outline-none focus:border-white/[0.15] transition-colors duration-150`}
             autoFocus
           />
         </Modal>

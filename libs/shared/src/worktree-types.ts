@@ -52,6 +52,8 @@ export interface WorktreeConfig {
   allowAgentPushes?: boolean;
   /** User preference: whether MCP agents are allowed to create PRs (default: false) */
   allowAgentPRs?: boolean;
+  /** Whether to show diff stats (lines added/removed) in sidebar and detail view (default: true) */
+  showDiffStats?: boolean;
   /** Activity feed configuration */
   activity?: {
     retentionDays?: number;
@@ -107,6 +109,10 @@ export interface WorktreeInfo {
   commitsAhead?: number;
   /** Number of commits ahead of base branch (for PR eligibility) */
   commitsAheadOfBase?: number;
+  /** Lines added vs base branch */
+  linesAdded?: number;
+  /** Lines removed vs base branch */
+  linesRemoved?: number;
 }
 
 export interface WorktreeCreateRequest {

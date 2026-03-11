@@ -300,7 +300,8 @@ This file is intended for per-user preferences that should influence agent opera
 {
   "allowAgentCommits": false,
   "allowAgentPushes": false,
-  "allowAgentPRs": false
+  "allowAgentPRs": false,
+  "arrowNavEnabled": true
 }
 ```
 
@@ -335,6 +336,52 @@ Controls whether agents may push commits to remotes. Can be overridden per-workt
 | **Required** | No        |
 
 Controls whether agents may create pull requests. Can be overridden per-worktree via issue-notes git policy.
+
+#### `arrowNavEnabled`
+
+| Property     | Value     |
+| ------------ | --------- |
+| **Type**     | `boolean` |
+| **Default**  | `true`    |
+| **Required** | No        |
+
+Enables arrow key navigation shortcuts. When `true`, Cmd+Left/Right cycles through top-level pages in NavBar order and Cmd+Down/Up traverses the workspace sidebar (search input first, then sidebar items). Can be toggled in the Keyboard Shortcuts settings card.
+
+#### `shortcuts`
+
+| Property     | Value                    |
+| ------------ | ------------------------ |
+| **Type**     | `Record<string, string>` |
+| **Default**  | See below                |
+| **Required** | No                       |
+
+Keyboard shortcut bindings. Keys are action identifiers and values are shortcut strings using `meta`, `ctrl`, `shift`, `alt` modifiers joined with `+`. The `meta` modifier maps to Cmd on macOS and Ctrl on Windows/Linux.
+
+Default shortcuts:
+
+```json
+{
+  "shortcuts": {
+    "project-tab": "meta",
+    "nav-worktrees": "meta+w",
+    "nav-issues": "meta+i",
+    "nav-agents": "meta+a",
+    "nav-activity": "meta+l",
+    "nav-integrations": "meta+e",
+    "nav-settings": "meta+s"
+  }
+}
+```
+
+| Action             | Default  | Description                             |
+| ------------------ | -------- | --------------------------------------- |
+| `project-tab`      | `meta`   | Switch project tabs (modifier + 1/2/3…) |
+| `nav-worktrees`    | `meta+w` | Navigate to the Worktrees view          |
+| `nav-issues`       | `meta+i` | Navigate to the Issues view             |
+| `nav-agents`       | `meta+a` | Navigate to the Agents view             |
+| `nav-activity`     | `meta+l` | Navigate to the Activity view           |
+| `nav-integrations` | `meta+e` | Navigate to the Integrations view       |
+| `nav-settings`     | `meta+s` | Navigate to the Settings view           |
 
 ---
 

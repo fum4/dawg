@@ -208,6 +208,7 @@ interface ActivityFeedPanelProps extends ActivityFeedCoreProps {
   hideClearAction?: boolean;
   hideTopBar?: boolean;
   hideFilterBar?: boolean;
+  hideBackToTop?: boolean;
   showAllProjectsControl?: {
     checked: boolean;
     onToggle: () => void;
@@ -232,6 +233,7 @@ export function ActivityFeedPanel({
   hideClearAction = false,
   hideTopBar = false,
   hideFilterBar = false,
+  hideBackToTop = false,
   showAllProjectsControl,
 }: ActivityFeedPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -355,10 +357,10 @@ export function ActivityFeedPanel({
         </div>
       )}
 
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0 flex flex-col">
         <div
           ref={scrollContainerRef}
-          className="h-full overflow-y-auto"
+          className="flex-1 min-h-0 overflow-y-auto"
           onScroll={(event) => {
             const shouldShow = event.currentTarget.scrollTop > 120;
             setShowBackToTop((prev) => (prev === shouldShow ? prev : shouldShow));
@@ -394,7 +396,7 @@ export function ActivityFeedPanel({
             </div>
           )}
         </div>
-        {shouldShowBackToTop && (
+        {shouldShowBackToTop && !hideBackToTop && (
           <button
             type="button"
             onClick={() => {
@@ -485,6 +487,7 @@ export function ActivityFeed({
         onNavigateToWorktree={onNavigateToWorktree}
         onNavigateToIssue={onNavigateToIssue}
         onResolveActionRequired={onResolveActionRequired}
+        hideBackToTop
       />
     </motion.div>
   );

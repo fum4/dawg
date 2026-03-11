@@ -122,7 +122,10 @@ export class GitHubManager {
   startPolling(getWorktrees: () => WorktreeInfo[], onUpdate: () => void): void {
     if (!this.isAvailable()) return;
 
-    // Git status polling — every 10s
+    // Git status polling — every 3s
+    // Intentionally not logged to ops/debug: runs too frequently and all
+    // operations are local git commands (status, rev-list, diff --numstat),
+    // so the noise-to-signal ratio would be very poor.
     const pollGitStatus = async () => {
       const worktrees = getWorktrees();
       let changed = false;
@@ -138,7 +141,9 @@ export class GitHubManager {
             prev.ahead !== status.ahead ||
             prev.behind !== status.behind ||
             prev.noUpstream !== status.noUpstream ||
-            prev.aheadOfBase !== status.aheadOfBase
+            prev.aheadOfBase !== status.aheadOfBase ||
+            prev.linesAdded !== status.linesAdded ||
+            prev.linesRemoved !== status.linesRemoved
           ) {
             this.gitStatusCache.set(wt.id, status);
             changed = true;
@@ -181,7 +186,7 @@ export class GitHubManager {
     pollGitStatus();
     pollPRs();
 
-    this.gitStatusInterval = setInterval(pollGitStatus, 10_000);
+    this.gitStatusInterval = setInterval(pollGitStatus, 3_000);
     this.prInterval = setInterval(pollPRs, 60_000);
   }
 
