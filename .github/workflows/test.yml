@@ -67,7 +67,7 @@ jobs:
   smoke-cli:
     needs: check-affected
     if: needs.check-affected.outputs.cli_startup == 'true'
-    name: cli / smoke (${{ matrix.os_name }})
+    name: cli (smoke) (${{ matrix.os_name }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 12
     strategy:
@@ -124,7 +124,7 @@ jobs:
   unit-server:
     needs: check-affected
     if: needs.check-affected.outputs.server == 'true'
-    name: server / unit
+    name: server (unit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -135,7 +135,7 @@ jobs:
   unit-web-app:
     needs: check-affected
     if: needs.check-affected.outputs.web_app == 'true'
-    name: web-app / unit
+    name: web-app (unit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -146,7 +146,7 @@ jobs:
   unit-shared:
     needs: check-affected
     if: needs.check-affected.outputs.shared == 'true'
-    name: shared / unit
+    name: shared (unit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
