@@ -31,6 +31,7 @@ Alternatively, you can clone the repo and set it up locally:
 
 - Node.js >= 18 (LTS recommended)
 - pnpm >= 10
+- Zig >= 0.15
 
 <br />
 

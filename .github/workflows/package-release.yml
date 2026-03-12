@@ -26,6 +26,9 @@ jobs:
       - name: Setup pnpm + Node
         uses: ./.github/actions/setup-pnpm-node
 
+      - name: Setup native port resolution
+        uses: ./.github/actions/setup-native-port-resolution
+
       - name: Build artifacts (signed/notarized)
         uses: ./.github/actions/package-macos
         with:
@@ -59,6 +62,9 @@ jobs:
 
       - name: Setup pnpm + Node
         uses: ./.github/actions/setup-pnpm-node
+
+      - name: Setup Zig + build native port hook
+        uses: ./.github/actions/setup-native-port-resolution
 
       - name: Build artifacts
         run: pnpm package:linux

@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "name": "port-resolution",
+  "name": "native-port-resolution",
   "projectType": "library",
   "sourceRoot": "libs/port-resolution/src",
   "targets": {
