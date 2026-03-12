@@ -2,7 +2,7 @@ import { ListTodo } from "lucide-react";
 import type { RefObject } from "react";
 
 import type { WorktreeInfo } from "../types";
-import { border, status, surface, text } from "../theme";
+import { border, palette, status, surface, text } from "../theme";
 import { JiraIcon, LinearIcon } from "../icons";
 import { Tooltip } from "./Tooltip";
 
@@ -12,6 +12,7 @@ interface WorktreeItemProps {
   itemRef?: RefObject<HTMLButtonElement | null>;
   onSelect: () => void;
   hasLocalIssue?: boolean;
+  showDiffStats?: boolean;
   onSelectJiraIssue?: (key: string) => void;
   onSelectLinearIssue?: (identifier: string) => void;
   onSelectLocalIssue?: (identifier: string) => void;
@@ -23,6 +24,7 @@ export function WorktreeItem({
   itemRef,
   onSelect,
   hasLocalIssue,
+  showDiffStats,
   onSelectJiraIssue,
   onSelectLinearIssue,
   onSelectLocalIssue,
@@ -34,8 +36,9 @@ export function WorktreeItem({
     <button
       ref={itemRef}
       type="button"
+      data-sidebar-item
       onClick={onSelect}
-      className={`w-full px-3 py-2.5 flex items-center gap-2.5 text-left transition-colors duration-150 border-l ${
+      className={`w-full px-3 py-2.5 flex items-center gap-2.5 text-left transition-colors duration-150 border-l focus:outline-none ${
         isSelected
           ? `${surface.panelSelected} ${border.accent}`
           : `border-transparent hover:${surface.panelHover}`
@@ -54,11 +57,19 @@ export function WorktreeItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className={`text-xs font-semibold ${text.primary} truncate`}>{worktree.id}</span>
-          {worktree.hasUncommitted && (
-            <Tooltip position="right" text="Uncommitted changes">
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${status.uncommitted.dot} flex-shrink-0`}
-              />
+          {showDiffStats && !isCreating && !!(worktree.linesAdded || worktree.linesRemoved) && (
+            <span className="flex items-center gap-1 flex-shrink-0 text-[10px] font-medium ml-1">
+              <span className="text-accent/60">+{worktree.linesAdded ?? 0}</span>
+              <span style={{ color: palette.red }} className="opacity-60">
+                -{worktree.linesRemoved ?? 0}
+              </span>
+            </span>
+          )}
+          {worktree.hasUnpushed && !isCreating && (
+            <Tooltip position="right" text={`${worktree.commitsAhead || ""} unpushed`}>
+              <span className={`text-[10px] font-medium ${text.muted} flex-shrink-0 ml-0.5`}>
+                {worktree.commitsAhead ? `↑${worktree.commitsAhead}` : "↑"}
+              </span>
             </Tooltip>
           )}
         </div>
@@ -142,13 +153,6 @@ export function WorktreeItem({
               >
                 <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
               </svg>
-            </span>
-          </Tooltip>
-        )}
-        {worktree.hasUnpushed && (
-          <Tooltip position="right" text={`${worktree.commitsAhead || ""} unpushed`}>
-            <span className={`text-[10px] font-medium ${text.primary}`}>
-              {worktree.commitsAhead ? `↑${worktree.commitsAhead}` : "↑"}
             </span>
           </Tooltip>
         )}

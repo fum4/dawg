@@ -4,10 +4,10 @@ export type View = "workspace" | "agents" | "activity" | "hooks" | "configuratio
 
 const tabs: { id: View; label: string }[] = [
   { id: "workspace", label: "Workspace" },
-  { id: "activity", label: "Activity" },
   { id: "agents", label: "Agents" },
   { id: "hooks", label: "Hooks" },
   { id: "integrations", label: "Integrations" },
+  { id: "activity", label: "Activity" },
   { id: "configuration", label: "Settings" },
 ];
 

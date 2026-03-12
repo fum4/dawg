@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Settings } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import type {
   CustomTaskSummary,
@@ -7,7 +6,7 @@ import type {
   LinearIssueSummary,
   WorktreeInfo,
 } from "../types";
-import { border, text } from "../theme";
+import { text } from "../theme";
 import { Tooltip } from "./Tooltip";
 import { CustomTaskList } from "./CustomTaskList";
 import { JiraIssueList } from "./JiraIssueList";
@@ -105,6 +104,9 @@ interface IssueListProps {
   customTasksUpdatedAt: number;
   selectedCustomTaskId: string | null;
   onSelectCustomTask: (id: string) => void;
+  // Display settings
+  showPriority: boolean;
+  showStatus: boolean;
   // Shared
   worktrees: WorktreeInfo[];
   onViewWorktree: (worktreeId: string) => void;
@@ -136,6 +138,8 @@ export function IssueList({
   customTasksUpdatedAt,
   selectedCustomTaskId,
   onSelectCustomTask,
+  showPriority,
+  showStatus,
   worktrees,
   onViewWorktree,
 }: IssueListProps) {
@@ -143,35 +147,6 @@ export function IssueList({
   const [jiraCollapsed, setJiraCollapsed] = useState(false);
   const [linearCollapsed, setLinearCollapsed] = useState(false);
   const [customCollapsed, setCustomCollapsed] = useState(false);
-  const [showPriority, setShowPriority] = useState(() => {
-    const saved = localStorage.getItem("OpenKit:issueShowPriority");
-    return saved !== null ? saved === "1" : false;
-  });
-  const [showStatus, setShowStatus] = useState(() => {
-    const saved = localStorage.getItem("OpenKit:issueShowStatus");
-    return saved !== null ? saved === "1" : false;
-  });
-  const [configOpen, setConfigOpen] = useState(false);
-  const configRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!configOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (configRef.current && !configRef.current.contains(e.target as Node)) {
-        setConfigOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [configOpen]);
-
-  useEffect(() => {
-    localStorage.setItem("OpenKit:issueShowPriority", showPriority ? "1" : "0");
-  }, [showPriority]);
-
-  useEffect(() => {
-    localStorage.setItem("OpenKit:issueShowStatus", showStatus ? "1" : "0");
-  }, [showStatus]);
 
   // Build map of issueKey -> worktreeId (Jira)
   const linkedJiraWorktrees = useMemo(() => {
@@ -478,80 +453,6 @@ export function IssueList({
               showPriority={showPriority}
               showStatus={showStatus}
             />
-          )}
-        </div>
-      </div>
-
-      {/* Config bar */}
-      <div className={`flex-shrink-0 border-t ${border.subtle} px-2 py-2`}>
-        <div className="relative" ref={configRef}>
-          <button
-            type="button"
-            onClick={() => setConfigOpen(!configOpen)}
-            className={`p-1 rounded transition-colors duration-150 ${
-              configOpen
-                ? `${text.secondary} bg-white/[0.06]`
-                : `${text.dimmed} hover:${text.secondary} hover:bg-white/[0.06]`
-            }`}
-          >
-            <Settings className="w-[18px] h-[18px]" />
-          </button>
-
-          {configOpen && (
-            <div className="absolute bottom-full left-0 mb-1 w-44 rounded-lg bg-[#1a1d24] border border-white/[0.08] shadow-xl py-1 z-50">
-              <button
-                type="button"
-                onClick={() => setShowPriority(!showPriority)}
-                className={`w-full px-3 py-1.5 flex items-center gap-2 text-left text-[11px] ${text.secondary} hover:bg-white/[0.04] transition-colors duration-150`}
-              >
-                <span
-                  className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
-                    showPriority ? "bg-accent/20 border-accent/40" : "border-white/[0.15]"
-                  }`}
-                >
-                  {showPriority && (
-                    <svg
-                      className="w-2 h-2 text-accent"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M2 6l3 3 5-5" />
-                    </svg>
-                  )}
-                </span>
-                Show priority
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowStatus(!showStatus)}
-                className={`w-full px-3 py-1.5 flex items-center gap-2 text-left text-[11px] ${text.secondary} hover:bg-white/[0.04] transition-colors duration-150`}
-              >
-                <span
-                  className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
-                    showStatus ? "bg-accent/20 border-accent/40" : "border-white/[0.15]"
-                  }`}
-                >
-                  {showStatus && (
-                    <svg
-                      className="w-2 h-2 text-accent"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M2 6l3 3 5-5" />
-                    </svg>
-                  )}
-                </span>
-                Show status
-              </button>
-            </div>
           )}
         </div>
       </div>

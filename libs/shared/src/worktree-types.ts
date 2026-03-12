@@ -54,6 +54,8 @@ export interface WorktreeConfig {
   allowAgentPRs?: boolean;
   /** Whether to use native (Zig) port hook for runtime-agnostic port resolution (default: false) */
   useNativePortHook?: boolean;
+  /** Whether to show diff stats (lines added/removed) in sidebar and detail view (default: true) */
+  showDiffStats?: boolean;
   /** Activity feed configuration */
   activity?: {
     retentionDays?: number;
@@ -109,6 +111,10 @@ export interface WorktreeInfo {
   commitsAhead?: number;
   /** Number of commits ahead of base branch (for PR eligibility) */
   commitsAheadOfBase?: number;
+  /** Lines added vs base branch */
+  linesAdded?: number;
+  /** Lines removed vs base branch */
+  linesRemoved?: number;
 }
 
 export interface WorktreeCreateRequest {

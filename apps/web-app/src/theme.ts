@@ -141,7 +141,7 @@ export const action = {
     hover: "hover:bg-red-900/20 hover:text-red-400",
   },
   commit: {
-    text: "text-[#9ca3af]",
+    text: "text-[#6b7280]",
     textActive: "text-accent",
     hover: "hover:bg-white/[0.06]",
     bgActive: "bg-white/[0.08]",
@@ -149,11 +149,11 @@ export const action = {
     bgSubmitHover: "hover:bg-accent/20",
   },
   push: {
-    text: "text-[#9ca3af]",
+    text: "text-[#6b7280]",
     hover: "hover:bg-white/[0.06]",
   },
   pr: {
-    text: "text-[#9ca3af]",
+    text: "text-[#6b7280]",
     textActive: "text-accent",
     hover: "hover:bg-white/[0.06]",
     bgActive: "bg-accent/10",
@@ -444,6 +444,13 @@ export const errorBanner = {
   bg: "bg-red-900/30",
   panelBg: "bg-red-900/20",
   border: "border-red-900/30",
+} as const;
+
+// ─── Keyboard shortcut badges ───────────────────────────────────
+export const shortcut = {
+  badge: "bg-white/[0.06] border border-white/[0.08] text-[#9ca3af]",
+  badgeRecording: "border-accent/50 bg-accent/[0.06] text-accent",
+  badgeModified: "border-accent/30 text-accent/80",
 } as const;
 
 // ─── Info banner (teal accent) ───────────────────────────────────

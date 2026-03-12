@@ -127,6 +127,7 @@ The app uses a dark theme with a neutral slate background family and teal as the
 | `plugin`      | Plugin accent (warm copper) and badge styles                                                                                                                   |
 | `mcpServer`   | MCP server accent (purple), deployment status dot colors                                                                                                       |
 | `hooks`       | Hooks accent (emerald), step result status colors                                                                                                              |
+| `shortcut`    | Keyboard shortcut editor styles: key-cap backgrounds, active-recording highlight, reset/save action colors                                                     |
 | `notes`       | Notes tab styles, todo checkbox colors                                                                                                                         |
 | `agentRule`   | Agent rule accent (cyan), background, border styles                                                                                                            |
 | `activity`    | Activity feed category colors (agent=purple, worktree=teal, system=red), agent-variant icon backgrounds (Codex green tint), and optional severity token colors |
@@ -298,6 +299,7 @@ Detail view for local custom tasks. Supports inline editing of title, descriptio
 | `TodoList.tsx`             | Checkbox todo items attached to issues                                                                                                             |
 | `AgentPolicySection.tsx`   | Per-issue agent git policy overrides                                                                                                               |
 | `ToggleSwitch.tsx`         | Shared switch control used across Agents, Integrations, Settings, Hooks, and detail views                                                          |
+| `ShortcutsSection.tsx`     | Keyboard shortcut editor in the Configuration view; lists all configurable shortcuts with editable key bindings persisted to local config          |
 
 ---
 
@@ -368,6 +370,23 @@ Sessions are keyed by `runtimeScopeKey + worktreeId + scope` (`terminal`, `claud
 ### Configuration
 
 **`useConfig`** (`useConfig.ts`) fetches `.openkit/config.json` from the server. Returns the config object, project name, whether a branch name rule exists, and loading state.
+
+**`useLocalConfig`** (`useLocalConfig.ts`) fetches `.openkit/local-config.json` via `GET /api/local-config` and exposes the local config object (including `shortcuts`). Provides a mutation helper that calls `PATCH /api/local-config` to merge partial updates back to the server.
+
+### Keyboard Shortcuts
+
+**`useShortcuts`** (`useShortcuts.ts`) registers global keyboard shortcut listeners. Reads the current shortcut bindings from `useLocalConfig` and attaches `keydown` handlers for project tab switching, view navigation, and other configurable actions. Shortcut definitions default to the values in `local-config.json` and update live when the user edits bindings in the `ShortcutsSection` UI.
+
+#### Arrow Key Navigation
+
+When `arrowNavEnabled` is `true` (the default), `useShortcuts` also registers arrow key handlers:
+
+- **Cmd+Left / Cmd+Right** -- Navigates between top-level pages in NavBar order. The `NAV_SLOTS` order is: workspace(branch), workspace(issues), activity, agents, hooks, integrations, configuration. Activity is positioned immediately after the two Workspace tabs. If the currently focused element has the `data-sidebar-search` attribute, Cmd+Left/Right still navigates pages (rather than moving the cursor in the search input).
+- **Cmd+Down / Cmd+Up** -- Navigates the workspace sidebar vertically. Cmd+Down first focuses the workspace search input, then traverses sidebar items on subsequent presses. Cmd+Up traverses in reverse.
+
+Sidebar traversal relies on DOM query selectors targeting elements with the `data-sidebar-item` attribute (present on `WorktreeItem`, `JiraIssueItem`, `LinearIssueItem`, and `CustomTaskItem` buttons) and the `data-sidebar-search` attribute (on the workspace search input).
+
+The `arrowNavEnabled` toggle is exposed in the Keyboard Shortcuts settings card (`ShortcutsSection.tsx`) and persisted to `local-config.json`.
 
 ### Ngrok Connect Controls
 
