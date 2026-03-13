@@ -9,8 +9,10 @@ import {
   Clock3,
   ListFilter,
   Loader2,
+  Maximize2,
   MessageCircleCheck,
   MessageCircleX,
+  Minimize2,
   PauseCircle,
   PlayCircle,
   RectangleEllipsis,
@@ -643,11 +645,6 @@ function OpsLogVirtualList({
                           {event.level}
                         </span>
                       )}
-                      {event.action === "log" && typeof event.metadata?.domain === "string" && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded text-violet-300 bg-violet-500/10">
-                          {event.metadata.domain}
-                        </span>
-                      )}
                       {typeof httpStatusCode === "number" ? (
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded ${getHttpStatusChipClass(httpStatusCode)}`}
@@ -663,7 +660,12 @@ function OpsLogVirtualList({
                           {getLogStatusLabel(event)}
                         </span>
                       ) : null}
-                      <span className={`text-[10px] ${text.dimmed}`}>{event.source}</span>
+                      <span className={`text-[10px] ${text.dimmed}`}>
+                        {event.source}
+                        {event.action === "log" && typeof event.metadata?.domain === "string"
+                          ? ` · ${event.metadata.domain.toLowerCase()}`
+                          : ""}
+                      </span>
                       {event.action !== "log" && (
                         <span className={`text-[10px] ${text.dimmed}`}>{event.action}</span>
                       )}
@@ -879,6 +881,7 @@ export function ActivityPage({
     Record<string, LogSurfaceFilter[]>
   >({});
   const [openLogFilterProjectId, setOpenLogFilterProjectId] = useState<string | null>(null);
+  const [fullscreenProjectId, setFullscreenProjectId] = useState<string | null>(null);
   const logFilterRef = useRef<HTMLDivElement>(null);
   const [expandedPayloadKeys, setExpandedPayloadKeys] = useState<Set<string>>(() => new Set());
   const [showDebugBackToTopByProjectId, setShowDebugBackToTopByProjectId] = useState<
@@ -1134,6 +1137,8 @@ export function ActivityPage({
     <div className="absolute inset-0 px-5 pb-16 overflow-hidden">
       <div className="h-full min-h-0 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(500px,1fr))] [grid-auto-rows:minmax(0,1fr)]">
         {feeds.map((feed) => {
+          if (fullscreenProjectId && fullscreenProjectId !== feed.project.id) return null;
+
           const debugMode = debugModeByProjectId[feed.project.id] ?? false;
           const selectedFilterGroups = selectedFilterGroupsByProjectId[feed.project.id] ?? [];
           const selectedFilterGroupSet = new Set(selectedFilterGroups);
@@ -1197,7 +1202,7 @@ export function ActivityPage({
           return (
             <section
               key={feed.project.id}
-              className={`min-w-[500px] h-full min-h-0 rounded-xl bg-[#12151a] overflow-hidden flex flex-col border transition-colors ${
+              className={`min-w-[500px] h-full min-h-0 rounded-xl bg-[#12151a] flex flex-col border transition-colors ${
                 debugMode ? debugBorderClass : "border-transparent"
               }`}
             >
@@ -1299,6 +1304,34 @@ export function ActivityPage({
                       {badge.label}
                     </span>
                   )}
+
+                  {feeds.length > 1 && (
+                    <button
+                      type="button"
+                      aria-label={
+                        fullscreenProjectId === feed.project.id
+                          ? "Exit fullscreen"
+                          : "Fullscreen panel"
+                      }
+                      title={
+                        fullscreenProjectId === feed.project.id
+                          ? "Exit fullscreen"
+                          : "Fullscreen panel"
+                      }
+                      onClick={() =>
+                        setFullscreenProjectId((prev) =>
+                          prev === feed.project.id ? null : feed.project.id,
+                        )
+                      }
+                      className={`p-1.5 rounded transition-colors ${text.muted} hover:text-white`}
+                    >
+                      {fullscreenProjectId === feed.project.id ? (
+                        <Minimize2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1339,7 +1372,7 @@ export function ActivityPage({
                       </button>
 
                       {openLogFilterProjectId === feed.project.id && (
-                        <div className="absolute right-0 top-full mt-1.5 z-20 min-w-[170px] rounded-md border border-white/[0.08] bg-[#171a1f] shadow-lg p-2 space-y-1">
+                        <div className="absolute right-0 top-full mt-1.5 z-20 min-w-[170px] max-h-[70vh] overflow-y-auto rounded-md border border-white/[0.08] bg-[#171a1f] shadow-lg p-2 space-y-1">
                           <p className="mb-2 px-0.5 text-[10px] font-medium tracking-wide text-[#6b7280]">
                             Severity
                           </p>

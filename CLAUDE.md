@@ -64,8 +64,15 @@ MCP is legacy in this repository.
 
 ## Error Handling
 
-- Always surface user-facing errors through toast notifications.
+**Treat error handling as a first-class concern in every code change.** Every feature, bugfix, or refactor must account for every failure path — no exceptions, no shortcuts.
+
+- Every `catch` block, every fallback branch, every error callback must do something meaningful: log through the appropriate logger (`log.error()` / `log.warn()`), surface to the user via toast, or both. Silent `catch {}` blocks are never acceptable.
+- Always surface user-facing errors through toast notifications (`showPersistentErrorToast` / `reportPersistentErrorToast`).
 - Do not introduce inline error text for operational failures when a toast can communicate the failure.
+- Errors that surface as toasts must **also** be logged through the logger — toasts are for users, logs are for debugging. Both are required.
+- When writing `try/catch`, `Promise.catch`, error callbacks, or conditional error branches, always ask: "If this fails in production, will I be able to diagnose it from the logs alone?" If the answer is no, add more context.
+- Include actionable metadata in error logs: what operation failed, what inputs caused it, and any IDs or state needed to reproduce (for example worktreeId, projectName, endpoint, status code).
+- Never swallow errors silently. If you genuinely cannot handle an error, re-throw it or log it at `warn`/`error` level with context — do not leave an empty catch block.
 
 ## Operational Logging
 
@@ -79,6 +86,15 @@ MCP is legacy in this repository.
 When investigating a bug or unexpected behavior, **always check the ops log file** (`.openkit/ops-log.jsonl`) first. It contains timestamped operational traces for git operations, CLI commands, HTTP requests, workflow transitions, and errors — often revealing the root cause before you need to add any debug logging or reproduce the issue.
 
 When you need to add logging to debug something, **always use the project logger** (`log.debug()`, `log.info()`, etc.) — never `console.log`. Format the log with clear context: what operation is happening, relevant identifiers, and the values being inspected. If the log statement would be useful for future debugging of the same area, keep it in the codebase (at `debug` level) rather than removing it after fixing the issue.
+
+## Dev Mode
+
+OpenKit has a **Dev Mode** (App Settings → Dev Mode toggle) that symlinks each opened project's `.openkit/ops-log.jsonl` into the OpenKit repo at `.openkit/ops-log/<project-name>.jsonl`. This lets developers debugging OpenKit itself reference ops-logs from any project without leaving the repo.
+
+- **When enabled**: every time a project opens, its ops-log is symlinked into `<openkit-repo>/.openkit/ops-log/`.
+- **Repo path**: set via a file picker or auto-detected from common dev directories. The path is validated by checking for `package.json` with `name: "openkit"`.
+- **Implementation**: `apps/desktop-app/src/dev-mode.ts` (detection + symlinking), preferences stored in `~/.openkit/app-preferences.json` (`devMode`, `devModeRepoPath` fields).
+- **Symlink is best-effort**: failures do not block project opening.
 
 ## Logging
 
