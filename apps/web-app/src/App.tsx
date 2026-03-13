@@ -2656,7 +2656,7 @@ export default function App() {
     return (
       <div className={`h-screen flex flex-col ${surface.page} ${text.body}`}>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md px-6">
+          <div className="text-center max-w-2xl px-6">
             <div
               className={`w-14 h-14 rounded-2xl ${errorBanner.bg} flex items-center justify-center mx-auto mb-4`}
             >
@@ -2666,9 +2666,20 @@ export default function App() {
               Failed to start {activeProject.name}
             </h2>
             {activeProject.error && (
-              <p className={`text-sm ${text.muted} mb-6`}>{activeProject.error}</p>
+              <p
+                className={`text-sm ${text.muted} mb-6 mt-4 text-left bg-black/30 rounded-lg px-4 py-3 break-words shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] border-t border-white/5`}
+              >
+                {activeProject.error}
+              </p>
             )}
             <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-lg text-sm ${button.secondary}`}
+                onClick={() => closeProject(activeProject.id)}
+              >
+                Close project
+              </button>
               <button
                 type="button"
                 className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 ${button.primary}`}
@@ -2680,13 +2691,6 @@ export default function App() {
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Retry
-              </button>
-              <button
-                type="button"
-                className={`px-4 py-2 rounded-lg text-sm ${button.secondary}`}
-                onClick={() => closeProject(activeProject.id)}
-              >
-                Close
               </button>
             </div>
           </div>

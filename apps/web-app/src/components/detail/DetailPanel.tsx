@@ -1604,7 +1604,7 @@ export function DetailPanel({
         <div
           className={`flex-shrink-0 px-5 py-2 ${errorBanner.panelBg} border-b ${errorBanner.border} flex items-center justify-between`}
         >
-          <p className={`${text.error} text-xs`}>{error}</p>
+          <p className={`${text.error} text-xs break-all min-w-0`}>{error}</p>
           {error.includes("integration not available") && onNavigateToIntegrations && (
             <button
               type="button"

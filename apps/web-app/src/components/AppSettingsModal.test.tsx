@@ -15,8 +15,8 @@ describe("AppSettingsModal", () => {
       devModeRepoPath: "",
     })),
     updatePreferences: vi.fn(async () => {}),
-    detectOpenkitRepo: vi.fn(async () => null),
-    selectDevRepoFolder: vi.fn(async () => null),
+    detectOpenkitRepo: vi.fn(async (): Promise<string | null> => null),
+    selectDevRepoFolder: vi.fn(async (): Promise<string | null> => null),
   };
 
   beforeEach(() => {

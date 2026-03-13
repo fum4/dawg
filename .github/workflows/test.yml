@@ -86,6 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-pnpm-node
+      - uses: ./.github/actions/setup-native-port-resolution
       - run: pnpm run build:cli && pnpm run build:server
       - name: Smoke test CLI startup
         run: |
