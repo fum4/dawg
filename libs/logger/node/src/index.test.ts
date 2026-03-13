@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { Logger, log } from "./index";
+import { Logger } from "./index";
 import type { LogEntry } from "./index";
 
 describe("Logger", () => {
@@ -275,19 +275,6 @@ describe("Logger", () => {
 
       unsub();
       logger.cleanup();
-    });
-  });
-
-  describe("default log instance", () => {
-    it("exports a default log instance with system 'app'", () => {
-      const sink = vi.fn();
-      const unsub = Logger.addSink(sink);
-
-      log.info("default logger");
-
-      expect(sink.mock.calls[0][0].system).toBe("app");
-
-      unsub();
     });
   });
 

@@ -7,6 +7,7 @@ export interface LogEntry {
   subsystem: string;
   level: LogLevel;
   message: string;
+  domain?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -141,13 +142,22 @@ export class Logger {
   private dispatch(level: LogLevel, message: string, metadata?: Record<string, unknown>): void {
     if (sinks.length === 0) return;
 
+    let domain: string | undefined;
+    let cleanMetadata = metadata;
+    if (metadata && typeof metadata.domain === "string") {
+      domain = metadata.domain;
+      const { domain: _, ...rest } = metadata;
+      cleanMetadata = Object.keys(rest).length > 0 ? rest : undefined;
+    }
+
     const entry: LogEntry = {
       timestamp: new Date(),
       system: this.system,
       subsystem: this.subsystem,
       level,
       message,
-      metadata,
+      domain,
+      metadata: cleanMetadata,
     };
 
     for (const sink of sinks) {
@@ -175,8 +185,5 @@ function extractContext(args: unknown[]): Record<string, unknown> | undefined {
   }
   return { args: args.map((a) => String(a)) };
 }
-
-/** Default logger instance. */
-export const log = new Logger("app");
 
 export type { LogLevel, LogFormat, LogContext };

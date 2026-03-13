@@ -9,8 +9,11 @@ import {
   Clock3,
   ListFilter,
   Loader2,
+  MessageCircleCheck,
+  MessageCircleX,
   PauseCircle,
   PlayCircle,
+  RectangleEllipsis,
   Search,
   Terminal,
   Trash2,
@@ -29,8 +32,14 @@ import {
   activityFilterScopeForProject,
   readPersistedActivityDebugMode,
   readPersistedActivityFilters,
+  readPersistedLogDomains,
+  readPersistedLogLevels,
+  readPersistedLogSurfaces,
   writePersistedActivityDebugMode,
   writePersistedActivityFilters,
+  writePersistedLogDomains,
+  writePersistedLogLevels,
+  writePersistedLogSurfaces,
 } from "../hooks/activityFilterPersistence";
 import { createActivityEvent, type ActivityEvent, type OpsLogEvent } from "../hooks/api";
 import { useProjectActivityFeeds } from "../hooks/useProjectActivityFeeds";
@@ -462,6 +471,33 @@ function renderLogTitle(event: OpsLogEvent): ReactNode {
     return renderHttpTitle(event);
   }
 
+  if (event.action === "log") {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <RectangleEllipsis className="w-3.5 h-3.5 text-[#9ca3af]" />
+        <span>{event.message}</span>
+      </span>
+    );
+  }
+
+  if (event.action === "toast.error") {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <MessageCircleX className="w-3.5 h-3.5 text-red-400" />
+        <span>{event.message}</span>
+      </span>
+    );
+  }
+
+  if (event.action === "toast.success") {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <MessageCircleCheck className="w-3.5 h-3.5 text-emerald-400" />
+        <span>{event.message}</span>
+      </span>
+    );
+  }
+
   const commandTitle = getCommandTitle(event);
   if (!commandTitle) return renderLogMessage(event);
 
@@ -607,13 +643,20 @@ function OpsLogVirtualList({
                           {event.level}
                         </span>
                       )}
+                      {event.action === "log" && typeof event.metadata?.domain === "string" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded text-violet-300 bg-violet-500/10">
+                          {event.metadata.domain}
+                        </span>
+                      )}
                       {typeof httpStatusCode === "number" ? (
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded ${getHttpStatusChipClass(httpStatusCode)}`}
                         >
                           {httpStatusCode}
                         </span>
-                      ) : !shouldShowCommandProgress(event) ? (
+                      ) : event.action !== "log" &&
+                        !event.action.startsWith("toast.") &&
+                        !shouldShowCommandProgress(event) ? (
                         <span
                           className={`text-[10px] px-1.5 py-0.5 rounded ${LOG_STATUS_CLASS[event.status]}`}
                         >
@@ -621,7 +664,9 @@ function OpsLogVirtualList({
                         </span>
                       ) : null}
                       <span className={`text-[10px] ${text.dimmed}`}>{event.source}</span>
-                      <span className={`text-[10px] ${text.dimmed}`}>{event.action}</span>
+                      {event.action !== "log" && (
+                        <span className={`text-[10px] ${text.dimmed}`}>{event.action}</span>
+                      )}
                       {httpTransportTag && (
                         <span className={`text-[10px] ${text.dimmed}`}>({httpTransportTag})</span>
                       )}
@@ -834,11 +879,23 @@ export function ActivityPage({
     Record<string, LogSurfaceFilter[]>
   >({});
   const [openLogFilterProjectId, setOpenLogFilterProjectId] = useState<string | null>(null);
+  const logFilterRef = useRef<HTMLDivElement>(null);
   const [expandedPayloadKeys, setExpandedPayloadKeys] = useState<Set<string>>(() => new Set());
   const [showDebugBackToTopByProjectId, setShowDebugBackToTopByProjectId] = useState<
     Record<string, boolean>
   >({});
   const debugLogScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (!openLogFilterProjectId) return;
+    const handleClick = (e: MouseEvent) => {
+      if (logFilterRef.current && !logFilterRef.current.contains(e.target as Node)) {
+        setOpenLogFilterProjectId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [openLogFilterProjectId]);
 
   const filterScopeByProjectId = useMemo(() => {
     const next: Record<string, string> = {};
@@ -906,6 +963,59 @@ export function ActivityPage({
   }, [feeds, filterScopeByProjectId]);
 
   useEffect(() => {
+    const allDomainIds = LOG_DOMAIN_OPTIONS.map((o) => o.id);
+    const allSurfaceIds = LOG_SURFACE_OPTIONS.map((o) => o.id);
+
+    setSelectedLogLevelsByProjectId((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const feed of feeds) {
+        if (next[feed.project.id] !== undefined) continue;
+        const persisted = readPersistedLogLevels(filterScopeByProjectId[feed.project.id]);
+        if (persisted) {
+          next[feed.project.id] = persisted.filter((l): l is OpsLogEvent["level"] =>
+            LOG_LEVEL_OPTIONS.includes(l as OpsLogEvent["level"]),
+          );
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    setSelectedLogDomainsByProjectId((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const feed of feeds) {
+        if (next[feed.project.id] !== undefined) continue;
+        const persisted = readPersistedLogDomains(filterScopeByProjectId[feed.project.id]);
+        if (persisted) {
+          next[feed.project.id] = persisted.filter((d): d is LogDomainFilter =>
+            allDomainIds.includes(d as LogDomainFilter),
+          );
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    setSelectedLogSurfacesByProjectId((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const feed of feeds) {
+        if (next[feed.project.id] !== undefined) continue;
+        const persisted = readPersistedLogSurfaces(filterScopeByProjectId[feed.project.id]);
+        if (persisted) {
+          next[feed.project.id] = persisted.filter((s): s is LogSurfaceFilter =>
+            allSurfaceIds.includes(s as LogSurfaceFilter),
+          );
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [feeds, filterScopeByProjectId]);
+
+  useEffect(() => {
     for (const [projectId, selectedFilters] of Object.entries(selectedFilterGroupsByProjectId)) {
       const scope = filterScopeByProjectId[projectId];
       if (!scope) continue;
@@ -920,6 +1030,33 @@ export function ActivityPage({
       writePersistedActivityDebugMode(scope, enabled);
     }
   }, [debugModeByProjectId, filterScopeByProjectId]);
+
+  useEffect(() => {
+    const defaults = LOG_LEVEL_OPTIONS as string[];
+    for (const [projectId, levels] of Object.entries(selectedLogLevelsByProjectId)) {
+      const scope = filterScopeByProjectId[projectId];
+      if (!scope) continue;
+      writePersistedLogLevels(scope, levels, defaults);
+    }
+  }, [filterScopeByProjectId, selectedLogLevelsByProjectId]);
+
+  useEffect(() => {
+    const defaults = LOG_DOMAIN_OPTIONS.map((o) => o.id) as string[];
+    for (const [projectId, domains] of Object.entries(selectedLogDomainsByProjectId)) {
+      const scope = filterScopeByProjectId[projectId];
+      if (!scope) continue;
+      writePersistedLogDomains(scope, domains, defaults);
+    }
+  }, [filterScopeByProjectId, selectedLogDomainsByProjectId]);
+
+  useEffect(() => {
+    const defaults = LOG_SURFACE_OPTIONS.map((o) => o.id) as string[];
+    for (const [projectId, surfaces] of Object.entries(selectedLogSurfacesByProjectId)) {
+      const scope = filterScopeByProjectId[projectId];
+      if (!scope) continue;
+      writePersistedLogSurfaces(scope, surfaces, defaults);
+    }
+  }, [filterScopeByProjectId, selectedLogSurfacesByProjectId]);
 
   const seenSignature = useMemo(
     () =>
@@ -1184,7 +1321,7 @@ export function ActivityPage({
                         className={`w-full pl-7 pr-2 py-1.5 bg-white/[0.04] rounded text-xs ${text.primary} placeholder-[#6b7280] focus:outline-none focus:bg-white/[0.06]`}
                       />
                     </div>
-                    <div className="relative">
+                    <div ref={logFilterRef} className="relative">
                       <button
                         type="button"
                         aria-label="Filter debug logs"

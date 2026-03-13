@@ -74,12 +74,18 @@ MCP is legacy in this repository.
 - Include actionable metadata whenever available (for example command, args, cwd, status code, request/response payload metadata, worktreeId, projectName, and error details).
 - Errors that surface as toasts must also be present in ops logs; toasts do not replace logging.
 
+## Debugging
+
+When investigating a bug or unexpected behavior, **always check the ops log file** (`.openkit/ops-log.jsonl`) first. It contains timestamped operational traces for git operations, CLI commands, HTTP requests, workflow transitions, and errors — often revealing the root cause before you need to add any debug logging or reproduce the issue.
+
+When you need to add logging to debug something, **always use the project logger** (`log.debug()`, `log.info()`, etc.) — never `console.log`. Format the log with clear context: what operation is happening, relevant identifiers, and the values being inspected. If the log statement would be useful for future debugging of the same area, keep it in the codebase (at `debug` level) rather than removing it after fixing the issue.
+
 ## Logging
 
-**All TypeScript code must use the logger** (`import { log } from "@openkit/logger"`). Do not use `console.log`, `console.warn`, `console.error`, or `console.debug` directly — the logger handles output formatting, level filtering, and sink dispatch.
+**All TypeScript code must use the logger.** Do not use `console.log`, `console.warn`, `console.error`, or `console.debug` directly — the logger handles output formatting, level filtering, and sink dispatch.
 
-- `libs/logger` is a Go-based structured logging library compiled as a C-shared library with FFI adapters per language. Go is the single source of truth — all logging features are implemented in Go, adapters are thin FFI wrappers.
-- Import `{ log }` for the default logger instance, or `{ Logger }` to create system-specific loggers (for example `new Logger("server", "port-manager")`).
+- `libs/logger` is a Go-based structured logging library compiled as a C-shared library with FFI bindings per language. Go is the single source of truth — all logging features are implemented in Go, bindings are thin FFI wrappers.
+- Each app/lib has a local `logger.ts` that creates a project-scoped instance (for example `new Logger("server")`). Import `{ log }` from that local file, not from `@openkit/logger` directly. Only `logger.ts` files should import from `@openkit/logger`.
 - Use `log.info()` for informational output, `log.success()` for completion messages (green ● prefix), `log.warn()` for warnings, `log.error()` for errors, `log.debug()` for debug-only output, and `log.plain()` for unformatted output.
 - The only exception is `console.log = console.error` in the MCP path (`apps/cli/src/index.ts`), which redirects stdout to stderr for JSON-RPC transport — this is infrastructure, not logging.
 - For native/Zig code (for example the port hook), use `libs/logger/zig` (dlopen fallback, no-ops if liblogger unavailable).

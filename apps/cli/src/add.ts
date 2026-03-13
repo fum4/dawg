@@ -3,7 +3,7 @@ import { select, input, password } from "@inquirer/prompts";
 
 import { APP_NAME, CONFIG_DIR_NAME } from "@openkit/shared/constants";
 import { checkGhAuth, checkGhInstalled, getRepoInfo } from "@openkit/integrations/github/gh-client";
-import { log } from "@openkit/logger";
+import { log } from "./logger";
 import {
   loadJiraCredentials,
   saveJiraCredentials,

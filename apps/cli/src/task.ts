@@ -5,7 +5,7 @@ import { input, select } from "@inquirer/prompts";
 
 import { APP_NAME, CONFIG_DIR_NAME } from "@openkit/shared/constants";
 import { copyEnvFiles } from "@openkit/shared/env-files";
-import { log } from "@openkit/logger";
+import { log } from "./logger";
 import {
   loadJiraCredentials,
   loadJiraProjectConfig,

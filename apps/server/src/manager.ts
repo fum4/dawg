@@ -17,7 +17,7 @@ const execFile = promisify(execFileCb);
 import pc from "picocolors";
 import { CONFIG_DIR_NAME } from "@openkit/shared/constants";
 import { copyEnvFiles } from "@openkit/shared/env-files";
-import { log } from "@openkit/logger";
+import { log } from "./logger";
 import { generateBranchName } from "./branch-name";
 import { getGitRoot, getWorktreeBranch, validateBranchName } from "@openkit/shared/git";
 import { GitHubManager } from "@openkit/integrations/github/github-manager";
@@ -355,14 +355,14 @@ export class WorktreeManager {
       );
       const status = this.githubManager.getStatus();
       if (status.repo) {
-        log.info(`GitHub: connected to ${status.repo}`);
+        log.info(`Connected to ${status.repo}`, { domain: "GitHub" });
       } else if (!status.installed) {
-        log.warn("GitHub: gh CLI not found, GitHub features disabled");
+        log.warn("gh CLI not found, GitHub features disabled", { domain: "GitHub" });
       } else if (!status.authenticated) {
-        log.warn('GitHub: not authenticated, run "gh auth login"');
+        log.warn('Not authenticated, run "gh auth login"', { domain: "GitHub" });
       }
     } catch {
-      log.warn("GitHub: initialization failed, features disabled");
+      log.warn("Initialization failed, features disabled", { domain: "GitHub" });
       this.githubManager = null;
     }
   }
