@@ -5,10 +5,6 @@ inputs:
   deps:
     description: Comma-separated list of dependencies to install (e.g. "pnpm,node,go,zig").
     required: true
-  pnpm:
-    description: pnpm version.
-    required: false
-    default: "10.32.1"
   node:
     description: Node.js version.
     required: false
@@ -27,8 +23,6 @@ runs:
   steps:
     - if: ${{ contains(inputs.deps, 'pnpm') }}
       uses: pnpm/action-setup@v4
-      with:
-        version: ${{ inputs.pnpm }}
 
     - if: ${{ contains(inputs.deps, 'node') }}
       uses: actions/setup-node@v4
