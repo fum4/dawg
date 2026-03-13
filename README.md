@@ -75,7 +75,7 @@ Run all first-class apps:
 $ pnpm dev
 ```
 
-Run specific app flows:
+Run specific apps:
 
 ```bash
 $ pnpm dev:cli
@@ -112,7 +112,7 @@ Environment variables:
 ```bash
 $ pnpm package
 $ pnpm package:mac
-$ pnpm package:linux
+$ pnpm package:linux # work in progress
 ```
 
 <br /><br />
@@ -121,8 +121,8 @@ $ pnpm package:linux
 
 Everything is released from `master`.
 
-- On pull requests targeting `master`, CI runs code quality, type checks, smoke tests, and build jobs with affected-target guards.
-- On push/merge to `master`, the release workflow creates the release commit/tag and GitHub release only when `desktop-app` (or its packaging dependencies) is affected.
+- On pull requests targeting `master`, CI runs code quality, type checks, smoke and unit tests, and build jobs with affected-target guards.
+- On push/merge to `master`, the release workflow creates the release commit/tag and GitHub release if `desktop-app` (or its packaging dependencies) is affected.
 - A dedicated package workflow runs on release tag pushes and attaches macOS/Linux artifacts to that tag.
 
 <br /><br />
@@ -144,3 +144,11 @@ Everything is released from `master`.
 - [Port Mapping](docs/PORT-MAPPING.md)
 - [Project Structure](docs/PROJECT_STRUCTURE.md)
 - [Setup Flow](docs/SETUP-FLOW.md)
+
+<br /><br />
+
+## ❤️ Contributions
+
+Not yet, we are still figuring things out for ourselves.
+
+<img src="docs/assets/building-the-pipeline.webp" alt="Building the pipeline" />

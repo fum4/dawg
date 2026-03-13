@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git Commits
+
+**Never commit unless the user explicitly asks.** Do not auto-commit after implementing changes, fixing tests, or completing tasks. The user controls when commits happen.
+
 ## MCP Status (Legacy)
 
 MCP is legacy in this repository.
@@ -48,6 +52,7 @@ MCP is legacy in this repository.
 - Write tests carefully — one behavior per `it()`, Arrange-Act-Assert structure, behavior-spec naming.
 - Mock at the boundary (fs, child_process, HTTP), not internal helpers.
 - Component tests use React Testing Library: query by role/label/text, use `userEvent`, never test implementation details.
+- **Every codebase change must have test coverage.** When creating or modifying code, always create or update the corresponding unit tests. No exceptions.
 
 ## Code Quality
 
@@ -68,6 +73,17 @@ MCP is legacy in this repository.
 - Always log start and terminal outcome (success/failure) for git operations, CLI commands, HTTP requests, workflow transitions, notifications, and other behind-the-scenes actions.
 - Include actionable metadata whenever available (for example command, args, cwd, status code, request/response payload metadata, worktreeId, projectName, and error details).
 - Errors that surface as toasts must also be present in ops logs; toasts do not replace logging.
+
+## Logging
+
+**All TypeScript code must use the logger** (`import { log } from "@openkit/logger"`). Do not use `console.log`, `console.warn`, `console.error`, or `console.debug` directly — the logger handles output formatting, level filtering, and sink dispatch.
+
+- `libs/logger` is a Go-based structured logging library compiled as a C-shared library with FFI adapters per language. Go is the single source of truth — all logging features are implemented in Go, adapters are thin FFI wrappers.
+- Import `{ log }` for the default logger instance, or `{ Logger }` to create system-specific loggers (for example `new Logger("server", "port-manager")`).
+- Use `log.info()` for informational output, `log.success()` for completion messages (green ● prefix), `log.warn()` for warnings, `log.error()` for errors, `log.debug()` for debug-only output, and `log.plain()` for unformatted output.
+- The only exception is `console.log = console.error` in the MCP path (`apps/cli/src/index.ts`), which redirects stdout to stderr for JSON-RPC transport — this is infrastructure, not logging.
+- For native/Zig code (for example the port hook), use `libs/logger/zig` (dlopen fallback, no-ops if liblogger unavailable).
+- For Python code, use `libs/logger/python` (ctypes bindings).
 
 ## TypeScript Preference
 
@@ -99,6 +115,10 @@ MCP is legacy in this repository.
 ## Dependencies
 
 **Always use `pnpm add` (or `pnpm add -D`) to install packages — never edit `package.json` dependencies manually.** Use the latest version unless a specific version is required.
+
+## Design Specs & Plans
+
+For non-trivial features, write a design spec before implementation. Specs live in `docs/superpowers/specs/` with the naming convention `YYYY-MM-DD-<topic>-design.md`. Implementation plans live in `docs/superpowers/plans/` with `YYYY-MM-DD-<topic>.md`. Specs capture the _what/why_; plans capture the _how/order_.
 
 ## Documentation
 

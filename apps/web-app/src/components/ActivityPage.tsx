@@ -15,6 +15,7 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ACTIVITY_TYPES } from "@openkit/shared/activity-event";
@@ -100,13 +101,14 @@ const LOG_STATUS_CLASS: Record<OpsLogEvent["status"], string> = {
 };
 
 const LOG_LEVEL_OPTIONS: OpsLogEvent["level"][] = ["error", "warning", "info", "debug"];
-type LogDomainFilter = "http" | "git" | "terminal" | "other";
+type LogDomainFilter = "http" | "git" | "terminal" | "log" | "other";
 type LogSurfaceFilter = "internal" | "notification" | "toast";
 
 const LOG_DOMAIN_OPTIONS: ReadonlyArray<{ id: LogDomainFilter; label: string }> = [
   { id: "http", label: "HTTP" },
   { id: "git", label: "Git" },
   { id: "terminal", label: "Terminal" },
+  { id: "log", label: "Log" },
   { id: "other", label: "Other" },
 ];
 
@@ -284,6 +286,10 @@ function getLogDomain(event: OpsLogEvent): LogDomainFilter {
 
   if (event.action === "command.exec" || event.command) {
     return "terminal";
+  }
+
+  if (event.action === "log") {
+    return "log";
   }
 
   return "other";
@@ -494,6 +500,311 @@ function matchesLogQuery(event: OpsLogEvent, query: string): boolean {
     .join("\n")
     .toLowerCase();
   return haystack.includes(query);
+}
+
+interface OpsLogVirtualListProps {
+  filteredOpsEvents: OpsLogEvent[];
+  expandedPayloadKeys: Set<string>;
+  onTogglePayload: (eventId: string, kind: "request" | "response") => void;
+  scrollRef: (node: HTMLDivElement | null) => void;
+  onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
+}
+
+function OpsLogVirtualList({
+  filteredOpsEvents,
+  expandedPayloadKeys,
+  onTogglePayload,
+  scrollRef,
+  onScroll,
+}: OpsLogVirtualListProps) {
+  const opsLogScrollRef = useRef<HTMLDivElement>(null);
+  const opsLogVirtualizer = useVirtualizer({
+    count: filteredOpsEvents.length,
+    getScrollElement: () => opsLogScrollRef.current,
+    estimateSize: () => 64,
+    overscan: 10,
+    getItemKey: (index) => filteredOpsEvents[index]?.id ?? index,
+  });
+
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      (opsLogScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      scrollRef(node);
+    },
+    [scrollRef],
+  );
+
+  return (
+    <div ref={setRefs} className="h-full overflow-y-auto" onScroll={onScroll}>
+      <div style={{ height: `${opsLogVirtualizer.getTotalSize()}px`, position: "relative" }}>
+        {opsLogVirtualizer.getVirtualItems().map((virtualRow) => {
+          const event = filteredOpsEvents[virtualRow.index];
+          const httpStatusCode = getHttpStatusCode(event);
+          const httpTransportTag = getHttpTransportTag(event);
+          const requestPayload = getHttpMetadataString(event, "requestPayload");
+          const responsePayload = getHttpMetadataString(event, "responsePayload");
+          const requestContentType = getHttpMetadataString(event, "requestContentType");
+          const responseContentType = getHttpMetadataString(event, "responseContentType");
+          const requestPayloadOmitted = getHttpMetadataFlag(event, "requestPayloadOmitted");
+          const responsePayloadOmitted = getHttpMetadataFlag(event, "responsePayloadOmitted");
+          const requestPayloadTruncated = getHttpMetadataFlag(event, "requestPayloadTruncated");
+          const responsePayloadTruncated = getHttpMetadataFlag(event, "responsePayloadTruncated");
+          const requestPayloadError = getHttpMetadataString(event, "requestPayloadError");
+          const responsePayloadError = getHttpMetadataString(event, "responsePayloadError");
+          const requestPayloadExpanded = expandedPayloadKeys.has(`${event.id}:request`);
+          const responsePayloadExpanded = expandedPayloadKeys.has(`${event.id}:response`);
+          const requestCopyText = buildPayloadCopyText({
+            title: "Request",
+            contentType: requestContentType,
+            payload: requestPayload,
+            payloadOmitted: requestPayloadOmitted,
+            payloadError: requestPayloadError,
+            payloadTruncated: requestPayloadTruncated,
+          });
+          const responseCopyText = buildPayloadCopyText({
+            title: "Response",
+            contentType: responseContentType,
+            payload: responsePayload,
+            payloadOmitted: responsePayloadOmitted,
+            payloadError: responsePayloadError,
+            payloadTruncated: responsePayloadTruncated,
+          });
+          const hasRequestCopyContent = typeof requestPayload === "string";
+          const hasResponseCopyContent = typeof responsePayload === "string";
+          const hasHttpPayloadDetails =
+            !!getHttpMethod(event) &&
+            !!(
+              requestPayload ||
+              responsePayload ||
+              requestPayloadOmitted ||
+              responsePayloadOmitted ||
+              requestPayloadError ||
+              responsePayloadError
+            );
+
+          return (
+            <div
+              key={event.id}
+              data-index={virtualRow.index}
+              ref={opsLogVirtualizer.measureElement}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <div className="px-4 py-3 border-b border-white/[0.05]">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className={`text-xs ${text.primary} break-words`}>{renderLogTitle(event)}</p>
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                      {event.action === "log" && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded ${LOG_LEVEL_CLASS[event.level]}`}
+                        >
+                          {event.level}
+                        </span>
+                      )}
+                      {typeof httpStatusCode === "number" ? (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded ${getHttpStatusChipClass(httpStatusCode)}`}
+                        >
+                          {httpStatusCode}
+                        </span>
+                      ) : !shouldShowCommandProgress(event) ? (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded ${LOG_STATUS_CLASS[event.status]}`}
+                        >
+                          {getLogStatusLabel(event)}
+                        </span>
+                      ) : null}
+                      <span className={`text-[10px] ${text.dimmed}`}>{event.source}</span>
+                      <span className={`text-[10px] ${text.dimmed}`}>{event.action}</span>
+                      {httpTransportTag && (
+                        <span className={`text-[10px] ${text.dimmed}`}>({httpTransportTag})</span>
+                      )}
+                      {event.worktreeId && (
+                        <span className={`text-[10px] ${text.dimmed}`}>
+                          worktree: {event.worktreeId}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`text-[10px] ${text.muted}`}>
+                      {formatClockTime(event.timestamp)}
+                    </p>
+                    <p className={`text-[10px] ${text.dimmed}`}>
+                      {formatRelativeTime(event.timestamp)}
+                    </p>
+                  </div>
+                </div>
+
+                {hasHttpPayloadDetails && (
+                  <>
+                    <div className="group/payload mt-2 rounded-md bg-black/20 px-2 pb-2 pt-1 relative">
+                      {hasRequestCopyContent && (
+                        <PayloadCopyButton
+                          copyText={requestCopyText}
+                          ariaLabel="Copy request payload"
+                          className="absolute top-1 right-1 p-1 rounded text-white/45 hover:text-white transition-colors opacity-0 group-hover/payload:opacity-100 pointer-events-none group-hover/payload:pointer-events-auto"
+                        />
+                      )}
+                      <p className="text-[10px] text-[#6b7280] inline-flex items-center gap-1.5">
+                        <ArrowUpRight className="w-3 h-3" />
+                        <span>Request{requestContentType ? ` (${requestContentType})` : ""}</span>
+                      </p>
+                      {requestPayload ? (
+                        <button
+                          type="button"
+                          onClick={() => onTogglePayload(event.id, "request")}
+                          className="group mt-2 w-full text-left"
+                        >
+                          <pre
+                            className={`text-[10px] text-slate-200 whitespace-pre-wrap break-words font-mono leading-[1.25] ${
+                              requestPayloadExpanded ? "" : "max-h-[6.25em] overflow-hidden"
+                            }`}
+                          >
+                            {formatPayloadForDisplay(requestPayload)}
+                          </pre>
+                          <p className="mt-4 text-[10px] text-[#6b7280] group-hover/payload:text-white transition-colors inline-flex items-center gap-1">
+                            {requestPayloadExpanded ? (
+                              <ChevronsDownUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronsUpDown className="w-3 h-3" />
+                            )}
+                            <span>
+                              {requestPayloadExpanded ? "Click to collapse" : "Click to expand"}
+                            </span>
+                          </p>
+                        </button>
+                      ) : requestPayloadOmitted ? (
+                        <p className="mt-1 text-[10px] text-[#9ca3af]">
+                          Payload omitted (non-text content)
+                        </p>
+                      ) : requestPayloadError ? (
+                        <p className="mt-1 text-[10px] text-red-300/90">{requestPayloadError}</p>
+                      ) : (
+                        <p className="mt-1 text-[10px] text-[#9ca3af]">No request payload</p>
+                      )}
+                      {requestPayloadTruncated && (
+                        <p className="mt-1 text-[10px] text-amber-300/90">
+                          Request payload truncated
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="group/payload mt-2 rounded-md bg-black/20 px-2 pb-2 pt-1 relative">
+                      {hasResponseCopyContent && (
+                        <PayloadCopyButton
+                          copyText={responseCopyText}
+                          ariaLabel="Copy response payload"
+                          className="absolute top-1 right-1 p-1 rounded text-white/45 hover:text-white transition-colors opacity-0 group-hover/payload:opacity-100 pointer-events-none group-hover/payload:pointer-events-auto"
+                        />
+                      )}
+                      <p className="text-[10px] text-[#6b7280] inline-flex items-center gap-1.5">
+                        <ArrowDownLeft className="w-3 h-3" />
+                        <span>
+                          Response{responseContentType ? ` (${responseContentType})` : ""}
+                        </span>
+                      </p>
+                      {responsePayload ? (
+                        <button
+                          type="button"
+                          onClick={() => onTogglePayload(event.id, "response")}
+                          className="group mt-2 w-full text-left"
+                        >
+                          <pre
+                            className={`text-[10px] text-slate-200 whitespace-pre-wrap break-words font-mono leading-[1.25] ${
+                              responsePayloadExpanded ? "" : "max-h-[6.25em] overflow-hidden"
+                            }`}
+                          >
+                            {formatPayloadForDisplay(responsePayload)}
+                          </pre>
+                          <p className="mt-4 text-[10px] text-[#6b7280] group-hover/payload:text-white transition-colors inline-flex items-center gap-1">
+                            {responsePayloadExpanded ? (
+                              <ChevronsDownUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronsUpDown className="w-3 h-3" />
+                            )}
+                            <span>
+                              {responsePayloadExpanded ? "Click to collapse" : "Click to expand"}
+                            </span>
+                          </p>
+                        </button>
+                      ) : responsePayloadOmitted ? (
+                        <p className="mt-1 text-[10px] text-[#9ca3af]">
+                          Payload omitted (non-text content)
+                        </p>
+                      ) : responsePayloadError ? (
+                        <p className="mt-1 text-[10px] text-red-300/90">{responsePayloadError}</p>
+                      ) : (
+                        <p className="mt-1 text-[10px] text-[#9ca3af]">No response payload</p>
+                      )}
+                      {responsePayloadTruncated && (
+                        <p className="mt-1 text-[10px] text-amber-300/90">
+                          Response payload truncated
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {event.command && (
+                  <div className="mt-2 rounded-md bg-black/20 p-2">
+                    <p className="text-[10px] font-mono break-words">
+                      <span className="text-teal-300">$</span>{" "}
+                      <span className="text-white">
+                        {event.command.command}
+                        {event.command.args.length > 0 ? ` ${event.command.args.join(" ")}` : ""}
+                      </span>
+                    </p>
+                    <div className="mt-1 flex items-center gap-3 flex-wrap">
+                      {event.command.cwd && (
+                        <span className={`text-[10px] ${text.dimmed} font-mono`}>
+                          {event.command.cwd}
+                        </span>
+                      )}
+                      {typeof event.command.durationMs === "number" && (
+                        <span
+                          className={`text-[10px] ${text.dimmed} inline-flex items-center gap-1`}
+                        >
+                          <Clock3 className="w-3 h-3" />
+                          {event.command.durationMs}ms
+                        </span>
+                      )}
+                      {event.command.exitCode !== undefined && event.command.exitCode !== null && (
+                        <span className={`text-[10px] ${text.dimmed}`}>
+                          exit {event.command.exitCode}
+                        </span>
+                      )}
+                      {event.command.signal && (
+                        <span className={`text-[10px] ${text.dimmed}`}>
+                          signal {event.command.signal}
+                        </span>
+                      )}
+                    </div>
+                    {event.command.stderr && (
+                      <p className="mt-1 text-[10px] text-red-300/90 whitespace-pre-wrap break-words font-mono">
+                        {event.command.stderr}
+                      </p>
+                    )}
+                    {event.command.stdout && (
+                      <p className="mt-1 text-[10px] text-slate-300 whitespace-pre-wrap break-words font-mono">
+                        {event.command.stdout}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function ActivityPage({
@@ -1015,358 +1326,45 @@ export function ActivityPage({
                   </div>
 
                   <div className="relative flex-1 min-h-0">
-                    <div
-                      ref={(node) => {
-                        debugLogScrollRefs.current[feed.project.id] = node;
-                      }}
-                      className="h-full overflow-y-auto"
-                      onScroll={(event) => {
-                        const shouldShow = event.currentTarget.scrollTop > 120;
-                        setShowDebugBackToTopByProjectId((prev) =>
-                          prev[feed.project.id] === shouldShow
-                            ? prev
-                            : {
-                                ...prev,
-                                [feed.project.id]: shouldShow,
-                              },
-                        );
-                      }}
-                    >
-                      {!feed.isRunning && opsEvents.length === 0 ? (
-                        <div className="h-full flex items-center justify-center px-6 text-center">
-                          <div>
-                            <p className={`text-sm ${text.secondary}`}>Live activity unavailable</p>
-                            <p className={`text-xs ${text.dimmed} mt-1 max-w-[420px]`}>
-                              {buildUnavailableMessage(feed.project.status)}
-                            </p>
-                          </div>
+                    {!feed.isRunning && opsEvents.length === 0 ? (
+                      <div className="h-full overflow-y-auto flex items-center justify-center px-6 text-center">
+                        <div>
+                          <p className={`text-sm ${text.secondary}`}>Live activity unavailable</p>
+                          <p className={`text-xs ${text.dimmed} mt-1 max-w-[420px]`}>
+                            {buildUnavailableMessage(feed.project.status)}
+                          </p>
                         </div>
-                      ) : filteredOpsEvents.length === 0 ? (
-                        <div className="h-full flex items-center justify-center px-6 text-center">
-                          <div>
-                            <p className={`text-sm ${text.secondary}`}>No matching logs.</p>
-                            <p className={`text-xs ${text.dimmed} mt-1`}>
-                              Adjust filters or wait for new activity.
-                            </p>
-                          </div>
+                      </div>
+                    ) : filteredOpsEvents.length === 0 ? (
+                      <div className="h-full overflow-y-auto flex items-center justify-center px-6 text-center">
+                        <div>
+                          <p className={`text-sm ${text.secondary}`}>No matching logs.</p>
+                          <p className={`text-xs ${text.dimmed} mt-1`}>
+                            Adjust filters or wait for new activity.
+                          </p>
                         </div>
-                      ) : (
-                        <ul className="divide-y divide-white/[0.05]">
-                          {filteredOpsEvents.map((event) => {
-                            const httpStatusCode = getHttpStatusCode(event);
-                            const httpTransportTag = getHttpTransportTag(event);
-                            const requestPayload = getHttpMetadataString(event, "requestPayload");
-                            const responsePayload = getHttpMetadataString(event, "responsePayload");
-                            const requestContentType = getHttpMetadataString(
-                              event,
-                              "requestContentType",
-                            );
-                            const responseContentType = getHttpMetadataString(
-                              event,
-                              "responseContentType",
-                            );
-                            const requestPayloadOmitted = getHttpMetadataFlag(
-                              event,
-                              "requestPayloadOmitted",
-                            );
-                            const responsePayloadOmitted = getHttpMetadataFlag(
-                              event,
-                              "responsePayloadOmitted",
-                            );
-                            const requestPayloadTruncated = getHttpMetadataFlag(
-                              event,
-                              "requestPayloadTruncated",
-                            );
-                            const responsePayloadTruncated = getHttpMetadataFlag(
-                              event,
-                              "responsePayloadTruncated",
-                            );
-                            const requestPayloadError = getHttpMetadataString(
-                              event,
-                              "requestPayloadError",
-                            );
-                            const responsePayloadError = getHttpMetadataString(
-                              event,
-                              "responsePayloadError",
-                            );
-                            const requestPayloadExpanded = expandedPayloadKeys.has(
-                              `${event.id}:request`,
-                            );
-                            const responsePayloadExpanded = expandedPayloadKeys.has(
-                              `${event.id}:response`,
-                            );
-                            const requestCopyText = buildPayloadCopyText({
-                              title: "Request",
-                              contentType: requestContentType,
-                              payload: requestPayload,
-                              payloadOmitted: requestPayloadOmitted,
-                              payloadError: requestPayloadError,
-                              payloadTruncated: requestPayloadTruncated,
-                            });
-                            const responseCopyText = buildPayloadCopyText({
-                              title: "Response",
-                              contentType: responseContentType,
-                              payload: responsePayload,
-                              payloadOmitted: responsePayloadOmitted,
-                              payloadError: responsePayloadError,
-                              payloadTruncated: responsePayloadTruncated,
-                            });
-                            const hasRequestCopyContent = typeof requestPayload === "string";
-                            const hasResponseCopyContent = typeof responsePayload === "string";
-                            const hasHttpPayloadDetails =
-                              !!getHttpMethod(event) &&
-                              !!(
-                                requestPayload ||
-                                responsePayload ||
-                                requestPayloadOmitted ||
-                                responsePayloadOmitted ||
-                                requestPayloadError ||
-                                responsePayloadError
-                              );
-
-                            return (
-                              <li key={event.id} className="px-4 py-3">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <p className={`text-xs ${text.primary} break-words`}>
-                                      {renderLogTitle(event)}
-                                    </p>
-                                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                                      <span
-                                        className={`text-[10px] px-1.5 py-0.5 rounded ${LOG_LEVEL_CLASS[event.level]}`}
-                                      >
-                                        {event.level}
-                                      </span>
-                                      {typeof httpStatusCode === "number" ? (
-                                        <span
-                                          className={`text-[10px] px-1.5 py-0.5 rounded ${getHttpStatusChipClass(httpStatusCode)}`}
-                                        >
-                                          {httpStatusCode}
-                                        </span>
-                                      ) : !shouldShowCommandProgress(event) ? (
-                                        <span
-                                          className={`text-[10px] px-1.5 py-0.5 rounded ${LOG_STATUS_CLASS[event.status]}`}
-                                        >
-                                          {getLogStatusLabel(event)}
-                                        </span>
-                                      ) : null}
-                                      <span className={`text-[10px] ${text.dimmed}`}>
-                                        {event.source}
-                                      </span>
-                                      <span className={`text-[10px] ${text.dimmed}`}>
-                                        {event.action}
-                                      </span>
-                                      {httpTransportTag && (
-                                        <span className={`text-[10px] ${text.dimmed}`}>
-                                          ({httpTransportTag})
-                                        </span>
-                                      )}
-                                      {event.worktreeId && (
-                                        <span className={`text-[10px] ${text.dimmed}`}>
-                                          worktree: {event.worktreeId}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="text-right flex-shrink-0">
-                                    <p className={`text-[10px] ${text.muted}`}>
-                                      {formatClockTime(event.timestamp)}
-                                    </p>
-                                    <p className={`text-[10px] ${text.dimmed}`}>
-                                      {formatRelativeTime(event.timestamp)}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {hasHttpPayloadDetails && (
-                                  <>
-                                    <div className="group/payload mt-2 rounded-md bg-black/20 px-2 pb-2 pt-1 relative">
-                                      {hasRequestCopyContent && (
-                                        <PayloadCopyButton
-                                          copyText={requestCopyText}
-                                          ariaLabel="Copy request payload"
-                                          className="absolute top-1 right-1 p-1 rounded text-white/45 hover:text-white transition-colors opacity-0 group-hover/payload:opacity-100 pointer-events-none group-hover/payload:pointer-events-auto"
-                                        />
-                                      )}
-                                      <p className="text-[10px] text-[#6b7280] inline-flex items-center gap-1.5">
-                                        <ArrowUpRight className="w-3 h-3" />
-                                        <span>
-                                          Request
-                                          {requestContentType ? ` (${requestContentType})` : ""}
-                                        </span>
-                                      </p>
-                                      {requestPayload ? (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            togglePayloadExpansion(event.id, "request")
-                                          }
-                                          className="group mt-2 w-full text-left"
-                                        >
-                                          <pre
-                                            className={`text-[10px] text-slate-200 whitespace-pre-wrap break-words font-mono leading-[1.25] ${
-                                              requestPayloadExpanded
-                                                ? ""
-                                                : "max-h-[6.25em] overflow-hidden"
-                                            }`}
-                                          >
-                                            {formatPayloadForDisplay(requestPayload)}
-                                          </pre>
-                                          <p className="mt-4 text-[10px] text-[#6b7280] group-hover/payload:text-white transition-colors inline-flex items-center gap-1">
-                                            {requestPayloadExpanded ? (
-                                              <ChevronsDownUp className="w-3 h-3" />
-                                            ) : (
-                                              <ChevronsUpDown className="w-3 h-3" />
-                                            )}
-                                            <span>
-                                              {requestPayloadExpanded
-                                                ? "Click to collapse"
-                                                : "Click to expand"}
-                                            </span>
-                                          </p>
-                                        </button>
-                                      ) : requestPayloadOmitted ? (
-                                        <p className="mt-1 text-[10px] text-[#9ca3af]">
-                                          Payload omitted (non-text content)
-                                        </p>
-                                      ) : requestPayloadError ? (
-                                        <p className="mt-1 text-[10px] text-red-300/90">
-                                          {requestPayloadError}
-                                        </p>
-                                      ) : (
-                                        <p className="mt-1 text-[10px] text-[#9ca3af]">
-                                          No request payload
-                                        </p>
-                                      )}
-                                      {requestPayloadTruncated && (
-                                        <p className="mt-1 text-[10px] text-amber-300/90">
-                                          Request payload truncated
-                                        </p>
-                                      )}
-                                    </div>
-
-                                    <div className="group/payload mt-2 rounded-md bg-black/20 px-2 pb-2 pt-1 relative">
-                                      {hasResponseCopyContent && (
-                                        <PayloadCopyButton
-                                          copyText={responseCopyText}
-                                          ariaLabel="Copy response payload"
-                                          className="absolute top-1 right-1 p-1 rounded text-white/45 hover:text-white transition-colors opacity-0 group-hover/payload:opacity-100 pointer-events-none group-hover/payload:pointer-events-auto"
-                                        />
-                                      )}
-                                      <p className="text-[10px] text-[#6b7280] inline-flex items-center gap-1.5">
-                                        <ArrowDownLeft className="w-3 h-3" />
-                                        <span>
-                                          Response
-                                          {responseContentType ? ` (${responseContentType})` : ""}
-                                        </span>
-                                      </p>
-                                      {responsePayload ? (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            togglePayloadExpansion(event.id, "response")
-                                          }
-                                          className="group mt-2 w-full text-left"
-                                        >
-                                          <pre
-                                            className={`text-[10px] text-slate-200 whitespace-pre-wrap break-words font-mono leading-[1.25] ${
-                                              responsePayloadExpanded
-                                                ? ""
-                                                : "max-h-[6.25em] overflow-hidden"
-                                            }`}
-                                          >
-                                            {formatPayloadForDisplay(responsePayload)}
-                                          </pre>
-                                          <p className="mt-4 text-[10px] text-[#6b7280] group-hover/payload:text-white transition-colors inline-flex items-center gap-1">
-                                            {responsePayloadExpanded ? (
-                                              <ChevronsDownUp className="w-3 h-3" />
-                                            ) : (
-                                              <ChevronsUpDown className="w-3 h-3" />
-                                            )}
-                                            <span>
-                                              {responsePayloadExpanded
-                                                ? "Click to collapse"
-                                                : "Click to expand"}
-                                            </span>
-                                          </p>
-                                        </button>
-                                      ) : responsePayloadOmitted ? (
-                                        <p className="mt-1 text-[10px] text-[#9ca3af]">
-                                          Payload omitted (non-text content)
-                                        </p>
-                                      ) : responsePayloadError ? (
-                                        <p className="mt-1 text-[10px] text-red-300/90">
-                                          {responsePayloadError}
-                                        </p>
-                                      ) : (
-                                        <p className="mt-1 text-[10px] text-[#9ca3af]">
-                                          No response payload
-                                        </p>
-                                      )}
-                                      {responsePayloadTruncated && (
-                                        <p className="mt-1 text-[10px] text-amber-300/90">
-                                          Response payload truncated
-                                        </p>
-                                      )}
-                                    </div>
-                                  </>
-                                )}
-
-                                {event.command && (
-                                  <div className="mt-2 rounded-md bg-black/20 p-2">
-                                    <p className="text-[10px] font-mono break-words">
-                                      <span className="text-teal-300">$</span>{" "}
-                                      <span className="text-white">
-                                        {event.command.command}
-                                        {event.command.args.length > 0
-                                          ? ` ${event.command.args.join(" ")}`
-                                          : ""}
-                                      </span>
-                                    </p>
-                                    <div className="mt-1 flex items-center gap-3 flex-wrap">
-                                      {event.command.cwd && (
-                                        <span className={`text-[10px] ${text.dimmed} font-mono`}>
-                                          {event.command.cwd}
-                                        </span>
-                                      )}
-                                      {typeof event.command.durationMs === "number" && (
-                                        <span
-                                          className={`text-[10px] ${text.dimmed} inline-flex items-center gap-1`}
-                                        >
-                                          <Clock3 className="w-3 h-3" />
-                                          {event.command.durationMs}ms
-                                        </span>
-                                      )}
-                                      {event.command.exitCode !== undefined &&
-                                        event.command.exitCode !== null && (
-                                          <span className={`text-[10px] ${text.dimmed}`}>
-                                            exit {event.command.exitCode}
-                                          </span>
-                                        )}
-                                      {event.command.signal && (
-                                        <span className={`text-[10px] ${text.dimmed}`}>
-                                          signal {event.command.signal}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {event.command.stderr && (
-                                      <p className="mt-1 text-[10px] text-red-300/90 whitespace-pre-wrap break-words font-mono">
-                                        {event.command.stderr}
-                                      </p>
-                                    )}
-                                    {event.command.stdout && (
-                                      <p className="mt-1 text-[10px] text-slate-300 whitespace-pre-wrap break-words font-mono">
-                                        {event.command.stdout}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <OpsLogVirtualList
+                        filteredOpsEvents={filteredOpsEvents}
+                        expandedPayloadKeys={expandedPayloadKeys}
+                        onTogglePayload={togglePayloadExpansion}
+                        scrollRef={(node) => {
+                          debugLogScrollRefs.current[feed.project.id] = node;
+                        }}
+                        onScroll={(event) => {
+                          const shouldShow = event.currentTarget.scrollTop > 120;
+                          setShowDebugBackToTopByProjectId((prev) =>
+                            prev[feed.project.id] === shouldShow
+                              ? prev
+                              : {
+                                  ...prev,
+                                  [feed.project.id]: shouldShow,
+                                },
+                          );
+                        }}
+                      />
+                    )}
                     {shouldShowDebugBackToTop && filteredOpsEvents.length > 0 && (
                       <button
                         type="button"

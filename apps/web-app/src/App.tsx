@@ -883,6 +883,8 @@ export default function App() {
             const next = items[focusedIdx + 1];
             next.focus();
             next.click();
+          } else if (focusedIdx === items.length - 1) {
+            // Already at the last item — stay put
           } else if (document.activeElement === searchInput) {
             // On search — move to first item
             if (items[0]) {
@@ -903,8 +905,7 @@ export default function App() {
             // At first item — go back to search
             searchInput.focus();
           } else if (document.activeElement === searchInput) {
-            // On search — blur to exit sidebar nav
-            searchInput.blur();
+            // Already at search — stay put
           }
         }
         return;
