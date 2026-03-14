@@ -471,18 +471,18 @@ export function registerClaudePluginRoutes(app: Hono, manager: WorktreeManager) 
     // The Claude CLI suppresses output when it detects a nested context via
     // env vars like CLAUDECODE, VSCODE_*, CURSOR_*, etc.
     const baseEnv = withAugmentedPathEnv();
-    const env: Record<string, string> = {
-      PATH: baseEnv.PATH ?? "",
-      HOME: baseEnv.HOME ?? "",
-      USER: baseEnv.USER ?? "",
-      SHELL: baseEnv.SHELL ?? "/bin/zsh",
-      TERM: "xterm-256color",
-      LANG: baseEnv.LANG ?? "en_US.UTF-8",
-      TMPDIR: baseEnv.TMPDIR ?? "/tmp",
-      NO_COLOR: "1",
-    };
-    if (baseEnv.XDG_CONFIG_HOME) env.XDG_CONFIG_HOME = baseEnv.XDG_CONFIG_HOME;
-    if (baseEnv.XDG_DATA_HOME) env.XDG_DATA_HOME = baseEnv.XDG_DATA_HOME;
+    const env = Object.fromEntries(
+      Object.entries(baseEnv).filter(
+        ([k]) =>
+          !k.startsWith("CLAUDECODE") &&
+          !k.startsWith("CLAUDE_CODE_") &&
+          !k.startsWith("CLAUDE_AGENT_") &&
+          !k.startsWith("CURSOR_") &&
+          !k.startsWith("VSCODE_"),
+      ),
+    );
+    env.NO_COLOR = "1";
+    env.TERM = "xterm-256color";
 
     opsLog.addEvent({
       source: "claude-cli",
