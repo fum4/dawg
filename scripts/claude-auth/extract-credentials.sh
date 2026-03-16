@@ -34,21 +34,38 @@ echo "Building Claude Code Docker image..."
 docker build -t claude-auth "$SCRIPT_DIR"
 
 echo ""
-echo "Starting Claude login..."
-echo "A URL will appear — open it in your browser to authenticate."
+echo "==================================================="
+echo "  Claude Code will start and prompt you to log in."
+echo "  1. Open the URL it gives you in your browser"
+echo "  2. Complete the OAuth flow"
+echo "  3. Once authenticated, type /exit or press Ctrl+C"
+echo "==================================================="
 echo ""
 
-# Run interactive login, mount a volume to extract credentials after
+# Run claude interactively — first run triggers OAuth flow.
+# Volume persists credentials after container exits.
 docker run -it --rm \
   -v claude-auth-data:/root \
-  claude-auth login
+  claude-auth claude
 
-# Extract the credentials file from the volume
+# Search common credential locations and extract
 docker run --rm \
   -v claude-auth-data:/root \
   -v "$SCRIPT_DIR":/out \
   node:22-slim \
-  sh -c 'cp /root/.claude.json /out/claude-credentials.json 2>/dev/null || echo "No credentials file found at ~/.claude.json"'
+  sh -c '
+    if [ -f /root/.claude.json ]; then
+      cp /root/.claude.json /out/claude-credentials.json
+    elif [ -f /root/.config/claude/credentials.json ]; then
+      cp /root/.config/claude/credentials.json /out/claude-credentials.json
+    elif [ -f /root/.claude/credentials.json ]; then
+      cp /root/.claude/credentials.json /out/claude-credentials.json
+    else
+      echo "Could not find credentials. Listing possible locations:"
+      find /root -name "*.json" -path "*claude*" 2>/dev/null || true
+      find /root/.config -name "*.json" 2>/dev/null || true
+    fi
+  '
 
 # Clean up the volume
 docker volume rm claude-auth-data 2>/dev/null || true
@@ -56,7 +73,7 @@ docker volume rm claude-auth-data 2>/dev/null || true
 if [ ! -f "$OUTPUT_FILE" ]; then
   echo ""
   echo "ERROR: Failed to extract credentials."
-  echo "The OAuth token may be stored differently. Check ~/.claude.json inside the container."
+  echo "Re-run and check the listed file paths above."
   exit 1
 fi
 
