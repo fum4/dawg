@@ -1,11 +1,11 @@
 ---
 name: commit
-description: Stage, generate a WHY-focused commit message from the diff, and commit. Never pushes.
+description: Stage, generate a WHY-focused commit message from the diff, commit, and optionally push.
 ---
 
 # Commit Skill
 
-Handle the full commit workflow: check staging state, prompt when needed, generate a WHY-focused commit message, and commit. **Never push.**
+Handle the full commit workflow: check staging state, prompt when needed, generate a WHY-focused commit message, commit, and optionally push.
 
 ## Step 0: Check current branch
 
@@ -48,8 +48,15 @@ When staging all, use `git add -A`.
 2. Analyze the diff to understand the **intent** behind the changes — focus on WHY, not WHAT.
 3. Generate a commit message following the format rules below.
 4. Commit using HEREDOC format for proper multiline handling.
-5. **NEVER push. NEVER.**
-6. Show the user the resulting commit (hash + message).
+5. Show the user the resulting commit (hash + message).
+6. Proceed to Step 3.
+
+## Step 3: Offer to push
+
+After a successful commit, prompt the user with AskUserQuestion: **"Yes"** / **"No"**.
+
+- If **Yes**: run `git push` (with `-u origin <branch>` if the branch has no upstream yet).
+- If **No**: end the workflow.
 
 ## Commit message format
 
@@ -78,7 +85,7 @@ feat: improve error recovery and port handling
 
 ## Rules
 
-- Never push to remote. The skill ends after committing.
+- Only push if the user explicitly chooses to in Step 3.
 - Do not add `Co-Authored-By` trailers.
 - Do not amend existing commits — always create new ones.
 - Do not skip hooks (`--no-verify`).
