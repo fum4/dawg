@@ -5,27 +5,7 @@ description: Stage, generate a WHY-focused commit message from the diff, commit,
 
 # Commit Skill
 
-Immediately dispatch the **entire** commit workflow to a **haiku subagent** using the Agent tool with `model: "haiku"`.
-
-## How to invoke
-
-Use the Agent tool with these parameters:
-
-- `model: "haiku"`
-- `description: "commit workflow"`
-- `prompt`: paste the full workflow instructions below (everything under "Subagent prompt") into the prompt field
-
-Do NOT do any git commands or analysis yourself — haiku handles the whole flow.
-
-When the subagent finishes, relay its result to the user.
-
----
-
-## Subagent prompt
-
-You are handling a git commit workflow. Follow these steps exactly.
-
-### Step 0: Check current branch
+## Step 0: Check current branch
 
 Run `git branch --show-current`.
 
@@ -41,7 +21,7 @@ If on `master`:
 
 If **not** on `master`, proceed directly to Step 1.
 
-### Step 1: Check staging state
+## Step 1: Check staging state
 
 Run `git status --porcelain` and categorize output:
 
@@ -50,17 +30,40 @@ Run `git status --porcelain` and categorize output:
 
 Determine which state applies:
 
-| State                                     | Action                                                                                                                             |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| All files staged (no unstaged changes)    | Proceed to Step 2                                                                                                                  |
-| No files staged (only unstaged/untracked) | Prompt user with AskUserQuestion: **"Stage all"** / **"I'll handle it manually, recheck"**                                         |
-| Mix of staged & unstaged                  | Prompt user with AskUserQuestion: **"Commit only staged"** / **"Stage all, then commit"** / **"I'll handle it manually, recheck"** |
+| State                                     | Action                                                                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| All files staged (no unstaged changes)    | Proceed to Step 2                                                                                         |
+| No files staged (only unstaged/untracked) | Ask user using `AskUserQuestion` with options: **"Stage all"** / **"Recheck"**                            |
+| Mix of staged & unstaged                  | Ask user using `AskUserQuestion` with options: **"Commit only staged"** / **"Stage all"** / **"Recheck"** |
 
-If user picks "recheck", loop back to Step 1.
+If user picks "Recheck", loop back to Step 1.
 
 When staging all, use `git add -A`.
 
-### Step 2: Generate commit message & commit
+### AskUserQuestion format
+
+Use the `AskUserQuestion` tool (fetch it via `ToolSearch` first if needed). Example structure:
+
+```json
+{
+  "questions": [
+    {
+      "question": "How would you like to handle staging?",
+      "header": "Staging",
+      "multiSelect": false,
+      "options": [
+        { "label": "Stage all", "description": "Stage all changes and commit" },
+        { "label": "Commit only staged", "description": "Commit only the currently staged files" },
+        { "label": "Recheck", "description": "I'll stage manually, then recheck" }
+      ]
+    }
+  ]
+}
+```
+
+Include only the options relevant to the current state (2 options when nothing is staged, 3 when mixed).
+
+## Step 2: Generate commit message & commit
 
 1. Run `git diff --cached` to get the staged diff.
 2. Analyze the diff to understand the **intent** behind the changes — focus on WHY, not WHAT.
@@ -69,14 +72,11 @@ When staging all, use `git add -A`.
 5. Show the user the resulting commit (hash + message).
 6. Proceed to Step 3.
 
-### Step 3: Offer to push
+## Step 3: Push
 
-After a successful commit, prompt the user with AskUserQuestion: **"Yes"** / **"No"**.
+After a successful commit, immediately run `git push` (with `-u origin <branch>` if the branch has no upstream yet). The user will approve or deny via the tool permission prompt — no need to ask separately.
 
-- If **Yes**: run `git push` (with `-u origin <branch>` if the branch has no upstream yet).
-- If **No**: end the workflow.
-
-### Commit message format
+## Commit message format
 
 - **Prefix:** short, lowercase word that captures the intent. Common: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style` — but pick whatever fits best.
 - **Scope:** add `(scope)` when changes are localized to one module/app (e.g., `server`, `cli`, `web-app`).
@@ -84,13 +84,13 @@ After a successful commit, prompt the user with AskUserQuestion: **"Yes"** / **"
 - **Single-concern changes:** subject line only, no body.
 - **Multi-concern changes:** subject line + blank line + bullet body. Each bullet explains reasoning, with optional context in parentheses.
 
-#### Single-concern example
+### Single-concern example
 
 ```
 fix(server): prevent stale worktree state from leaking across projects
 ```
 
-#### Multi-concern example
+### Multi-concern example
 
 ```
 feat: improve error recovery and port handling
@@ -101,9 +101,9 @@ feat: improve error recovery and port handling
   (users were seeing cryptic EADDRINUSE errors)
 ```
 
-### Rules
+## Rules
 
-- Only push if the user explicitly chooses to in Step 3.
+- Always attempt to push after committing — the user controls approval via the tool permission prompt.
 - Do not add `Co-Authored-By` trailers.
 - Do not amend existing commits — always create new ones.
 - Do not skip hooks (`--no-verify`).
