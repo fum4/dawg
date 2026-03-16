@@ -14,6 +14,7 @@ import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { APP_NAME } from "@openkit/shared/constants";
+import { log } from "./logger";
 import { AppSettingsModal } from "./components/AppSettingsModal";
 import {
   OPENKIT_ERROR_TOAST_EVENT,
@@ -195,8 +196,6 @@ function createEmptyRuntimeScopedState(): RuntimeScopedState {
   };
 }
 
-const AUTO_CLAUDE_DEBUG_PREFIX = "[AUTO-CLAUDE][TEMP]";
-const APP_DEBUG_PREFIX = "[app][TEMP]";
 const CODING_AGENT_PREF_KEY = `${APP_NAME}:defaultCodingAgent`;
 const AGENT_DISPLAY_NAMES: Record<CodingAgent, string> = {
   claude: "Claude Code",
@@ -574,6 +573,21 @@ export default function App() {
     return null;
   });
 
+  // Clear selection synchronously when the project/scope changes so that stale
+  // worktree IDs never reach DetailPanel during the intermediate render before
+  // the async restore effect (below) sets the correct per-project selection.
+  const prevWorkspaceScopeRef = useRef(workspaceStorageScope);
+  if (prevWorkspaceScopeRef.current !== workspaceStorageScope) {
+    log.debug("workspaceStorageScope changed, clearing selection", {
+      domain: "project-switch",
+      prev: prevWorkspaceScopeRef.current,
+      next: workspaceStorageScope,
+      staleSelection: selection,
+    });
+    prevWorkspaceScopeRef.current = workspaceStorageScope;
+    setSelectionState(null);
+  }
+
   const setSelection = (sel: Selection) => {
     setSelectionState(sel);
     const storageKey = workspaceStorageKey("wsSel");
@@ -620,18 +634,10 @@ export default function App() {
   const runtimeStateSnapshotRef = useRef<RuntimeScopedState>(createEmptyRuntimeScopedState());
   const launchMissingTargetSinceRef = useRef<Map<string, number>>(new Map());
   const logAutoClaude = useCallback((message: string, extra?: Record<string, unknown>) => {
-    if (extra) {
-      console.info(`${AUTO_CLAUDE_DEBUG_PREFIX} ${message}`, extra);
-      return;
-    }
-    console.info(`${AUTO_CLAUDE_DEBUG_PREFIX} ${message}`);
+    log.debug(message, { domain: "auto-launch", ...extra });
   }, []);
   const logAppTemp = useCallback((message: string, extra?: Record<string, unknown>) => {
-    if (extra) {
-      console.info(`${APP_DEBUG_PREFIX} ${message}`, extra);
-      return;
-    }
-    console.info(`${APP_DEBUG_PREFIX} ${message}`);
+    log.debug(message, { domain: "web-app", ...extra });
   }, []);
 
   useEffect(() => {
@@ -811,7 +817,13 @@ export default function App() {
     if (!workspaceStorageScope) return;
     try {
       const saved = readWorkspaceStorageValue("wsSel");
-      if (saved) setSelectionState(JSON.parse(saved));
+      const parsed = saved ? JSON.parse(saved) : null;
+      log.debug("Restore effect: restoring selection from localStorage", {
+        domain: "project-switch",
+        workspaceStorageScope,
+        restoredSelection: parsed,
+      });
+      if (parsed) setSelectionState(parsed);
       else setSelectionState(null);
     } catch (error) {
       reportPersistentErrorToast(error, "Failed to restore workspace selection", {
@@ -1240,18 +1252,28 @@ export default function App() {
     dataUpdatedAt: linearIssuesUpdatedAt,
   } = useLinearIssues(linearEnabled, linearRefreshIntervalMinutes);
 
-  // Auto-select first worktree when nothing is selected, or fix stale worktree selection
+  // Auto-select first worktree when nothing is selected, or fix stale worktree selection.
+  // When worktrees is empty (loading after project switch), skip — the restore effect (above)
+  // handles setting the correct selection from localStorage, and acting on an empty list would
+  // clobber the saved per-project selection.
   useEffect(() => {
-    if (worktrees.length === 0) {
-      if (selection?.type === "worktree") setSelection(null);
-      return;
-    }
+    if (worktrees.length === 0) return;
     if (!selection) {
+      log.debug("Auto-selecting first worktree (no selection)", {
+        domain: "project-switch",
+        firstWorktreeId: worktrees[0].id,
+      });
       setSelection({ type: "worktree", id: worktrees[0].id });
       return;
     }
     // Fix stale worktree selection (worktree was deleted)
     if (selection.type === "worktree" && !worktrees.find((w) => w.id === selection.id)) {
+      log.debug("Fixing stale worktree selection", {
+        domain: "project-switch",
+        staleId: selection.id,
+        newId: worktrees[0].id,
+        worktreeIds: worktrees.map((w) => w.id),
+      });
       setSelection({ type: "worktree", id: worktrees[0].id });
     }
   }, [worktrees, selection]);
@@ -2187,7 +2209,7 @@ export default function App() {
         reportDetailedErrorToast("Auto-launch queue failed", launchError, {
           scope: "auto-launch:queue",
         });
-        console.error("Auto Claude launch failed:", launchError);
+        log.error("Auto-launch queue failed", { domain: "auto-launch", error: launchError });
       });
     },
     [logAutoClaude],
@@ -2243,7 +2265,10 @@ export default function App() {
           },
           { scope: "auto-launch:jira" },
         );
-        console.error(`Failed to auto-launch Jira issue ${issue.key}: ${reason}`);
+        log.error(`Failed to auto-launch Jira issue ${issue.key}`, {
+          domain: "auto-launch",
+          reason,
+        });
         return;
       }
       const worktreeId = result.worktreeId ?? issue.key;
@@ -2326,7 +2351,10 @@ export default function App() {
           },
           { scope: "auto-launch:linear" },
         );
-        console.error(`Failed to auto-launch Linear issue ${issue.identifier}: ${reason}`);
+        log.error(`Failed to auto-launch Linear issue ${issue.identifier}`, {
+          domain: "auto-launch",
+          reason,
+        });
         return;
       }
       const worktreeId = result.worktreeId ?? issue.identifier;
@@ -2412,7 +2440,7 @@ export default function App() {
           },
           { scope: "auto-launch:local" },
         );
-        console.error(`Failed to auto-launch local task ${task.id}: ${reason}`);
+        log.error(`Failed to auto-launch local task ${task.id}`, { domain: "auto-launch", reason });
         return;
       }
 

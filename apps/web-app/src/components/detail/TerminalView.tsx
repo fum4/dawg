@@ -8,6 +8,7 @@ import { useTerminal } from "../../hooks/useTerminal";
 import { text } from "../../theme";
 import { ClaudeIcon, CodexIcon, GeminiIcon, OpenCodeIcon } from "../../icons";
 import { Spinner } from "../Spinner";
+import { log } from "../../logger";
 
 interface TerminalLaunchRequest {
   mode: "resume" | "resume-active" | "resume-history" | "start" | "start-new";
@@ -31,9 +32,9 @@ interface TerminalViewProps {
 
 const DEFAULT_AGENT_START_PROMPT =
   "You are already in the correct worktree. Read TASK.md first, then implement the task. Treat AI context and todo checklist as highest-priority instructions.";
-const AUTO_CLAUDE_DEBUG_PREFIX = "[AUTO-CLAUDE][TEMP]";
 const LAUNCH_CONNECT_MAX_ATTEMPTS = 3;
 const LAUNCH_CONNECT_RETRY_DELAY_MS = 150;
+const BOOTING_SAFETY_TIMEOUT_MS = 30_000;
 
 function shellQuoteSingle(value: string): string {
   if (!value) return "''";
@@ -142,16 +143,14 @@ export function TerminalView({
   const handledLaunchRequestIdsRef = useRef(new Set<number>());
   const hasOutputForRequestRef = useRef(false);
   const awaitingOutputRef = useRef(false);
+  const bootingRequestIdRef = useRef<number | null>(null);
+  const awaitingPassiveRestoreRef = useRef(false);
   const [isAgentBooting, setIsAgentBooting] = useState(false);
   const [pendingLaunchRequest, setPendingLaunchRequest] = useState<TerminalLaunchRequest | null>(
     null,
   );
   const logAutoClaude = useCallback((message: string, extra?: Record<string, unknown>) => {
-    if (extra) {
-      console.info(`${AUTO_CLAUDE_DEBUG_PREFIX} ${message}`, extra);
-      return;
-    }
-    console.info(`${AUTO_CLAUDE_DEBUG_PREFIX} ${message}`);
+    log.debug(message, { domain: "auto-launch", ...extra });
   }, []);
   const isAgentVariant = variant !== "terminal";
   const agentLabel =
@@ -225,12 +224,6 @@ export function TerminalView({
     if (handledLaunchRequestIdsRef.current.has(launchRequest.requestId)) return;
     setPendingLaunchRequest((prev) => {
       if (prev?.requestId === launchRequest.requestId) return prev;
-      console.info("[terminal][TEMP] launch request pending", {
-        worktreeId,
-        variant,
-        requestId: launchRequest.requestId,
-        mode: launchRequest.mode,
-      });
       return launchRequest;
     });
     logAutoClaude(`${agentLabel} terminal launch request received`, {
@@ -247,12 +240,6 @@ export function TerminalView({
       if (handledLaunchRequestIdsRef.current.has(requestId)) return;
       handledLaunchRequestIdsRef.current.add(requestId);
       setPendingLaunchRequest((prev) => (prev?.requestId === requestId ? null : prev));
-      console.info("[terminal][TEMP] launch request handled", {
-        worktreeId,
-        variant,
-        requestId,
-        outcome,
-      });
       onLaunchRequestHandled?.(requestId, outcome);
     },
     [onLaunchRequestHandled, variant, worktreeId],
@@ -260,20 +247,22 @@ export function TerminalView({
 
   const handleData = useCallback(
     (data: string) => {
-      if (isAgentVariant && pendingLaunchRequest) {
-        if (activeRequestIdRef.current !== pendingLaunchRequest.requestId) {
-          activeRequestIdRef.current = pendingLaunchRequest.requestId;
-        }
+      if (
+        isAgentVariant &&
+        (bootingRequestIdRef.current !== null || awaitingPassiveRestoreRef.current)
+      ) {
         hasOutputForRequestRef.current = true;
         if (awaitingOutputRef.current || isAgentBooting) {
           awaitingOutputRef.current = false;
+          bootingRequestIdRef.current = null;
+          awaitingPassiveRestoreRef.current = false;
           setIsAgentBooting(false);
         }
       }
 
       terminalRef.current?.write(data);
     },
-    [isAgentBooting, isAgentVariant, pendingLaunchRequest],
+    [isAgentBooting, isAgentVariant],
   );
 
   const handleRestore = useCallback(
@@ -286,23 +275,27 @@ export function TerminalView({
         terminal.write(payload);
       }
 
-      if (isAgentVariant && pendingLaunchRequest) {
-        if (activeRequestIdRef.current !== pendingLaunchRequest.requestId) {
-          activeRequestIdRef.current = pendingLaunchRequest.requestId;
-        }
+      if (
+        isAgentVariant &&
+        (bootingRequestIdRef.current !== null || awaitingPassiveRestoreRef.current)
+      ) {
         hasOutputForRequestRef.current = payload.length > 0;
         if (payload.length > 0 && (awaitingOutputRef.current || isAgentBooting)) {
           awaitingOutputRef.current = false;
+          bootingRequestIdRef.current = null;
+          awaitingPassiveRestoreRef.current = false;
           setIsAgentBooting(false);
         }
       }
     },
-    [isAgentBooting, isAgentVariant, pendingLaunchRequest],
+    [isAgentBooting, isAgentVariant],
   );
 
   const handleExit = useCallback(
     (exitCode: number) => {
       awaitingOutputRef.current = false;
+      bootingRequestIdRef.current = null;
+      awaitingPassiveRestoreRef.current = false;
       setIsAgentBooting(false);
       if (isAgentVariant && !agentExitNotifiedRef.current) {
         agentExitNotifiedRef.current = true;
@@ -373,14 +366,19 @@ export function TerminalView({
     if (containerRef.current) {
       terminal.open(containerRef.current);
       fitAddon.fit();
-      if (!(isAgentVariant && hasUnconsumedLaunchIntent)) {
-        void connect({ reason: "visible-reconnect" });
-      } else {
-        console.info("[terminal][TEMP] skipping initial passive connect due to launch intent", {
+      if (!visible) {
+        log.debug("TerminalView mounted hidden, deferring connect", {
+          domain: "project-switch",
           worktreeId,
           variant,
-          requestId: launchRequest?.requestId ?? null,
+          visible,
         });
+      } else if (!(isAgentVariant && hasUnconsumedLaunchIntent)) {
+        if (isAgentVariant) {
+          awaitingPassiveRestoreRef.current = true;
+          setIsAgentBooting(true);
+        }
+        void connect({ reason: "visible-reconnect" });
       }
     }
 
@@ -436,6 +434,10 @@ export function TerminalView({
     if (!visible) return;
     if (isConnected) return;
     if (isAgentVariant && hasUnconsumedLaunchIntent) return;
+    if (isAgentVariant) {
+      awaitingPassiveRestoreRef.current = true;
+      setIsAgentBooting(true);
+    }
     void connect({ reason: "visible-reconnect" });
   }, [connect, hasUnconsumedLaunchIntent, isAgentVariant, isConnected, visible]);
 
@@ -454,12 +456,6 @@ export function TerminalView({
     const request = pendingLaunchRequest;
     let cancelled = false;
     void (async () => {
-      console.info("[terminal][TEMP] explicit launch connect requested", {
-        worktreeId,
-        variant,
-        requestId: request.requestId,
-        mode: request.mode,
-      });
       let attempt = 0;
       let result = await connect({ reason: "explicit-launch", bypassClientCache: true });
       while (
@@ -469,14 +465,6 @@ export function TerminalView({
         attempt < LAUNCH_CONNECT_MAX_ATTEMPTS - 1
       ) {
         attempt += 1;
-        console.info("[terminal][TEMP] explicit launch waiting for in-flight connect", {
-          worktreeId,
-          variant,
-          requestId: request.requestId,
-          mode: request.mode,
-          attempt: attempt + 1,
-          maxAttempts: LAUNCH_CONNECT_MAX_ATTEMPTS,
-        });
         await new Promise<void>((resolve) =>
           window.setTimeout(resolve, LAUNCH_CONNECT_RETRY_DELAY_MS),
         );
@@ -512,21 +500,23 @@ export function TerminalView({
       activeRequestIdRef.current = null;
       hasOutputForRequestRef.current = false;
       awaitingOutputRef.current = false;
-      setIsAgentBooting(false);
-      return;
-    }
-    if (!pendingLaunchRequest) {
-      activeRequestIdRef.current = null;
-      hasOutputForRequestRef.current = false;
-      awaitingOutputRef.current = false;
+      bootingRequestIdRef.current = null;
+      awaitingPassiveRestoreRef.current = false;
       setIsAgentBooting(false);
       return;
     }
 
+    // When pendingLaunchRequest is cleared (handled), do NOT clear booting —
+    // let output arrival (handleData/handleRestore) or exit (handleExit) clear it.
+    if (!pendingLaunchRequest) return;
+
+    // For resume/resume-active, only clear booting if we already have output.
     if (
       (pendingLaunchRequest.mode === "resume" || pendingLaunchRequest.mode === "resume-active") &&
-      isConnected
+      isConnected &&
+      hasOutputForRequestRef.current
     ) {
+      bootingRequestIdRef.current = null;
       awaitingOutputRef.current = false;
       setIsAgentBooting(false);
       return;
@@ -534,19 +524,52 @@ export function TerminalView({
 
     if (activeRequestIdRef.current !== pendingLaunchRequest.requestId) {
       activeRequestIdRef.current = pendingLaunchRequest.requestId;
+      bootingRequestIdRef.current = pendingLaunchRequest.requestId;
       hasOutputForRequestRef.current = false;
     }
 
     agentExitNotifiedRef.current = false;
+    awaitingPassiveRestoreRef.current = false;
     if (!hasOutputForRequestRef.current) {
       awaitingOutputRef.current = true;
       setIsAgentBooting(true);
       return;
     }
 
+    bootingRequestIdRef.current = null;
     awaitingOutputRef.current = false;
     setIsAgentBooting(false);
   }, [isAgentVariant, isConnected, pendingLaunchRequest]);
+
+  // Safety timeout: clear booting if no output arrives within the timeout window.
+  useEffect(() => {
+    if (!isAgentBooting) return;
+    const timer = window.setTimeout(() => {
+      if (bootingRequestIdRef.current !== null || awaitingPassiveRestoreRef.current) {
+        bootingRequestIdRef.current = null;
+        awaitingPassiveRestoreRef.current = false;
+        awaitingOutputRef.current = false;
+        setIsAgentBooting(false);
+      }
+    }, BOOTING_SAFETY_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [isAgentBooting]);
+
+  // Silently close stale agent tabs that fail passive reconnect (e.g., worktree not found
+  // after project switch). Explicit launches still surface errors to the user.
+  useEffect(() => {
+    if (!isAgentVariant) return;
+    if (pendingLaunchRequest || launchRequest) return;
+    if (!error) return;
+    log.debug("Silently closing stale agent tab", {
+      domain: "project-switch",
+      worktreeId,
+      variant,
+      error,
+      visible,
+    });
+    onAgentExit?.();
+  }, [error, isAgentVariant, launchRequest, onAgentExit, pendingLaunchRequest]);
 
   useEffect(() => {
     if (!isAgentVariant) return;
@@ -557,6 +580,8 @@ export function TerminalView({
     let cancelled = false;
     const closeSession = async () => {
       awaitingOutputRef.current = false;
+      bootingRequestIdRef.current = null;
+      awaitingPassiveRestoreRef.current = false;
       setIsAgentBooting(false);
       agentExitNotifiedRef.current = true;
       await destroy();
