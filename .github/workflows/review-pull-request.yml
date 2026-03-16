@@ -11,8 +11,13 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 env:
-  REVIEW_TITLE: "## 🧐 Code Review"
+  REVIEW_TITLE: "## 👀 Code Review"
 
 jobs:
   claude-pr-review:
@@ -28,24 +33,8 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           npm install -g @anthropic-ai/claude-code
-          echo "::group::Claude version"
-          claude --version
-          echo "::endgroup::"
-          echo "::group::Marketplace list (before)"
-          claude plugin marketplace list || true
-          echo "::endgroup::"
-          echo "::group::Add marketplace"
           claude plugin marketplace add anthropics/claude-plugins-official
-          echo "::endgroup::"
-          echo "::group::Marketplace list (after)"
-          claude plugin marketplace list
-          echo "::endgroup::"
-          echo "::group::Install code-review plugin"
           claude plugin install code-review@claude-plugins-official
-          echo "::endgroup::"
-          echo "::group::Installed plugins"
-          claude plugin list
-          echo "::endgroup::"
 
       - name: Find previous review
         id: previous
@@ -93,23 +82,18 @@ jobs:
         run: |
           git diff "origin/$BASE_REF"...HEAD > /tmp/pr-diff.txt
 
-          PROMPT="$REVIEW_PROMPT"
+          printf '%s' "$REVIEW_PROMPT" > /tmp/prompt.txt
           if [ "$HAS_PREVIOUS" = "true" ]; then
-            PREVIOUS=$(cat /tmp/previous-review.txt)
-            PROMPT="$PROMPT
-
-          Here is your previous review for reference. Use it to track whether earlier issues have been addressed, and note any that are now resolved or still present:
-
-          <previous-review>
-          $PREVIOUS
-          </previous-review>"
+            printf '\nHere is your previous review for reference. Use it to track whether earlier issues have been addressed, and note any that are now resolved or still present:\n\n<previous-review>\n' >> /tmp/prompt.txt
+            cat /tmp/previous-review.txt >> /tmp/prompt.txt
+            printf '\n</previous-review>' >> /tmp/prompt.txt
           fi
 
           cat /tmp/pr-diff.txt | claude --print \
             --model claude-opus-4-6 \
             --max-turns 10 \
             --permission-mode bypassPermissions \
-            "$PROMPT" \
+            "$(cat /tmp/prompt.txt)" \
             > /tmp/review-output.txt
 
       - name: Post review comment
